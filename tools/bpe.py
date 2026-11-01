@@ -69,6 +69,56 @@ def expand(rom, start, limit=None):
     return bytes(out), pos - start
 
 
+def _compress_block(data):
+    """Gage-style BPE: repeatedly replace the most frequent adjacent pair with an unused code."""
+    data = bytearray(data)
+    left = list(range(256))
+    right = [0] * 256
+    used = set(data)
+    while True:
+        counts = {}
+        for i in range(len(data) - 1):
+            p = (data[i], data[i + 1])
+            counts[p] = counts.get(p, 0) + 1
+        if not counts:
+            break
+        pair, n = max(counts.items(), key=lambda kv: kv[1])
+        if n < 3:
+            break
+        free = next((c for c in range(256) if c not in used and left[c] == c), None)
+        if free is None:
+            break
+        left[free], right[free] = pair
+        used.add(free)
+        out = bytearray()
+        i = 0
+        while i < len(data):
+            if i + 1 < len(data) and (data[i], data[i + 1]) == pair:
+                out.append(free); i += 2
+            else:
+                out.append(data[i]); i += 1
+        data = out
+    # pair table, emitted as one run of 256 explicit entries (count byte 7Fh, then count+1=128, twice)
+    tbl = bytearray()
+    for start in (0, 128):
+        tbl.append(127)
+        for c in range(start, start + 128):
+            tbl.append(left[c])
+            if left[c] != c:
+                tbl.append(right[c])
+    return bytes(tbl) + bytes([len(data) >> 8, len(data) & 0xFF]) + bytes(data)
+
+
+def compress(data, block=4096):
+    """Produce a stream that bpe_expand (4000:C760) accepts.  Not byte-identical to the
+    original encoder's output; used for round-trip tests and asset reinsertion."""
+    body = b''.join(_compress_block(data[i:i + block]) for i in range(0, len(data), block))
+    total = 8 + len(body)
+    if total > 0xFFFF:
+        raise ValueError('stream too large for 16-bit length')
+    return total.to_bytes(4, 'little') + len(data).to_bytes(4, 'little') + body
+
+
 if __name__ == '__main__':
     rom = open(sys.argv[1], 'rb').read()
     off = int(sys.argv[2], 16)

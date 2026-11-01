@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  source:
+    # The commercial ROM is never available in CI.  These jobs prove that the committed
+    # source assembles to the exact original code bank and footer (hash-checked), that the
+    # encoding macros are correct, and that the decompressor round-trips.  ROM-dependent
+    # tests are reported as skipped, not passed.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nasm
+          python3 -m pip install --upgrade pytest capstone
+      - name: Versions
+        run: nasm -v && python3 --version
+      - name: Guard - no ROM or extracted data committed
+        run: python3 tools/check_repo_hygiene.py
+      - name: Missing-ROM build fails clearly
+        run: |
+          if make build/klonoa.ws > out.txt 2>&1; then echo "build unexpectedly succeeded"; exit 1; fi
+          grep -q "baserom/baserom.ws not found" out.txt && cat out.txt
+      - name: Source-only tests
+        run: make test-source
+      - name: Full test suite (ROM tests skip)
+        run: python3 -m pytest -q -rs tests
