@@ -9,6 +9,7 @@ This file records the target, the evidence behind the main findings, and open qu
 |---|---|---|
 | 2026-11-01 (1) | tracer, matching bank-4 source, BPE decoder, inventory | 40767c7, 3ff41b4 |
 | 2026-11-01 (3) | three parallel code-review passes document 705 routines (merged by tools/apply_proposals.py after validation and spot checks); RAM names corrected (13E0h = hearts); state 5 = room transition; save format corrected | see git log |
+| 2026-11-01 (5) | natural vs forced runtime evidence (provenance per run, RAM access attribution hook); documentation verification (static + runtime, 53 flags reviewed, 17 descriptions corrected); 3 exception groups resolved (86 bytes remain); natural-play explorer: Vision 1-1 cleared from power-on; natural Game Over / Continue / Quit; Windows player | see git log |
 | 2026-11-01 (4) | data banks decoded by four domain passes (PCM, level, sound, graphics, objects; each validated by exact round trip, spot-checked, integrated with tests); code bank fully classified: 36 unreferenced routines disassembled as instructions and described, 1,018 bytes of in-code tables documented, 26 bytes kept as documented exceptions | see git log |
 | 2026-11-01 (2) | ROM-free CI, English build switch, traced emulator, all 20 game states, runtime coverage (found 2 missed HBlank handlers), role names for 447 entry points, runtime save tests, exact BPE re-encoding, data banks rebuilt from decoded assets, asset catalog | 21c2b54 .. HEAD |
 

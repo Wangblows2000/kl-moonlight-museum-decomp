@@ -97,19 +97,19 @@
    "remaining": "78 opaque bytes (gamedata/raw; all listed in assets/exceptions.json) + 0 generated zero-run bytes not yet explained"
   },
   "runtime_coverage": {
-   "percent": 45.4,
-   "numerator": 10635,
+   "percent": 52.88,
+   "numerator": 12386,
    "denominator": 23425,
    "definition": "NATURAL runtime coverage: live instructions executed in at least one run driven only by controller input (no poke/orpoke/forcestate; SRAM only from natural runs), replayed from power-on with emu/ktrun",
-   "entry_points_executed_natural": "320 / 748 live entry points",
-   "all_runs_including_forced": "18682 / 23425 instructions (79.75 %), 561 live entry points",
+   "entry_points_executed_natural": "367 / 748 live entry points",
+   "all_runs_including_forced": "18804 / 23425 instructions (80.27 %), 566 live entry points",
    "dead_instructions": "1357 unreferenced instructions excluded from the denominator; executed in any run: 0",
-   "runs": "66 runs, 12 natural",
+   "runs": "68 runs, 14 natural",
    "executed_outside_static_trace": 0
   },
   "natural_state_coverage": {
-   "percent": 77.78,
-   "numerator": 14,
+   "percent": 88.89,
+   "numerator": 16,
    "denominator": 18,
    "definition": "game states 0-19 dispatched in natural runs, out of the 18 states the code can enter (14 and 15 are never written by any instruction: statically unreachable)",
    "natural": [
@@ -118,7 +118,9 @@
     2,
     3,
     4,
+    5,
     6,
+    7,
     8,
     9,
     10,
@@ -129,14 +131,10 @@
     19
    ],
    "forced_only": [
-    5,
-    7,
     11,
     18
    ],
    "missing": [
-    5,
-    7,
     11,
     18
    ],
@@ -146,20 +144,20 @@
    ]
   },
   "documentation_verification": {
-   "percent": 38.42,
-   "numerator": 297,
+   "percent": 44.37,
+   "numerator": 343,
    "denominator": 773,
    "definition": "routines whose description passes the static cross-check AND every RAM address it names was accessed by the routine (or its callees) in a natural run (docs/verification.md); other levels listed in breakdown",
    "breakdown": {
-    "runtime-confirmed": 297,
-    "static-consistent": 212,
-    "runtime-partial": 264
+    "runtime-confirmed": 343,
+    "static-consistent": 207,
+    "runtime-partial": 223
    },
    "executed": {
-    "natural": 320,
-    "no": 187,
-    "forced_only": 241,
-    "dead": 25
+    "natural": 367,
+    "no": 182,
+    "dead": 25,
+    "forced_only": 199
    }
   },
   "reproducible_source_build": {

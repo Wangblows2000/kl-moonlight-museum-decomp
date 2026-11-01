@@ -7,31 +7,31 @@ rebuild is a requirement, not the definition of done.
 Live numbers: `docs/completion.json` (`python3 tools/completion.py`), per-byte detail:
 `docs/address_map.json` (`python3 tools/address_map.py`).
 
-## Headline metrics (live values in docs/completion.json)
+## Headline measures
 
-| metric | value | definition |
-|---|---:|---|
-| **Overall decompiled bytes** | **99.98 %** | classified AND source / editable / explained-generated (168 bytes = documented exceptions, not counted) |
-| Executable code classification | 99.96 % | code-bank bytes with evidence-backed class (26 bytes = documented exceptions) |
-| Routine documentation | 100 % | 779 / 779 entry points described (hand, reviewed high/medium, or described dead code) |
-| Data classification | 99.99 % | data bytes with established class (142 bytes = documented exceptions) |
-| Data decoding / editable representation | 99.99 % | data bytes rebuilt from editable formats or FFh padding |
-| Runtime coverage | 79.85 % | live instructions executed (18,705 / 23,425; 562 / 743 live entry points); all 36 Visions loaded |
-| Reproducible ROM-free build | 100 % | of which source 6.25 %, editable 76.50 %, generated 17.23 %, opaque 0.01 % |
+Reported separately, never combined; generated values are in `docs/completion.json` and in the
+README status table (written by `tools/completion.py`):
 
-Decoded: BPE pictures/tilesets (with attribute grids), PCM voices (WAV), sound tables +
-sequences (text scripts), level data banks 9-E (CSV/JSON), graphics banks 2/7 (PNG,
-dialogue as Japanese text), collision matrices (JSON), object/spawn/warp/motion-script
-records and bank-3 graphics (banks 3, 8; JSON + PNG), all in-code tables of bank 4.
+* **Source completeness** - bytes classified and rebuilt from source or editable data
+  (documented exceptions listed in `assets/exceptions.json` are not counted).
+* **Reproducible ROM-free build** - byte-identical, Linux and Windows CI.
+* **Routine documentation** - entry points with a description.
+* **Natural runtime coverage** - live instructions executed by runs driven only by controller
+  input (forced runs - RAM pokes, forced states, unlock fixtures - are reported separately).
+* **Natural state coverage** - game states entered in natural runs, out of the 18 enterable.
+* **Documentation verification** - descriptions cross-checked against code and confirmed by
+  runtime RAM accesses (`docs/verification.md`).
 
-## Where the remaining bytes are
+## What remains
 
-| item | size | status |
-|---|---:|---|
-| documented exceptions | 168 bytes | 11 groups, all registered in `assets/exceptions.json` with bounds and reason (no reader in code or at runtime); rebuilt exactly, not counted as decompiled |
-| runtime | 4,720 instructions | live code not yet executed (181 of 743 live entry points) |
-| natural reach | 7 states | states 7, 10, 11, 14, 15, 17, 18 reached only with fault injection |
-| review depth | 712 reviewed routines | descriptions are spot-checked, not individually re-verified at runtime |
+| item | status |
+|---|---|
+| documented exceptions | 86 bytes in 8 groups (`assets/exceptions.json`): no reader in code or at runtime; 3 groups resolved in session 5 |
+| natural playthrough | in progress: `emu/explore.py` searches save states for input that clears each Vision; `emu/scripts/natural/playthrough.txt` is the verified prefix (World 1-1 cleared so far) |
+| natural states | 11 (save prompt after a world) and 18 (ending) need the playthrough to reach the end of World 1 / World 5 |
+| code not executed naturally | `docs/unexecuted.md`: every entry point with its reason (unreferenced, data-unreachable, state 14/15, forced-only, object/pair not seen, coverage gap) |
+| rotate option | the pause '? ? ?' item exists only when replaying a cleared Vision (4000:10A7-10D6); needs a natural cleared Vision, then Vision select |
+| documentation verification | runtime confirmation grows with natural coverage; flagged claims all reviewed by hand |
 
 ## Stages (each must keep the build byte-identical and add tests)
 
@@ -51,7 +51,10 @@ records and bank-3 graphics (banks 3, 8; JSON + PNG), all in-code tables of bank
 7. **Runtime** - natural play of all worlds (needs a Vision-select script from a valid
    save), every object type and menu; target: every reachable instruction executed or
    explained as unreachable.
-8. **Verification of reviewed docs** - emulator tests for documented behaviours.
+8. **Verification of reviewed docs** - DONE (static + runtime cross-check, docs/verification.md); runtime confirmation grows with coverage.
+
+9. **Natural playthrough** - complete the explorer run through the ending and EX world;
+   replay every natural script from power-on; account for every remaining unexecuted routine.
 
 A claim of 100 % requires: `docs/address_map.json` with no `unknown`, `zero_run` or
 `code_unreached` ranges and no `opaque` representation except documented exceptions, every

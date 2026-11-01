@@ -109,6 +109,7 @@ class Explorer:
         self.say = log
         self.cells = {}
         self.routes = {}
+        self.ckdir = None
 
     # ------------------------------------------------------------------ observation
     def obs(self):
@@ -177,7 +178,7 @@ class Explorer:
 
     def choose(self):
         cs = list(self.cells.values())
-        if self.rng.random() < 0.25:
+        if self.rng.random() < 0.10:
             w = [1.0 / (1 + c['chosen']) ** 0.5 for c in cs]
         else:
             best = max(c['rank'] for c in cs)
@@ -209,6 +210,12 @@ class Explorer:
     def act(self, o, near):
         """One macro action: list of (buttons, frames)."""
         r = self.rng
+        if near is not None and near['type'] == 'goal':
+            dx = near['x'] - o['x']
+            h = B['right'] if dx > 0 else B['left'] if dx < 0 else 0
+            if near['y'] < o['y'] - 16:      # above: jump toward it (hold A to float)
+                return [(h | B['a'], r.randint(8, 40))]
+            return [(h, min(max(abs(dx) // 2, 2), 24))]
         if near is not None and r.random() < 0.75:
             d = DIRS[near['type']]
             dx = near['x'] - o['x']
@@ -238,7 +245,10 @@ class Explorer:
         end = e.frame + frames
         while e.frame < end:
             d, r, dd, done = self.target(o)
-            for btn, n in self.act(o, r if (r and dd < 40 and r['type'] in DIRS) else None):
+            near = r if (r and dd < 40 and r['type'] in DIRS) else None
+            if r and r['type'] == 'goal' and dd < 64 and self.rng.random() < 0.5:
+                near = r                     # move toward an item / key (touching collects it)
+            for btn, n in self.act(o, near):
                 for _ in range(n // 4):
                     e.run(4, btn)
                     o = self.obs()
@@ -266,6 +276,15 @@ class Explorer:
         return new, 'time'
 
     # ------------------------------------------------------------------ vision
+    def superseded(self, prog0):
+        """True when another worker sharing the checkpoint already cleared this Vision."""
+        if not self.ckdir:
+            return False
+        try:
+            return int(open(os.path.join(self.ckdir, 'last.prog')).read(), 16) >> 8 >= prog0 >> 8
+        except (OSError, ValueError):
+            return False
+
     def clear_vision(self, max_iters=20000):
         """From gameplay at the start of a Vision, search until state 7 (Vision clear).
         Leaves the emulator in the clear state; returns True on success."""
@@ -275,6 +294,9 @@ class Explorer:
         self.add_cell(o)
         t0 = time.time()
         for it in range(max_iters):
+            if it % 200 == 199 and self.superseded(prog0):
+                self.say('  %s: cleared by another worker; reloading the shared checkpoint' % vision_key(prog0))
+                return None
             c = self.choose()
             self.restore(c)
             new, why = self.rollout()
@@ -289,6 +311,58 @@ class Explorer:
         return False
 
 
+def write_checkpoint(X, ckdir, out):
+    """Atomically publish the emulator state and input log after a Vision clear."""
+    e = X.e
+    prog = e.w(0x13FE)
+    try:
+        if int(open(os.path.join(ckdir, 'last.prog')).read(), 16) >> 8 >= prog >> 8:
+            return                                  # another worker got here first
+    except (OSError, ValueError):
+        pass
+    raw, log, frame = e.save()
+    tag = '.%d' % os.getpid()
+    json.dump({'log': log, 'frame': frame, 'prog': '%04X' % prog}, open(os.path.join(ckdir, 'last.json' + tag), 'w'))
+    open(os.path.join(ckdir, 'last.state' + tag), 'wb').write(raw)
+    open(out + tag, 'w').write(script_from_log(log, [
+        'NATURAL playthrough from power-on with blank SRAM (controller input only; found by emu/explore.py)',
+        'progress reached: %04X at frame %d' % (prog, frame)]))
+    os.replace(os.path.join(ckdir, 'last.json' + tag), os.path.join(ckdir, 'last.json'))
+    os.replace(os.path.join(ckdir, 'last.state' + tag), os.path.join(ckdir, 'last.state'))
+    os.replace(out + tag, out)
+    open(os.path.join(ckdir, 'last.prog' + tag), 'w').write('%04X' % prog)
+    os.replace(os.path.join(ckdir, 'last.prog' + tag), os.path.join(ckdir, 'last.prog'))
+
+
+def load_checkpoint(X, ckdir, script=None):
+    """Restore the shared checkpoint (emulator state + input log); without one, replay the
+    committed natural script (input log from power-on) so a new session continues from the
+    last verified Vision."""
+    e = X.e
+    j, st = os.path.join(ckdir, 'last.json'), os.path.join(ckdir, 'last.state')
+    if not os.path.exists(j):
+        if script and os.path.exists(script) and e.frame == 0:
+            from ktlib import BTN
+            for line in open(script):
+                w = line.split()
+                if not w or w[0].startswith('#'):
+                    continue
+                if w[0] == 'wait':
+                    e.run(int(w[1]), 0)
+                elif w[0] == 'hold':
+                    e.run(int(w[2]), sum(1 << BTN.index(b) for b in w[1].split('+')))
+            write_checkpoint(X, ckdir, script)
+            return True
+        return False
+    d = json.load(open(j))
+    if os.path.exists(st):
+        e.load((open(st, 'rb').read(), [tuple(x) for x in d['log']], d['frame']))
+    else:                                           # old checkpoint: replay the input log
+        for btn, n in d['log']:
+            e.run(n, btn)
+    return True
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--rom', default=os.environ.get('KT_ROM', os.path.join(ROOT, 'baserom', 'baserom.ws')))
@@ -301,32 +375,26 @@ def main():
     os.makedirs(a.checkpoint, exist_ok=True)
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
     X = Explorer(a.rom, a.seed)
+    X.ckdir = a.checkpoint
     e = X.e
-    ck = os.path.join(a.checkpoint, 'last.json')
-    if os.path.exists(ck):                         # resume: replay the saved input log
-        log = json.load(open(ck))['log']
-        for btn, n in log:
-            e.run(n, btn)
-        print('resumed at frame', e.frame)
     until = int(a.until, 16)
     while True:
+        if load_checkpoint(X, a.checkpoint, a.out):
+            print('worker %d: at checkpoint frame %d' % (a.seed, e.frame))
         o = X.pass_screens(20000)
         if o['state'] != ST_GAME:
             print('stuck outside gameplay: state %d progress %04X' % (o['state'], o['prog']))
             break
-        print('%s start: frame %d progress %04X lives %d' % (vision_key(o['prog']), e.frame, o['prog'], o['lives']))
+        print('%s start: frame %d progress %04X lives %d (worker %d)' % (vision_key(o['prog']), e.frame, o['prog'], o['lives'], a.seed))
         if o['prog'] >= until:
             break
-        if not X.clear_vision(a.iters):
+        ok = X.clear_vision(a.iters)
+        if ok is None:
+            continue                                # another worker cleared it
+        if not ok:
             print('could not clear', vision_key(o['prog']))
             break
-        json.dump({'log': e.log, 'frame': e.frame}, open(ck, 'w'))
-        open(a.out, 'w').write(script_from_log(e.log, [
-            'NATURAL playthrough from power-on with blank SRAM (controller input only; found by emu/explore.py)',
-            'progress reached: %04X at frame %d' % (e.w(0x13FE), e.frame)]))
-    open(a.out, 'w').write(script_from_log(e.log, [
-        'NATURAL playthrough from power-on with blank SRAM (controller input only; found by emu/explore.py)',
-        'progress reached: %04X at frame %d' % (e.w(0x13FE), e.frame)]))
+        write_checkpoint(X, a.checkpoint, a.out)
 
 
 if __name__ == '__main__':

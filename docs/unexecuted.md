@@ -7,11 +7,11 @@ are shown to be impossible in the shipped game.  The rest is a coverage gap.
 
 | category | entry points |
 |---|---:|
-| coverage | 37 |
+| coverage | 34 |
 | data-unreachable | 5 |
-| forced-only | 240 |
+| forced-only | 198 |
 | object-not-seen | 47 |
-| pair-not-seen | 91 |
+| pair-not-seen | 89 |
 | state-unreachable | 1 |
 | unreferenced | 32 |
 
@@ -21,7 +21,6 @@ are shown to be impossible in the shipped game.  The rest is a coverage gap.
 | 4000:00FC | `irq_hblank_timer_ack` | coverage | reachable with the shipped data; the condition that selects it was not met in natural play |
 | 4000:3AE0 | `irq_hblank_iris_window_vert` | coverage | reachable with the shipped data; the condition that selects it was not met in natural play |
 | 4000:426A | `tiles_rotate_ccw` | coverage | reachable with the shipped data; the condition that selects it was not met in natural play |
-| 4000:4E60 | `player_take_damage` | coverage | reachable with the shipped data; the condition that selects it was not met in natural play |
 | 4000:509B | `player_flagged_move_input` | coverage | reachable with the shipped data; the condition that selects it was not met in natural play |
 | 4000:5652 | `coll_03_01_coll_enemy_hurts_player` | coverage | reachable with the shipped data; the condition that selects it was not met in natural play |
 | 4000:57CA | `obj_turn_away_x` | coverage | reachable with the shipped data; the condition that selects it was not met in natural play |
@@ -40,11 +39,9 @@ are shown to be impossible in the shipped game.  The rest is a coverage gap.
 | 4000:A3F0 | `lvl1b_spawn_breakable_block` | coverage | reachable with the shipped data; the condition that selects it was not met in natural play |
 | 4000:A754 | `lvl1e_spawn_delayed_obj2d` | coverage | reachable with the shipped data; the condition that selects it was not met in natural play |
 | 4000:AC30 | `spawn_obj36_pulse` | coverage | reachable with the shipped data; the condition that selects it was not met in natural play |
-| 4000:B16E | `vision_exit_press_up` | coverage | reachable with the shipped data; the condition that selects it was not met in natural play |
 | 4000:B225 | `warp_point_hold_down` | coverage | reachable with the shipped data; the condition that selects it was not met in natural play |
 | 4000:B27C | `warp_point_hold_up` | coverage | reachable with the shipped data; the condition that selects it was not met in natural play |
 | 4000:BF89 | `keymap_vertical_swap_ab` | coverage | reachable with the shipped data; the condition that selects it was not met in natural play |
-| 4000:D556 | `obj3f_draw_burst_and_orbit` | coverage | reachable with the shipped data; the condition that selects it was not met in natural play |
 | 4000:DAE0 | `lvl29_spawn_nop` | coverage | reachable with the shipped data; the condition that selects it was not met in natural play |
 | 4000:DBE3 | `put_grid_cell_tile` | coverage | reachable with the shipped data; the condition that selects it was not met in natural play |
 | 4000:DDDD | `sound_stop_id` | coverage | reachable with the shipped data; the condition that selects it was not met in natural play |
@@ -59,31 +56,19 @@ are shown to be impossible in the shipped game.  The rest is a coverage gap.
 | 4000:E012 | `snd_cmd_loop_a_alt` | data-unreachable | sequence command `loop_alt` occurs in none of the 106 shipped sound scripts |
 | 4000:E029 | `snd_cmd_loop_b_alt` | data-unreachable | sequence command `loopb_alt` occurs in none of the 106 shipped sound scripts |
 | 4000:E0CB | `snd_cmd_play_sound` | data-unreachable | sequence command `play` occurs in none of the 106 shipped sound scripts |
-| 4000:0266 | `isqrt16` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:050D | `irq_parallax2_band0` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:0538 | `irq_parallax2_band1` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:063B | `objects_draw_vert` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:0FAF | `pause_opt_rotate_screen` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:1138 | `hint_sign_draw` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:187D | `state11_scene_save_prompt` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:1995 | `state18_ending` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:208E | `state07_vision_clear` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:25A6 | `state05_room_transition` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:2BE4 | `irq_wipe3_cross` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:2C37 | `wipe_pattern3_cross` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:2F67 | `irq_wipe2_columns` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:3011 | `wipe_pattern2_columns` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:3341 | `irq_wipe1_rows` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:33A9 | `wipe_pattern1_rows` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:36DB | `irq_wipe0_diagonal` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:3726 | `wipe_pattern0_diagonal` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:3A54 | `irq_vblank_sound_only` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:3A6D | `irq_hblank_iris_window` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:3B5E | `vision_clear_iris_out` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:4230 | `tiles_rotate_cw` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:4436 | `terrain_rect_set` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:445B | `terrain_rect_clear` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:4480 | `terrain_attr_set` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:4A28 | `map_entry_swap_flips` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:4B9C | `camera_follow_vert` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:565A | `coll_01_12_coll_player_vs_block` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
@@ -95,17 +80,9 @@ are shown to be impossible in the shipped game.  The rest is a coverage gap.
 | 4000:5FDB | `sub_5FDB` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:6026 | `obj_change_type_reset` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:6074 | `shot_grab_object` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:6124 | `obj_within_box` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:6338 | `anim_tile_28e0_w3v6` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:6380 | `mscript_op3_init` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:63AC | `mscript_op3_shoot` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:6448 | `mscript_op2_init` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:6462 | `mscript_op2_patrol_y` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:67E8 | `load_obj04_tiles` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:67FC | `lvl01_tick_alloc_obj04_gfx` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:6828 | `lvl01_spawn_obj04_delayed` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:6850 | `obj04_update_script_flyer` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:689E | `obj04_draw` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:68BE | `load_obj05_tiles` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:68D2 | `lvl04_tick_alloc_obj05_gfx` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:6906 | `lvl04_spawn_obj05_delayed` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
@@ -165,20 +142,10 @@ are shown to be impossible in the shipped game.  The rest is a coverage gap.
 | 4000:8C72 | `lvl09_spawn_key` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:8CA2 | `obj1a_update_anim_counter` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:8CB2 | `obj1a_draw_key_bob` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:8D12 | `lvl0a_tiles_copy` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:8D26 | `lvl0a_load_tiles` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:8D52 | `lvl0a_spawn_locked_door` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:8DA2 | `obj1c_update_idle` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:8DA8 | `emit_sprite_frame_32` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:8E70 | `obj1c_draw_door` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:8EB6 | `coll_01_1c_unlock_door` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:8F02 | `lvl0e_spawn_set_item` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:8F32 | `obj1d_update_anim_counter` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:8F3A | `obj1d_draw_16px` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:8F94 | `lvl0f_spawn_item_gate` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:8FCC | `obj1e_update_anim_counter` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:8FD4 | `obj1e_draw_gate` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:8FFE | `coll_01_1e_open_item_gate` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:9056 | `lvl10_spawn_switch` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:9080 | `obj1f_update_switch` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:90A0 | `obj20_draw_idle` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
@@ -238,15 +205,10 @@ are shown to be impossible in the shipped game.  The rest is a coverage gap.
 | 4000:A6F5 | `coll_01_2c_open_from_side` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:A714 | `lvl1e_tiles_copy` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:A728 | `lvl1e_load_tiles` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:A7DD | `lvl22_spawn_big_dream_stone` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:A8F2 | `lvl27_spawn_1up_if_lives_lt3` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:A8FE | `lvl26_spawn_1up` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:A92C | `obj33_update_idle` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:A932 | `obj33_draw_16px` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:A942 | `coll_01_33_collect_1up` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:A974 | `lvl28_spawn_obj34_once` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:A9A0 | `obj34_update_static` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:A9A6 | `obj34_draw_heart` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:A9E6 | `copy_tiles_7580_for_obj2e` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:A9FA | `lvl25_tick_alloc_obj2e_tiles` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:AA52 | `lvl25_spawn_obj1b` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
@@ -259,13 +221,9 @@ are shown to be impossible in the shipped game.  The rest is a coverage gap.
 | 4000:ABB6 | `obj2f_update_projectile` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:ABE4 | `obj2f_draw_spin4` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:AC1F | `obj30_update_expire_12f` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:AD5F | `save_block_record_vision_clear` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:AEDF | `ex_vision_cleared_test` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:AF04 | `frames_to_min_sec_bcd` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:AF46 | `get_ex_time_record` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:B0BB | `checkpoint_save` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:B180 | `warp_point_hold_right` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:B1D3 | `warp_point_hold_left` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:B2CE | `warp_point_press_up_sfx` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:B9C2 | `put_hex_byte_tiles_v` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:BF31 | `keymap_vertical` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
@@ -275,8 +233,6 @@ are shown to be impossible in the shipped game.  The rest is a coverage gap.
 | 4000:D07D | `b3disp_0f_sprite_row_12` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:D1A1 | `draw_sprites_3x3` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:D3B7 | `obj2e_draw_3x3_vertical` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:D4E4 | `obj3f_update_count_up_60` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:D55C | `obj3f_draw_orbit` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:D892 | `spawn_raster_effect` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:D8B9 | `irq_hblank_scr1_parallax_wave` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:D925 | `irq_hblank_scr2_warp` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
@@ -286,7 +242,6 @@ are shown to be impossible in the shipped game.  The rest is a coverage gap.
 | 4000:DAFC | `obj35_update_ex_timer` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:DB44 | `draw_time_and_13c0` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:DBB0 | `obj35_draw_time_and_record` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
-| 4000:E7AB | `snd_voice_stop_if_active` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:EFAF | `menu_next_ex_vision` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:F434 | `ticket_menu_init` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
 | 4000:F4E9 | `emit_sprite_plus_e6` | forced-only | executed only in forced runs (fault injection or unlock fixture) |
@@ -409,7 +364,6 @@ are shown to be impossible in the shipped game.  The rest is a coverage gap.
 | 4000:8BE0 | `coll_19_26_cap_fall_speed` | pair-not-seen | object types 19h and 26h never on screen together in a natural run (seen alone: neither) |
 | 4000:8C3A | `coll_26_19_cap_fall_speed_rev` | pair-not-seen | object types 26h and 19h never on screen together in a natural run (seen alone: neither) |
 | 4000:8CEC | `coll_01_1a_collect_key` | pair-not-seen | object types 01h and 1Ah never on screen together in a natural run (seen alone: 01h) |
-| 4000:8F4A | `coll_01_1d_collect_set_item` | pair-not-seen | object types 01h and 1Dh never on screen together in a natural run (seen alone: 01h) |
 | 4000:919A | `coll_02_1f_hit_switch` | pair-not-seen | object types 02h and 1Fh never on screen together in a natural run (seen alone: 02h) |
 | 4000:919E | `coll_1f_02_hit_switch_rev` | pair-not-seen | object types 1Fh and 02h never on screen together in a natural run (seen alone: 02h) |
 | 4000:91A6 | `coll_0b_1f_hit_switch_poof` | pair-not-seen | object types 0Bh and 1Fh never on screen together in a natural run (seen alone: 0Bh) |
@@ -436,7 +390,6 @@ are shown to be impossible in the shipped game.  The rest is a coverage gap.
 | 4000:A6D7 | `coll_2c_01_open_from_side` | pair-not-seen | object types 2Ch and 01h never on screen together in a natural run (seen alone: 01h) |
 | 4000:A7BE | `coll_2d_02_capture_lift_rev` | pair-not-seen | object types 2Dh and 02h never on screen together in a natural run (seen alone: 02h) |
 | 4000:A7C6 | `coll_02_2d_capture_lift` | pair-not-seen | object types 02h and 2Dh never on screen together in a natural run (seen alone: 02h) |
-| 4000:A9B6 | `coll_01_34_heart_pickup` | pair-not-seen | object types 01h and 34h never on screen together in a natural run (seen alone: 01h) |
 | 4000:1ABE | `state14_unused_to_save` | state-unreachable | game states 14/15 are never written by any instruction (docs/game-states.md) |
 | 4000:03D0 | `dead_03D0` | unreferenced | no caller, jump, table entry or vector install; never executed in any run |
 | 4000:055F | `dead_055F` | unreferenced | no caller, jump, table entry or vector install; never executed in any run |

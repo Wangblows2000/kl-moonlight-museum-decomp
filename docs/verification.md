@@ -5,16 +5,16 @@ the description confidence and never raises it.
 
 | level | routines |
 |---|---:|
-| runtime-confirmed | 297 |
-| runtime-partial | 264 |
-| static-consistent | 212 |
+| runtime-confirmed | 343 |
+| runtime-partial | 223 |
+| static-consistent | 207 |
 
 | executed | routines |
 |---|---:|
 | dead | 25 |
-| forced_only | 241 |
-| natural | 320 |
-| no | 187 |
+| forced_only | 199 |
+| natural | 367 |
+| no | 182 |
 
 ## Routines needing review
 
@@ -89,7 +89,7 @@ the description confidence and never raises it.
 | 4000:013C | `hw_init` | high | natural | runtime-confirmed |  |
 | 4000:01D9 | `reset` | high | natural | runtime-confirmed | 1380 |
 | 4000:0250 | `fade_out_and_stop_sound` | medium | natural | runtime-confirmed | 0274 0275 |
-| 4000:0266 | `isqrt16` | high | forced_only | runtime-partial |  |
+| 4000:0266 | `isqrt16` | high | natural | runtime-confirmed |  |
 | 4000:02A3 | `gameplay_install_irqs` | high | natural | runtime-confirmed | 1398 13FE |
 | 4000:031B | `gameplay_enable_irqs` | high | natural | runtime-confirmed | 1398 13FE |
 | 4000:036B | `sprite_table_init_2` | high | natural | runtime-partial |  |
@@ -120,7 +120,7 @@ the description confidence and never raises it.
 | 4000:1041 | `pause_opt_close` | high | natural | runtime-confirmed |  |
 | 4000:1051 | `pause_load_window_gfx` | medium | natural | runtime-confirmed | 1384 1398 13FD 13FE 148F |
 | 4000:1106 | `pause_load_item_label` | high | natural | runtime-confirmed | 1398 |
-| 4000:1138 | `hint_sign_draw` | medium | forced_only | runtime-partial | 1382 1398 |
+| 4000:1138 | `hint_sign_draw` | medium | natural | runtime-confirmed | 1382 1398 |
 | 4000:11B6 | `pause_menu` | medium | natural | runtime-confirmed | 1384 1388 138C 1390 1392 1398 13FD |
 | 4000:13BA | `set_default_sprite_palettes` | high | natural | runtime-confirmed |  |
 | 4000:13E3 | `clear_tile_ram` | high | natural | runtime-confirmed |  |
@@ -147,13 +147,13 @@ the description confidence and never raises it.
 | 4000:1E52 | `world_record_update` | medium | natural | runtime-partial | 1382 13DF 13FE |
 | 4000:1F78 | `world_record_init` | medium | natural | runtime-confirmed | 13DE 13DF |
 | 4000:1F92 | `state19_world_record` | medium | natural | runtime-confirmed |  |
-| 4000:208E | `state07_vision_clear` | medium | forced_only | runtime-partial |  |
+| 4000:208E | `state07_vision_clear` | medium | natural | runtime-confirmed |  |
 | 4000:21CE | `state10_world_complete_scene` | medium | natural | runtime-confirmed |  |
 | 4000:2232 | `draw_vision_number` | medium | natural | runtime-confirmed | 13FE |
 | 4000:2319 | `show_vision_card` | medium | natural | runtime-confirmed | 138C 138E 1398 13FE |
 | 4000:2409 | `state03_world_card_story` | medium | natural | runtime-confirmed |  |
 | 4000:24BA | `state04_vision_load` | medium | natural | runtime-confirmed |  |
-| 4000:25A6 | `state05_room_transition` | medium | forced_only | runtime-partial |  |
+| 4000:25A6 | `state05_room_transition` | medium | natural | runtime-confirmed |  |
 | 4000:2622 | `state06_miss_retry` | medium | natural | runtime-confirmed |  |
 | 4000:2641 | `state16_resume_card` | medium | natural | runtime-confirmed |  |
 | 4000:26BC | `continue_quit_load_buttons` | medium | natural | runtime-confirmed | 1384 |
@@ -166,16 +166,16 @@ the description confidence and never raises it.
 | 4000:2BC3 | `unused_rng9_step` | medium | no | static-consistent |  |
 | 4000:2BE4 | `irq_wipe3_cross` | high | forced_only | runtime-partial | 1386 |
 | 4000:2C37 | `wipe_pattern3_cross` | high | forced_only | runtime-partial | 1386 13A0 13A2 |
-| 4000:2F67 | `irq_wipe2_columns` | high | forced_only | runtime-partial | 1386 |
-| 4000:3011 | `wipe_pattern2_columns` | high | forced_only | runtime-partial | 1386 13A0 13A2 |
+| 4000:2F67 | `irq_wipe2_columns` | high | natural | runtime-confirmed | 1386 |
+| 4000:3011 | `wipe_pattern2_columns` | high | natural | runtime-confirmed | 1386 13A0 13A2 |
 | 4000:3341 | `irq_wipe1_rows` | high | forced_only | runtime-partial | 1386 |
 | 4000:33A9 | `wipe_pattern1_rows` | high | forced_only | runtime-partial | 1386 13A2 |
 | 4000:36DB | `irq_wipe0_diagonal` | high | forced_only | runtime-partial | 1386 |
 | 4000:3726 | `wipe_pattern0_diagonal` | high | forced_only | runtime-partial | 1386 13A0 13A2 |
-| 4000:3A54 | `irq_vblank_sound_only` | high | forced_only | runtime-partial | 1386 |
-| 4000:3A6D | `irq_hblank_iris_window` | high | forced_only | runtime-partial | 03C2 03C4 1394 13A0 13A2 |
+| 4000:3A54 | `irq_vblank_sound_only` | high | natural | runtime-confirmed | 1386 |
+| 4000:3A6D | `irq_hblank_iris_window` | high | natural | runtime-confirmed | 03C2 03C4 1394 13A0 13A2 |
 | 4000:3AE0 | `irq_hblank_iris_window_vert` | high | no | static-consistent |  |
-| 4000:3B5E | `vision_clear_iris_out` | high | forced_only | runtime-partial | 1394 1398 |
+| 4000:3B5E | `vision_clear_iris_out` | high | natural | runtime-partial | 1394 1398 |
 | 4000:3ECC | `irq_vblank_sound_only_b` | high | natural | runtime-confirmed | 1386 |
 | 4000:3EE5 | `random_dissolve_wipe` | high | natural | runtime-confirmed | 138E 1394 |
 | 4000:4230 | `tiles_rotate_cw` | high | forced_only | runtime-partial |  |
@@ -183,9 +183,9 @@ the description confidence and never raises it.
 | 4000:42A4 | `camera_hint_lookup` | medium | natural | runtime-confirmed | 12F6 132C 132E |
 | 4000:42F9 | `level_build_collision_map` | high | natural | runtime-partial | 12D8 12F4 12F5 12F6 12F7 1302 1316 1320 1330 1398 |
 | 4000:43E5 | `terrain_attr_at` | high | natural | runtime-confirmed | 12F6 |
-| 4000:4436 | `terrain_rect_set` | high | forced_only | runtime-partial |  |
-| 4000:445B | `terrain_rect_clear` | high | forced_only | runtime-partial |  |
-| 4000:4480 | `terrain_attr_set` | high | forced_only | runtime-partial |  |
+| 4000:4436 | `terrain_rect_set` | high | natural | runtime-confirmed |  |
+| 4000:445B | `terrain_rect_clear` | high | natural | runtime-confirmed |  |
+| 4000:4480 | `terrain_attr_set` | high | natural | runtime-confirmed |  |
 | 4000:44CF | `level_get_size` | high | natural | runtime-confirmed | 12D8 |
 | 4000:44E7 | `level_lookup_directory` | high | natural | runtime-confirmed | 12D8 1302 1320 1322 1328 132A 132C 132E 1330 |
 | 4000:459C | `level_lookup_bg_data` | high | natural | runtime-confirmed | 12D8 1324 1326 |
@@ -212,7 +212,7 @@ the description confidence and never raises it.
 | 4000:4D96 | `scroll_fetch_row_b` | medium | natural | runtime-confirmed | 1280 12D4 12D6 13A0 13A2 13AA 13B4 |
 | 4000:4DD0 | `scr2_commit_row` | high | natural | runtime-confirmed | 1280 12D4 12D6 1384 |
 | 4000:4E18 | `scr2_commit_col` | high | natural | runtime-confirmed | 1280 12D4 12D6 1384 |
-| 4000:4E60 | `player_take_damage` | high | no | static-consistent | 13E0 |
+| 4000:4E60 | `player_take_damage` | high | natural | runtime-confirmed | 03C6 03C8 03CC 03D9 13E0 |
 | 4000:4EB4 | `load_player_base_tiles` | medium | natural | runtime-confirmed |  |
 | 4000:4EE6 | `load_player_alt_frame` | medium | natural | runtime-confirmed |  |
 | 4000:4F02 | `player_shot_init` | high | natural | runtime-confirmed |  |
@@ -247,7 +247,7 @@ the description confidence and never raises it.
 | 4000:6026 | `obj_change_type_reset` | high | forced_only | runtime-partial | 03D2 |
 | 4000:6074 | `shot_grab_object` | high | forced_only | runtime-partial | 03CC 03D5 03D6 03DE |
 | 4000:60D4 | `shot_grab_enemy` | high | natural | runtime-confirmed | 03CC 03D5 03D6 03DE 13C0 |
-| 4000:6124 | `obj_within_box` | high | forced_only | runtime-partial |  |
+| 4000:6124 | `obj_within_box` | high | natural | runtime-confirmed |  |
 | 4000:6146 | `obj_walk_terrain` | high | natural | runtime-confirmed |  |
 | 4000:61F8 | `obj_delete_clear_spawn_bit` | medium | natural | runtime-partial | 13C8 |
 | 4000:622B | `obj_apply_velocity` | high | natural | runtime-confirmed |  |
@@ -258,8 +258,8 @@ the description confidence and never raises it.
 | 4000:6338 | `anim_tile_28e0_w3v6` | high | forced_only | runtime-partial | 138E 1398 |
 | 4000:6380 | `mscript_op3_init` | high | forced_only | runtime-partial |  |
 | 4000:63AC | `mscript_op3_shoot` | high | forced_only | runtime-partial |  |
-| 4000:6448 | `mscript_op2_init` | high | forced_only | runtime-partial |  |
-| 4000:6462 | `mscript_op2_patrol_y` | high | forced_only | runtime-partial |  |
+| 4000:6448 | `mscript_op2_init` | high | natural | runtime-confirmed |  |
+| 4000:6462 | `mscript_op2_patrol_y` | high | natural | runtime-confirmed |  |
 | 4000:651C | `mscript_op1_init` | high | natural | runtime-confirmed | 03C2 138E |
 | 4000:655E | `mscript_op1_patrol_x` | high | natural | runtime-confirmed |  |
 | 4000:663C | `mscript_op0_wait` | high | natural | runtime-confirmed | 13C6 |
@@ -275,11 +275,11 @@ the description confidence and never raises it.
 | 4000:67BA | `obj03_draw` | high | natural | runtime-confirmed | 1398 |
 | 4000:67DA | `coll_03_02_coll_enemy_grabbed_by_shot` | high | no | static-consistent |  |
 | 4000:67E2 | `coll_02_03_coll_shot_grabs_enemy` | high | natural | runtime-confirmed |  |
-| 4000:67E8 | `load_obj04_tiles` | high | forced_only | runtime-partial |  |
-| 4000:67FC | `lvl01_tick_alloc_obj04_gfx` | high | forced_only | runtime-partial | 1396 1410 |
-| 4000:6828 | `lvl01_spawn_obj04_delayed` | high | forced_only | runtime-partial |  |
-| 4000:6850 | `obj04_update_script_flyer` | high | forced_only | runtime-partial |  |
-| 4000:689E | `obj04_draw` | high | forced_only | runtime-partial | 1410 |
+| 4000:67E8 | `load_obj04_tiles` | high | natural | runtime-confirmed |  |
+| 4000:67FC | `lvl01_tick_alloc_obj04_gfx` | high | natural | runtime-confirmed | 1396 1410 |
+| 4000:6828 | `lvl01_spawn_obj04_delayed` | high | natural | runtime-confirmed |  |
+| 4000:6850 | `obj04_update_script_flyer` | high | natural | runtime-confirmed |  |
+| 4000:689E | `obj04_draw` | high | natural | runtime-confirmed | 1410 |
 | 4000:68BE | `load_obj05_tiles` | high | forced_only | runtime-partial |  |
 | 4000:68D2 | `lvl04_tick_alloc_obj05_gfx` | high | forced_only | runtime-partial | 1396 1416 |
 | 4000:68FE | `lvl24_spawn_obj05_bouncing` | high | no | static-consistent |  |
@@ -428,21 +428,21 @@ the description confidence and never raises it.
 | 4000:8CA2 | `obj1a_update_anim_counter` | high | forced_only | runtime-partial |  |
 | 4000:8CB2 | `obj1a_draw_key_bob` | medium | forced_only | runtime-partial | 1382 1398 |
 | 4000:8CEC | `coll_01_1a_collect_key` | medium | no | static-consistent | 13D1 |
-| 4000:8D12 | `lvl0a_tiles_copy` | high | forced_only | runtime-partial |  |
-| 4000:8D26 | `lvl0a_load_tiles` | high | forced_only | runtime-partial | 1396 1428 |
+| 4000:8D12 | `lvl0a_tiles_copy` | high | natural | runtime-confirmed |  |
+| 4000:8D26 | `lvl0a_load_tiles` | high | natural | runtime-confirmed | 1396 1428 |
 | 4000:8D52 | `lvl0a_spawn_locked_door` | medium | forced_only | runtime-partial | 13D2 |
 | 4000:8DA2 | `obj1c_update_idle` | high | forced_only | runtime-partial |  |
-| 4000:8DA8 | `emit_sprite_frame_32` | high | forced_only | runtime-partial | 1398 |
+| 4000:8DA8 | `emit_sprite_frame_32` | high | natural | runtime-partial | 1398 |
 | 4000:8E70 | `obj1c_draw_door` | medium | forced_only | runtime-partial | 1382 1398 1428 |
 | 4000:8EB6 | `coll_01_1c_unlock_door` | medium | forced_only | runtime-partial | 13D1 |
-| 4000:8F02 | `lvl0e_spawn_set_item` | medium | forced_only | runtime-partial | 13D0 |
-| 4000:8F32 | `obj1d_update_anim_counter` | high | forced_only | runtime-partial |  |
-| 4000:8F3A | `obj1d_draw_16px` | high | forced_only | runtime-partial | 1382 1398 |
-| 4000:8F4A | `coll_01_1d_collect_set_item` | medium | no | static-consistent | 13D0 |
-| 4000:8F94 | `lvl0f_spawn_item_gate` | medium | forced_only | runtime-partial | 13D0 |
-| 4000:8FCC | `obj1e_update_anim_counter` | high | forced_only | runtime-partial |  |
-| 4000:8FD4 | `obj1e_draw_gate` | medium | forced_only | runtime-partial | 1382 1398 1428 |
-| 4000:8FFE | `coll_01_1e_open_item_gate` | medium | forced_only | runtime-partial | 13D0 |
+| 4000:8F02 | `lvl0e_spawn_set_item` | medium | natural | runtime-confirmed | 13D0 |
+| 4000:8F32 | `obj1d_update_anim_counter` | high | natural | runtime-confirmed |  |
+| 4000:8F3A | `obj1d_draw_16px` | high | natural | runtime-confirmed | 1382 1398 |
+| 4000:8F4A | `coll_01_1d_collect_set_item` | medium | natural | runtime-confirmed | 13D0 |
+| 4000:8F94 | `lvl0f_spawn_item_gate` | medium | natural | runtime-confirmed | 13D0 |
+| 4000:8FCC | `obj1e_update_anim_counter` | high | natural | runtime-confirmed |  |
+| 4000:8FD4 | `obj1e_draw_gate` | medium | natural | runtime-confirmed | 1382 1398 1428 |
+| 4000:8FFE | `coll_01_1e_open_item_gate` | medium | natural | runtime-confirmed | 13D0 |
 | 4000:903A | `load_switch_tiles` | medium | natural | runtime-confirmed |  |
 | 4000:9056 | `lvl10_spawn_switch` | medium | forced_only | runtime-partial | 13D4 |
 | 4000:9080 | `obj1f_update_switch` | medium | forced_only | runtime-partial |  |
@@ -580,20 +580,20 @@ the description confidence and never raises it.
 | 4000:A79E | `obj2d_draw_dyn_tiles` | high | no | static-consistent |  |
 | 4000:A7BE | `coll_2d_02_capture_lift_rev` | medium | no | static-consistent |  |
 | 4000:A7C6 | `coll_02_2d_capture_lift` | medium | no | static-consistent | 03C9 03D2 03D6 13C0 |
-| 4000:A7DD | `lvl22_spawn_big_dream_stone` | medium | forced_only | runtime-partial |  |
+| 4000:A7DD | `lvl22_spawn_big_dream_stone` | medium | natural | runtime-confirmed |  |
 | 4000:A7E6 | `lvl21_spawn_dream_stone` | medium | natural | runtime-confirmed | 13DA 13DC |
 | 4000:A824 | `obj32_update_idle` | high | natural | runtime-confirmed |  |
 | 4000:A82A | `obj32_draw_dream_stone` | high | natural | runtime-confirmed | 1382 1398 |
-| 4000:A89E | `coll_01_32_collect_dream_stone` | medium | natural | runtime-partial | 13DA 13DE |
-| 4000:A8F2 | `lvl27_spawn_1up_if_lives_lt3` | high | forced_only | runtime-partial | 13E1 |
+| 4000:A89E | `coll_01_32_collect_dream_stone` | medium | natural | runtime-confirmed | 13DA 13DC 13DE |
+| 4000:A8F2 | `lvl27_spawn_1up_if_lives_lt3` | high | natural | runtime-confirmed | 13E1 |
 | 4000:A8FE | `lvl26_spawn_1up` | high | forced_only | runtime-partial | 13E9 |
 | 4000:A92C | `obj33_update_idle` | high | forced_only | runtime-partial |  |
 | 4000:A932 | `obj33_draw_16px` | high | forced_only | runtime-partial | 1382 1398 |
 | 4000:A942 | `coll_01_33_collect_1up` | high | forced_only | runtime-partial | 13E1 13E9 |
-| 4000:A974 | `lvl28_spawn_obj34_once` | high | forced_only | runtime-partial | 13E8 |
-| 4000:A9A0 | `obj34_update_static` | high | forced_only | runtime-partial |  |
-| 4000:A9A6 | `obj34_draw_heart` | medium | forced_only | runtime-partial | 1382 1398 |
-| 4000:A9B6 | `coll_01_34_heart_pickup` | medium | no | static-consistent | 13E0 |
+| 4000:A974 | `lvl28_spawn_obj34_once` | high | natural | runtime-confirmed | 13E8 |
+| 4000:A9A0 | `obj34_update_static` | high | natural | runtime-confirmed |  |
+| 4000:A9A6 | `obj34_draw_heart` | medium | natural | runtime-partial | 1382 1398 |
+| 4000:A9B6 | `coll_01_34_heart_pickup` | medium | natural | runtime-confirmed | 13E0 13E8 |
 | 4000:A9E6 | `copy_tiles_7580_for_obj2e` | high | forced_only | runtime-partial |  |
 | 4000:A9FA | `lvl25_tick_alloc_obj2e_tiles` | high | forced_only | runtime-partial | 1396 141C 141E |
 | 4000:AA52 | `lvl25_spawn_obj1b` | high | forced_only | runtime-partial |  |
@@ -612,7 +612,7 @@ the description confidence and never raises it.
 | 4000:AC60 | `ieep_register_game_record` | high | natural | runtime-confirmed |  |
 | 4000:ACD0 | `load_vision_record_ptr` | medium | natural | runtime-confirmed | 13C4 13C6 13FE |
 | 4000:AD25 | `save_block_init` | high | natural | runtime-partial | 148F 149F 14B0 14B4 |
-| 4000:AD5F | `save_block_record_vision_clear` | medium | forced_only | runtime-partial | 1398 1399 13DE 13E1 13FE 1440 148F 1497 149F 14A7 14AF 14B8 |
+| 4000:AD5F | `save_block_record_vision_clear` | medium | natural | runtime-confirmed | 1398 1399 13DE 13E1 13FE 1440 148F 1497 149F 14A7 14AF 14B8 |
 | 4000:AEDF | `ex_vision_cleared_test` | high | forced_only | runtime-partial | 14A7 |
 | 4000:AEE9 | `get_world_stone_total` | high | natural | runtime-confirmed | 13FE |
 | 4000:AF04 | `frames_to_min_sec_bcd` | high | forced_only | runtime-partial |  |
@@ -620,11 +620,11 @@ the description confidence and never raises it.
 | 4000:AF67 | `vision_state_init` | medium | natural | runtime-confirmed | 1398 1399 13C2 13E0 13E1 13E3 13E4 13E6 13FE 149F 14B8 |
 | 4000:B053 | `vision_load_spawn_setup` | high | natural | runtime-confirmed | 13C4 13C6 13FE |
 | 4000:B06C | `vision_resume_setup` | high | natural | runtime-confirmed | 1398 13C0 13C2 13E3 13FE |
-| 4000:B0BB | `checkpoint_save` | high | forced_only | runtime-partial | 1398 13E0 13E1 13E3 |
+| 4000:B0BB | `checkpoint_save` | high | natural | runtime-confirmed | 1398 13E0 13E1 13E3 |
 | 4000:B11A | `checkpoint_restore` | high | natural | runtime-confirmed | 13DF 13E0 13E1 |
-| 4000:B16E | `vision_exit_press_up` | high | no | static-consistent |  |
-| 4000:B180 | `warp_point_hold_right` | high | forced_only | runtime-partial | 03CC 1390 1398 13C2 13E3 13E4 13E6 13FE |
-| 4000:B1D3 | `warp_point_hold_left` | high | forced_only | runtime-partial | 03CC 1390 1398 13C2 13E3 13E4 13E6 13FE |
+| 4000:B16E | `vision_exit_press_up` | high | natural | runtime-confirmed | 1392 1398 |
+| 4000:B180 | `warp_point_hold_right` | high | natural | runtime-confirmed | 03CC 1390 1398 13C2 13E3 13E4 13E6 13FE |
+| 4000:B1D3 | `warp_point_hold_left` | high | natural | runtime-confirmed | 03CC 1390 1398 13C2 13E3 13E4 13E6 13FE |
 | 4000:B225 | `warp_point_hold_down` | high | no | static-consistent |  |
 | 4000:B27C | `warp_point_hold_up` | high | no | static-consistent |  |
 | 4000:B2CE | `warp_point_press_up_sfx` | high | forced_only | runtime-partial | 1392 1398 13C2 13FE |
@@ -692,7 +692,7 @@ the description confidence and never raises it.
 | 4000:C4DE | `hud_draw_all` | high | natural | runtime-confirmed | 1398 13DF 13E0 13E1 |
 | 4000:C55E | `hud_draw_hearts` | high | natural | runtime-confirmed | 1398 13E0 |
 | 4000:C608 | `hud_draw_flags_13d1` | high | natural | runtime-confirmed | 1398 13D1 |
-| 4000:C678 | `hud_draw_count_13d0` | high | natural | runtime-partial | 13D0 |
+| 4000:C678 | `hud_draw_count_13d0` | high | natural | runtime-confirmed | 1398 13D0 |
 | 4000:C6BA | `hud_draw_stone_count` | high | natural | runtime-confirmed | 1398 |
 | 4000:C6F6 | `hud_tick_stone_counter` | high | natural | runtime-confirmed | 138E 13DE 13DF |
 | 4000:C718 | `hud_draw_lives` | high | natural | runtime-confirmed | 1398 13E1 |
@@ -712,11 +712,11 @@ the description confidence and never raises it.
 | 4000:D4A0 | `spawn_sparkle_effect` | high | natural | runtime-confirmed |  |
 | 4000:D4C2 | `obj3f_update_count_up_30` | high | natural | runtime-confirmed |  |
 | 4000:D4D2 | `obj3f_update_count_down_30` | high | natural | runtime-confirmed |  |
-| 4000:D4E4 | `obj3f_update_count_up_60` | high | forced_only | runtime-partial |  |
+| 4000:D4E4 | `obj3f_update_count_up_60` | high | natural | runtime-confirmed |  |
 | 4000:D4FC | `obj3f_update_dispatch` | high | natural | runtime-confirmed |  |
 | 4000:D508 | `obj3f_draw_burst` | high | natural | runtime-confirmed | 1382 |
-| 4000:D556 | `obj3f_draw_burst_and_orbit` | high | no | static-consistent |  |
-| 4000:D55C | `obj3f_draw_orbit` | high | forced_only | runtime-partial | 1382 |
+| 4000:D556 | `obj3f_draw_burst_and_orbit` | high | natural | runtime-confirmed |  |
+| 4000:D55C | `obj3f_draw_orbit` | high | natural | runtime-confirmed | 1382 |
 | 4000:D5C2 | `obj3f_draw_dispatch` | high | natural | runtime-confirmed |  |
 | 4000:D5CA | `palfade_init_spr_to_black` | high | natural | runtime-confirmed | 1385 |
 | 4000:D5F8 | `palfade_init_bg_to_black` | high | natural | runtime-confirmed | 1385 |
@@ -794,7 +794,7 @@ the description confidence and never raises it.
 | 4000:E6F1 | `snd_stop_sfx_tracks_fade_in` | high | no | static-consistent | 0274 |
 | 4000:E73B | `snd_fade_in_step` | high | no | static-consistent | 0274 0276 |
 | 4000:E759 | `snd_voice_output_sample` | high | natural | runtime-confirmed | 0264 0266 0268 0269 026B |
-| 4000:E7AB | `snd_voice_stop_if_active` | high | forced_only | runtime-partial | 0264 |
+| 4000:E7AB | `snd_voice_stop_if_active` | high | natural | runtime-confirmed | 0264 |
 | 4000:E7B7 | `irq_hblank_voice_pcm` | high | natural | runtime-confirmed |  |
 | 4000:E7C1 | `snd_voice_install_irq` | high | natural | runtime-confirmed |  |
 | 4000:E9B0 | `dead_E9B0` | high | dead | static-consistent |  |

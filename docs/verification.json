@@ -3,15 +3,15 @@
  "summary": {
   "routines": 773,
   "verification": {
-   "runtime-confirmed": 297,
-   "static-consistent": 212,
-   "runtime-partial": 264
+   "runtime-confirmed": 343,
+   "static-consistent": 207,
+   "runtime-partial": 223
   },
   "executed": {
-   "natural": 320,
-   "no": 187,
-   "forced_only": 241,
-   "dead": 25
+   "natural": 367,
+   "no": 182,
+   "dead": 25,
+   "forced_only": 199
   },
   "runtime_data": "build/ramaccess_all.txt present"
  },
@@ -207,7 +207,7 @@
    "name": "isqrt16",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [],
@@ -217,7 +217,7 @@
    "static_issues": [],
    "runtime_confirmed": [],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:02A3",
@@ -944,7 +944,7 @@
    "name": "hint_sign_draw",
    "basis": "reviewed",
    "confidence": "medium",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -960,7 +960,7 @@
     "1398"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:11B6",
@@ -1527,7 +1527,7 @@
    "name": "state07_vision_clear",
    "basis": "hand",
    "confidence": "medium",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [],
@@ -1537,7 +1537,7 @@
    "static_issues": [],
    "runtime_confirmed": [],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:21CE",
@@ -1647,7 +1647,7 @@
    "name": "state05_room_transition",
    "basis": "hand",
    "confidence": "medium",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [],
@@ -1657,7 +1657,7 @@
    "static_issues": [],
    "runtime_confirmed": [],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:2622",
@@ -1913,7 +1913,7 @@
    "name": "irq_wipe2_columns",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -1929,14 +1929,14 @@
     "1386"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:3011",
    "name": "wipe_pattern2_columns",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -1957,7 +1957,7 @@
     "13A2"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:3341",
@@ -2064,7 +2064,7 @@
    "name": "irq_vblank_sound_only",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -2080,14 +2080,14 @@
     "1386"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:3A6D",
    "name": "irq_hblank_iris_window",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -2114,7 +2114,7 @@
     "13A2"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:3AE0",
@@ -2150,7 +2150,7 @@
    "name": "vision_clear_iris_out",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "1380h (game_state) appears only in the caller context sentence, which is correct: caller 42B5E is followed by 42B66 mov word [game_state],7. The routine itself: 43B66 vector 98h=irq_vblank_sound_only; 43B7D/43B90 vector 9Ch by play_flags bit0; 43BB0 [1394h]=8Ch; 43BC0-43E9B every 16th frame (bp&0Fh=0) decrements each nibble of ports 30h-3Eh (floor 0); 43E9D-43EA8 radius -1 down to 0; 43EAB-43EB6 waits on vblank_line; 43EB8 loop until bp=C8h; 43EC2-43EC8 B6h/B2h=40h.",
    "claims": {
     "ram": [
@@ -2359,7 +2359,7 @@
    "name": "terrain_rect_set",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [],
@@ -2369,14 +2369,14 @@
    "static_issues": [],
    "runtime_confirmed": [],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:445B",
    "name": "terrain_rect_clear",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [],
@@ -2386,14 +2386,14 @@
    "static_issues": [],
    "runtime_confirmed": [],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:4480",
    "name": "terrain_attr_set",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [],
@@ -2403,7 +2403,7 @@
    "static_issues": [],
    "runtime_confirmed": [],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:44CF",
@@ -3175,7 +3175,7 @@
    "name": "player_take_damage",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "no",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -3190,10 +3190,14 @@
    },
    "static_issues": [],
    "runtime_confirmed": [
+    "03C6",
+    "03C8",
+    "03CC",
+    "03D9",
     "13E0"
    ],
    "runtime_unobserved": [],
-   "verification": "static-consistent"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:4EB4",
@@ -3908,7 +3912,7 @@
    "name": "obj_within_box",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [],
@@ -3918,7 +3922,7 @@
    "static_issues": [],
    "runtime_confirmed": [],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:6146",
@@ -4127,7 +4131,7 @@
    "name": "mscript_op2_init",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [],
@@ -4137,14 +4141,14 @@
    "static_issues": [],
    "runtime_confirmed": [],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:6462",
    "name": "mscript_op2_patrol_y",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [],
@@ -4156,7 +4160,7 @@
    "static_issues": [],
    "runtime_confirmed": [],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:651C",
@@ -4446,7 +4450,7 @@
    "name": "load_obj04_tiles",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [],
@@ -4456,14 +4460,14 @@
    "static_issues": [],
    "runtime_confirmed": [],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:67FC",
    "name": "lvl01_tick_alloc_obj04_gfx",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -4479,14 +4483,14 @@
     "1410"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:6828",
    "name": "lvl01_spawn_obj04_delayed",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [],
@@ -4496,14 +4500,14 @@
    "static_issues": [],
    "runtime_confirmed": [],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:6850",
    "name": "obj04_update_script_flyer",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [],
@@ -4513,14 +4517,14 @@
    "static_issues": [],
    "runtime_confirmed": [],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:689E",
    "name": "obj04_draw",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -4534,7 +4538,7 @@
     "1410"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:68BE",
@@ -7368,7 +7372,7 @@
    "name": "lvl0a_tiles_copy",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [],
@@ -7378,14 +7382,14 @@
    "static_issues": [],
    "runtime_confirmed": [],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:8D26",
    "name": "lvl0a_load_tiles",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -7401,7 +7405,7 @@
     "1428"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:8D52",
@@ -7446,7 +7450,7 @@
    "name": "emit_sprite_frame_32",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "The [1382h] reference is a caller precondition and is true (obj1c_draw_door 48E8B-48E8F and obj1e_draw_gate 48FDD-48FE1 take BX=[1382h] and add 30h before calling), but the routine never touches [1382h], and the side-effects field omits that it moves DH/DL to the frame corner (48DAF/48DB2 sub dh,10h / sub dl,10h; rotated 48E10/48E13 add dh,8 / sub dl,10h) and clobbers AX/CX; both callers push/pop DX around the call (48E9C/48EA0, 48FEE/48FF2). Layout and play_flags test (48DA8) verified.",
    "claims": {
     "ram": [
@@ -7521,7 +7525,7 @@
    "name": "lvl0e_spawn_set_item",
    "basis": "reviewed",
    "confidence": "medium",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -7535,14 +7539,14 @@
     "13D0"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:8F32",
    "name": "obj1d_update_anim_counter",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [],
@@ -7552,14 +7556,14 @@
    "static_issues": [],
    "runtime_confirmed": [],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:8F3A",
    "name": "obj1d_draw_16px",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -7575,14 +7579,14 @@
     "1398"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:8F4A",
    "name": "coll_01_1d_collect_set_item",
    "basis": "reviewed",
    "confidence": "medium",
-   "executed": "no",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -7596,14 +7600,14 @@
     "13D0"
    ],
    "runtime_unobserved": [],
-   "verification": "static-consistent"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:8F94",
    "name": "lvl0f_spawn_item_gate",
    "basis": "reviewed",
    "confidence": "medium",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -7617,14 +7621,14 @@
     "13D0"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:8FCC",
    "name": "obj1e_update_anim_counter",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [],
@@ -7634,14 +7638,14 @@
    "static_issues": [],
    "runtime_confirmed": [],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:8FD4",
    "name": "obj1e_draw_gate",
    "basis": "reviewed",
    "confidence": "medium",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -7659,14 +7663,14 @@
     "1428"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:8FFE",
    "name": "coll_01_1e_open_item_gate",
    "basis": "reviewed",
    "confidence": "medium",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -7680,7 +7684,7 @@
     "13D0"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:903A",
@@ -10389,7 +10393,7 @@
    "name": "lvl22_spawn_big_dream_stone",
    "basis": "reviewed",
    "confidence": "medium",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [],
@@ -10399,7 +10403,7 @@
    "static_issues": [],
    "runtime_confirmed": [],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:A7E6",
@@ -10483,19 +10487,18 @@
    "static_issues": [],
    "runtime_confirmed": [
     "13DA",
+    "13DC",
     "13DE"
    ],
-   "runtime_unobserved": [
-    "13DC"
-   ],
-   "verification": "runtime-partial"
+   "runtime_unobserved": [],
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:A8F2",
    "name": "lvl27_spawn_1up_if_lives_lt3",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -10509,7 +10512,7 @@
     "13E1"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:A8FE",
@@ -10600,7 +10603,7 @@
    "name": "lvl28_spawn_obj34_once",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -10614,14 +10617,14 @@
     "13E8"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:A9A0",
    "name": "obj34_update_static",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [],
@@ -10631,14 +10634,14 @@
    "static_issues": [],
    "runtime_confirmed": [],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:A9A6",
    "name": "obj34_draw_heart",
    "basis": "reviewed",
    "confidence": "medium",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "The flagged 'hearts' (13E0h) is only a mention of the HUD routine, not a claimed access, so the flag itself is a false positive. The routine (4A9A6-4A9B2) compares [1382h] with 17E8h, sets BP = 2DB3h and jumps to loc_D092. loc_D092 (4D092) reserves 10h bytes at [1382h], tests [play_flags] bit 0 (4D0A2) to choose the layout, and writes 4 sprites with tiles BP..BP+3 = 2DB3h-2DB6h. sub_C49C is now draw_hearts_sprites, which reads [hearts] at 4C4AD and alternates tiles 2DB3h/2DB4h (4C4B3-4C4CA). So the shared tiles are only the first pair, and the inputs were missing play_flags.",
    "claims": {
     "ram": [
@@ -10666,7 +10669,7 @@
    "name": "coll_01_34_heart_pickup",
    "basis": "reviewed",
    "confidence": "medium",
-   "executed": "no",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -10678,10 +10681,11 @@
    },
    "static_issues": [],
    "runtime_confirmed": [
-    "13E0"
+    "13E0",
+    "13E8"
    ],
    "runtime_unobserved": [],
-   "verification": "static-consistent"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:A9E6",
@@ -11036,7 +11040,7 @@
    "name": "save_block_record_vision_clear",
    "basis": "reviewed",
    "confidence": "medium",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -11072,7 +11076,7 @@
     "14B8"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:AEDF",
@@ -11260,7 +11264,7 @@
    "name": "checkpoint_save",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -11280,7 +11284,7 @@
     "13E3"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:B11A",
@@ -11312,7 +11316,7 @@
    "name": "vision_exit_press_up",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "no",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -11323,16 +11327,19 @@
     "routines": []
    },
    "static_issues": [],
-   "runtime_confirmed": [],
+   "runtime_confirmed": [
+    "1392",
+    "1398"
+   ],
    "runtime_unobserved": [],
-   "verification": "static-consistent"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:B180",
    "name": "warp_point_hold_right",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -11360,14 +11367,14 @@
     "13FE"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:B1D3",
    "name": "warp_point_hold_left",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -11395,7 +11402,7 @@
     "13FE"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:B225",
@@ -12750,12 +12757,11 @@
    },
    "static_issues": [],
    "runtime_confirmed": [
+    "1398",
     "13D0"
    ],
-   "runtime_unobserved": [
-    "1398"
-   ],
-   "verification": "runtime-partial"
+   "runtime_unobserved": [],
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:C6BA",
@@ -13139,7 +13145,7 @@
    "name": "obj3f_update_count_up_60",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [],
@@ -13149,7 +13155,7 @@
    "static_issues": [],
    "runtime_confirmed": [],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:D4FC",
@@ -13194,7 +13200,7 @@
    "name": "obj3f_draw_burst_and_orbit",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "no",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [],
@@ -13204,14 +13210,14 @@
    "static_issues": [],
    "runtime_confirmed": [],
    "runtime_unobserved": [],
-   "verification": "static-consistent"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:D55C",
    "name": "obj3f_draw_orbit",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -13225,7 +13231,7 @@
     "1382"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:D5C2",
@@ -14799,7 +14805,7 @@
    "name": "snd_voice_stop_if_active",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -14813,7 +14819,7 @@
     "0264"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:E7B7",
