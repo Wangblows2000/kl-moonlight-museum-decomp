@@ -46,3 +46,55 @@ jobs:
           grep -q "python build.py extract" out.txt
       - name: Test suite (ROM / gamedata / emulator tests skip)
         run: python -m pytest -q -rs tests
+
+  player-build:
+    # Builds the minimal Windows player (emu/player) from source: the GPL-2.0+ Mednafen
+    # WonderSwan core at a pinned commit + player.c, cross-compiled with Zig.  No game data.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Tools
+        run: |
+          sudo apt-get update && sudo apt-get install -y nasm
+          python -m pip install ziglang==0.13.0
+      - name: Core (beetle-wswan-libretro, pinned)
+        run: |
+          git clone https://github.com/libretro/beetle-wswan-libretro core
+          git -C core checkout 4b01295838ea89e3f1355bbe4cb5cf98aa6108cd
+      - name: Build player (Linux self-test binary + Windows exe)
+        run: sh emu/player/build.sh core both
+      - name: Linux self-test on the homebrew test ROM
+        run: |
+          nasm -f bin -o build/player/test.ws emu/player/testrom.asm
+          build/player/klonoa-player --selftest build/player/test.ws 300 build/player/test.ppm
+      - name: Package
+        run: |
+          mkdir -p dist
+          cp build/player/klonoa-player.exe build/player/test.ws dist/
+          cp LICENSE dist/LICENSE-GPL-3.0.txt
+          cp core/COPYING dist/COPYING-beetle-wswan-GPL-2.0.txt
+          cp THIRD_PARTY_NOTICES.md dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: klonoa-player-windows
+          path: dist/
+
+  player-windows-smoke:
+    needs: player-build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: klonoa-player-windows
+          path: dist
+      - name: Run the player headless on the test ROM
+        shell: pwsh
+        working-directory: dist
+        run: |
+          $p = Start-Process -FilePath .\klonoa-player.exe -ArgumentList '--selftest','test.ws','300','out.ppm' -Wait -PassThru
+          Get-Content selftest.log
+          if ($p.ExitCode -ne 0) { throw "selftest exit code $($p.ExitCode)" }
+          if (-not (Test-Path out.ppm)) { throw "no screenshot written" }
