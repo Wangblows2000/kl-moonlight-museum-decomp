@@ -3,8 +3,14 @@
 ; then hand-annotated names come from tools/symbols.py.  Do not edit by hand:
 ; edit symbols.py / hints.py and regenerate.
 
+game_state           equ 0x1380
+vblank_line          equ 0x1386
 
-sub_0000:
+
+; read_keypad [high]
+; Scans the three key groups via port B5h (select 10h/20h/40h, NOP settle delay, read
+; low nibble) and assembles the pressed-key word.  Called from both VBlank handlers.
+read_keypad:
     push ax                                  ; 40000
     push dx                                  ; 40001
     rr xor, dx, dx                           ; 40002
@@ -118,24 +124,27 @@ loc_009B:
     mov ds,ax                                ; 400C3
     mov byte [0x262],0x81                    ; 400C5
     call sub_DE51                            ; 400CA
-    call sub_DE8D                            ; 400CD
+    call sound_tick                          ; 400CD
     cli                                      ; 400D0
     or byte [0x1398],0x80                    ; 400D1
-    mov word [0x1380],0x0                    ; 400D6
-    jmp near loc_0229                        ; 400DC
+    mov word [game_state],0x0                ; 400D6
+    jmp near main_loop                       ; 400DC
 loc_00DF:
     pop dx                                   ; 400DF
     pop ax                                   ; 400E0
     ret                                      ; 400E1
 
-irq_00E2:
+; irq_vblank_boot [high]
+; VBlank handler installed by hw_init (vector 26h = base 20h + 6).  Clears [1386h],
+; reads keys, writes port 14h=1 (LCD on), acknowledges VBlank (B6h <- 40h).
+irq_vblank_boot:
     pusha                                    ; 400E2
     push ds                                  ; 400E3
     push es                                  ; 400E4
     rr xor, ax, ax                           ; 400E5
     mov ds,ax                                ; 400E7
-    mov [0x1386],al                          ; 400E9
-    call sub_0000                            ; 400EC
+    mov [vblank_line],al                     ; 400E9
+    call read_keypad                         ; 400EC
     mov ax,0x1                               ; 400EF
     out 0x14,ax                              ; 400F2
     mov al,0x40                              ; 400F4
@@ -145,14 +154,19 @@ irq_00E2:
     popa                                     ; 400FA
     iret                                     ; 400FB
 
-irq_00FC:
+; irq_hblank_timer_ack [high]
+; Vector 27h (HBlank timer).  Only acknowledges the interrupt (B6h <- 80h).
+irq_hblank_timer_ack:
     push ax                                  ; 400FC
     mov al,0x80                              ; 400FD
     out 0xb6,al                              ; 400FF
     pop ax                                   ; 40101
     iret                                     ; 40102
 
-sub_0103:
+; sprite_table_init [high]
+; Sprite attribute table base = 0Bh * 200h = RAM 1600h (port 04h); first sprite and
+; sprite count (05h/06h) = 0.  The stack top (SP = 1600h) sits just below this table.
+sprite_table_init:
     push ax                                  ; 40103
     mov al,0xb                               ; 40104
     out 0x4,al                               ; 40106
@@ -165,12 +179,12 @@ sub_0103:
 sub_0110:
     rr xor, ax, ax                           ; 40110
     mov ds,ax                                ; 40112
-    mov [0x1380],ax                          ; 40114
+    mov [game_state],ax                      ; 40114
     mov [0x1382],ax                          ; 40117
     mov [0x1384],al                          ; 4011A
     mov [0x1398],al                          ; 4011D
     mov [0x1385],al                          ; 40120
-    mov [0x1386],al                          ; 40123
+    mov [vblank_line],al                     ; 40123
     mov [0x1387],al                          ; 40126
     mov [0x1388],ax                          ; 40129
     mov [0x138a],ax                          ; 4012C
@@ -180,7 +194,11 @@ sub_0110:
     mov [0x139c],ax                          ; 40138
     ret                                      ; 4013B
 
-sub_013C:
+; hw_init [high]
+; Zeroes display/palette/sound registers, sets LCD shade table (1Ch/1Eh), timers
+; (A2h/A4h/A6h), interrupt base B0h = 20h, installs irq_vblank_boot at 0:0098h and
+; irq_hblank_timer_ack at 0:009Ch, enables VBlank+HBlank-timer interrupts (B2h = C0h).
+hw_init:
     mov al,0x31                              ; 4013C
     out 0x7,al                               ; 4013E
     mov ax,0x6420                            ; 40140
@@ -224,7 +242,7 @@ sub_013C:
     out 0x94,al                              ; 4018E
     out 0x90,al                              ; 40190
     out 0x91,al                              ; 40192
-    call sub_0103                            ; 40194
+    call sprite_table_init                   ; 40194
     call sub_0110                            ; 40197
     rr xor, ax, ax                           ; 4019A
     mov ds,ax                                ; 4019C
@@ -237,12 +255,12 @@ sub_013C:
     rr xor, ax, ax                           ; 401AC
     mov ds,ax                                ; 401AE
     mov bx,0x98                              ; 401B0
-    mov word [bx],irq_00E2                   ; 401B3
+    mov word [bx],irq_vblank_boot            ; 401B3
     mov word [bx+0x2],0x4000                 ; 401B7
     rr xor, ax, ax                           ; 401BC
     mov ds,ax                                ; 401BE
     mov bx,0x9c                              ; 401C0
-    mov word [bx],irq_00FC                   ; 401C3
+    mov word [bx],irq_hblank_timer_ack       ; 401C3
     mov word [bx+0x2],0x4000                 ; 401C7
     mov al,0x20                              ; 401CC
     out 0xb0,al                              ; 401CE
@@ -252,7 +270,12 @@ sub_013C:
     out 0xb2,al                              ; 401D6
     ret                                      ; 401D8
 
-entry_01D9:
+; reset [high]
+; Entry from the cartridge footer (EA D9 01 00 40).  Clears registers and RAM 0100h-
+; 3FFFh, calls hw_init, maps ROM bank 2 at segment 2000h (C2h = F2h), bank 3 at 3000h
+; (C3h = F3h), SRAM bank FFh (C1h), initialises subsystems, sets game_state = 8 and
+; falls into main_loop.
+reset:
     cli                                      ; 401D9
     cld                                      ; 401DA
     rr xor, ax, ax                           ; 401DB
@@ -268,7 +291,7 @@ entry_01D9:
     mov cx,0x1f80                            ; 401F1
     rr xor, ax, ax                           ; 401F4
     rep stosw                                ; 401F6
-    call sub_013C                            ; 401F8
+    call hw_init                             ; 401F8
     mov al,0xf2                              ; 401FB
     out 0xc2,al                              ; 401FD
     mov al,0xf3                              ; 401FF
@@ -280,15 +303,19 @@ entry_01D9:
     pusha                                    ; 4020B
     call sub_AC60                            ; 4020C
     popa                                     ; 4020F
-    call sub_F2BE                            ; 40210
-    call sub_DD40                            ; 40213
+    call sram_check_signature                ; 40210
+    call sound_init                          ; 40213
     call sub_DE51                            ; 40216
     rr xor, ax, ax                           ; 40219
     mov ds,ax                                ; 4021B
-    mov [0x1386],al                          ; 4021D
-    mov word [0x1380],0x8                    ; 40220
-    jmp near loc_0229                        ; 40226
-loc_0229:
+    mov [vblank_line],al                     ; 4021D
+    mov word [game_state],0x8                ; 40220
+    jmp near main_loop                       ; 40226
+
+; main_loop [high]
+; Re-establishes banks and SP, then dispatches through game_state_table using the word
+; at [1380h] (game_state).  State handlers jump back here when they change state.
+main_loop:
     mov al,0xf2                              ; 40229
     out 0xc2,al                              ; 4022B
     mov al,0xf3                              ; 4022D
@@ -297,9 +324,9 @@ loc_0229:
     rr xor, ax, ax                           ; 40234
     out 0xc1,al                              ; 40236
     mov ds,ax                                ; 40238
-    mov bx,[0x1380]                          ; 4023A
+    mov bx,[game_state]                      ; 4023A
     shl bx,1                                 ; 4023E
-    mov ax,[cs:bx+tbl_B5A2]                  ; 40240
+    mov ax,[cs:bx+game_state_table]          ; 40240
     jmp ax                                   ; 40245
     db 0xE9,0xDF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 40247
 
@@ -308,7 +335,7 @@ sub_0250:
     mov byte [0x274],0x1                     ; 40251
     mov byte [0x275],0x4                     ; 40256
     mov si,0x2                               ; 4025B
-    call sub_086A                            ; 4025E
+    call install_game_vblank                 ; 4025E
     call sub_DE51                            ; 40261
     popa                                     ; 40264
     ret                                      ; 40265
@@ -458,12 +485,12 @@ irq_0376:
     push es                                  ; 40378
     rr xor, ax, ax                           ; 40379
     mov ds,ax                                ; 4037B
-    mov [0x1386],al                          ; 4037D
+    mov [vblank_line],al                     ; 4037D
     mov al,[0x139e]                          ; 40380
     out 0x12,al                              ; 40383
     mov al,[0x139f]                          ; 40385
     out 0x13,al                              ; 40388
-    call sub_0000                            ; 4038A
+    call read_keypad                         ; 4038A
     rr xor, ax, ax                           ; 4038D
     out 0x5,al                               ; 4038F
     mov ax,[0x1382]                          ; 40391
@@ -473,11 +500,11 @@ irq_0376:
     out 0x6,al                               ; 4039B
     mov word [0x1382],0x1600                 ; 4039D
     pusha                                    ; 403A3
-    call sub_DE8D                            ; 403A4
+    call sound_tick                          ; 403A4
     popa                                     ; 403A7
     rr xor, ax, ax                           ; 403A8
     in al,0x2                                ; 403AA
-    mov [0x1386],al                          ; 403AC
+    mov [vblank_line],al                     ; 403AC
     mov al,0x40                              ; 403AF
     out 0xb6,al                              ; 403B1
     pop es                                   ; 403B3
@@ -524,7 +551,7 @@ irq_03F0:
     and bx,0x1                               ; 403FB
     shl bx,1                                 ; 403FF
     call [cs:bx+tbl_03EC]                    ; 40401
-    call sub_0000                            ; 40406
+    call read_keypad                         ; 40406
     mov bl,[0x13b4]                          ; 40409
     and bx,0x1                               ; 4040D
     shl bx,1                                 ; 40411
@@ -547,11 +574,11 @@ loc_0429:
 loc_043D:
     call sub_5DA6                            ; 4043D
 loc_0440:
-    call sub_DE8D                            ; 40440
+    call sound_tick                          ; 40440
     mov al,0x40                              ; 40443
     out 0xb6,al                              ; 40445
     in al,0x2                                ; 40447
-    mov [0x1386],al                          ; 40449
+    mov [vblank_line],al                     ; 40449
     pop es                                   ; 4044C
     pop ds                                   ; 4044D
     popa                                     ; 4044E
@@ -703,7 +730,11 @@ irq_0538:
     iret                                     ; 4055E
     db 0x60,0x1E,0x06,0x33,0xC0,0x8E,0xD8,0x07,0x1F,0x61,0xCF   ; 4055F
 
-sub_056A:
+; objects_update [high]
+; Walks 40 (28h) object slots of 20h bytes at RAM 0300h.  For each live slot (type byte
+; != 0 and not suspended by bit 1 of byte +1), calls the per-type update handler from the
+; 64-entry near-pointer table at ROM 8:01EAh (ES = 8000h).
+objects_update:
     pusha                                    ; 4056A
     mov ax,0x8000                            ; 4056B
     mov es,ax                                ; 4056E
@@ -885,7 +916,12 @@ tbl_06D2:
     dw sub_05AE
     dw h_063B
 
-sub_06D6:
+; objects_collide [high]
+; Pairwise object collision.  For player (0300h+0C0h) vs every slot, then other groups,
+; looks up a hit radius in the 64x64 word matrix at 7:9870h and a callback in the 64x64
+; near-pointer matrix at 7:B870h (row = type A, column = type B; 0 = no interaction) and
+; calls it when |dx|+|dy| is within range.
+objects_collide:
     pusha                                    ; 406D6
     mov ax,0x7000                            ; 406D7
     mov es,ax                                ; 406DA
@@ -1065,16 +1101,20 @@ loc_084E:
     popa                                     ; 4084E
     ret                                      ; 4084F
 
-irq_0850:
+; irq_vblank_game [high]
+; In-game VBlank handler (installed by install_game_vblank).  Reads keys, stores the
+; current scanline (port 02h) in [1386h] - non-zero means "VBlank happened" for the HLT
+; wait loops - runs sound_tick, acknowledges VBlank.
+irq_vblank_game:
     pusha                                    ; 40850
     push ds                                  ; 40851
     push es                                  ; 40852
     rr xor, ax, ax                           ; 40853
     mov ds,ax                                ; 40855
-    call sub_0000                            ; 40857
+    call read_keypad                         ; 40857
     in al,0x2                                ; 4085A
-    mov [0x1386],al                          ; 4085C
-    call sub_DE8D                            ; 4085F
+    mov [vblank_line],al                     ; 4085C
+    call sound_tick                          ; 4085F
     mov al,0x40                              ; 40862
     out 0xb6,al                              ; 40864
     pop es                                   ; 40866
@@ -1082,12 +1122,15 @@ irq_0850:
     popa                                     ; 40868
     iret                                     ; 40869
 
-sub_086A:
+; install_game_vblank [medium]
+; Installs irq_vblank_game at vector 26h, then saves the eight palette registers
+; 30h-3Eh and runs a fade sequence (see body).
+install_game_vblank:
     pusha                                    ; 4086A
     rr xor, ax, ax                           ; 4086B
     mov ds,ax                                ; 4086D
     mov bx,0x98                              ; 4086F
-    mov word [bx],irq_0850                   ; 40872
+    mov word [bx],irq_vblank_game            ; 40872
     mov word [bx+0x2],0x4000                 ; 40876
     rr xor, ax, ax                           ; 4087B
     mov ds,ax                                ; 4087D
@@ -1115,7 +1158,7 @@ sub_086A:
 loc_08A1:
     rr xor, ax, ax                           ; 408A1
     mov ds,ax                                ; 408A3
-    mov [0x1386],al                          ; 408A5
+    mov [vblank_line],al                     ; 408A5
     pusha                                    ; 408A8
     rr mov, ax, di                           ; 408A9
     and ax,0x7                               ; 408AB
@@ -1141,7 +1184,7 @@ loc_08D0:
     ja short loc_08E2                        ; 408D4
 loc_08D6:
     hlt                                      ; 408D6
-    cmp byte [0x1386],0x0                    ; 408D7
+    cmp byte [vblank_line],0x0               ; 408D7
     jz short loc_08D6                        ; 408DC
     inc di                                   ; 408DE
     jmp near loc_08A1                        ; 408DF
@@ -1272,21 +1315,21 @@ sub_0DC8:
     mov bp,[es:bx+0x1399]                    ; 40DE6
     mov di,0x34c0                            ; 40DEB
     mov si,0x3e00                            ; 40DEE
-    call sub_C760                            ; 40DF1
+    call bpe_expand                          ; 40DF1
     mov bp,[es:bx+0x13a5]                    ; 40DF4
     mov di,0x3a10                            ; 40DF9
     mov si,0x3e00                            ; 40DFC
-    call sub_C760                            ; 40DFF
+    call bpe_expand                          ; 40DFF
     jmp near loc_0E21                        ; 40E02
 loc_0E05:
     mov bp,[es:bx+0x13a1]                    ; 40E05
     mov di,0x3a10                            ; 40E0A
     mov si,0x3e00                            ; 40E0D
-    call sub_C760                            ; 40E10
+    call bpe_expand                          ; 40E10
     mov bp,[es:bx+0x139d]                    ; 40E13
     mov di,0x34c0                            ; 40E18
     mov si,0x3e00                            ; 40E1B
-    call sub_C760                            ; 40E1E
+    call bpe_expand                          ; 40E1E
 loc_0E21:
     pop di                                   ; 40E21
     pop ax                                   ; 40E22
@@ -1317,7 +1360,7 @@ loc_0E46:
 loc_0E54:
     rr xor, ax, ax                           ; 40E54
     mov ds,ax                                ; 40E56
-    mov [0x1386],al                          ; 40E58
+    mov [vblank_line],al                     ; 40E58
     mov dx,[0x1388]                          ; 40E5B
     call sub_BFD6                            ; 40E5F
     mov [0x1390],dx                          ; 40E62
@@ -1405,7 +1448,7 @@ loc_0F45:
     jnz short loc_0F58                       ; 40F4B
 loc_0F4D:
     hlt                                      ; 40F4D
-    cmp byte [0x1386],0x0                    ; 40F4E
+    cmp byte [vblank_line],0x0               ; 40F4E
     jz short loc_0F4D                        ; 40F53
     jmp near loc_0E54                        ; 40F55
 loc_0F58:
@@ -1497,8 +1540,8 @@ h_1005:
     and al,0x7                               ; 41021
     and byte [0x14b8],0xf8                   ; 41023
     or [0x14b8],al                           ; 41028
-    mov word [0x1380],0x2                    ; 4102C
-    jmp near loc_0229                        ; 41032
+    mov word [game_state],0x2                ; 4102C
+    jmp near main_loop                       ; 41032
 h_1035:
     call sub_DE51                            ; 41035
     or byte [0x1398],0x40                    ; 41038
@@ -1577,7 +1620,7 @@ loc_10D1:
 loc_10DB:
     mov di,0x34c0                            ; 410DB
     mov si,0x3e00                            ; 410DE
-    call sub_C760                            ; 410E1
+    call bpe_expand                          ; 410E1
     pop ax                                   ; 410E4
     out 0xc2,al                              ; 410E5
     test bx,bx                               ; 410E7
@@ -1616,7 +1659,7 @@ sub_1106:
     mov bp,[es:di+0x86d]                     ; 41123
     mov di,0x3bf0                            ; 41128
     mov si,0x3e00                            ; 4112B
-    call sub_C760                            ; 4112E
+    call bpe_expand                          ; 4112E
     pop ax                                   ; 41131
     out 0xc2,al                              ; 41132
     pop es                                   ; 41134
@@ -1697,13 +1740,13 @@ loc_11C3:
     mov ax,0x33                              ; 411C3
     call sub_DD97                            ; 411C6
     rr xor, si, si                           ; 411C9
-    call sub_086A                            ; 411CB
+    call install_game_vblank                 ; 411CB
     call sub_C370                            ; 411CE
     call sub_1051                            ; 411D1
     rr xor, ax, ax                           ; 411D4
     mov ds,ax                                ; 411D6
     mov bx,0x98                              ; 411D8
-    mov word [bx],irq_0850                   ; 411DB
+    mov word [bx],irq_vblank_game            ; 411DB
     mov word [bx+0x2],0x4000                 ; 411DF
     mov al,0x50                              ; 411E4
     out 0xb6,al                              ; 411E6
@@ -1730,7 +1773,7 @@ loc_120F:
 loc_1216:
     rr xor, ax, ax                           ; 41216
     mov ds,ax                                ; 41218
-    mov [0x1386],al                          ; 4121A
+    mov [vblank_line],al                     ; 4121A
     mov dx,[0x1388]                          ; 4121D
     call sub_BFD6                            ; 41221
     mov [0x1390],dx                          ; 41224
@@ -1847,7 +1890,7 @@ loc_133D:
     jmp near loc_1364                        ; 4134B
 loc_134E:
     hlt                                      ; 4134E
-    cmp byte [0x1386],0x0                    ; 4134F
+    cmp byte [vblank_line],0x0               ; 4134F
     jz short loc_134E                        ; 41354
     mov ax,0x2f                              ; 41356
     out 0x0,ax                               ; 41359
@@ -1857,7 +1900,7 @@ loc_135E:
     call sub_DD97                            ; 41361
 loc_1364:
     rr xor, si, si                           ; 41364
-    call sub_086A                            ; 41366
+    call install_game_vblank                 ; 41366
     mov word [0x1382],0x1600                 ; 41369
     call sub_031B                            ; 4136F
     mov byte [0x13fd],0x0                    ; 41372
@@ -1872,10 +1915,10 @@ loc_138F:
     mov byte [0x262],0x81                    ; 4138F
     rr xor, ax, ax                           ; 41394
     mov ds,ax                                ; 41396
-    mov byte [0x1386],0x0                    ; 41398
+    mov byte [vblank_line],0x0               ; 41398
 loc_139D:
     hlt                                      ; 4139D
-    cmp byte [0x1386],0x0                    ; 4139E
+    cmp byte [vblank_line],0x0               ; 4139E
     jz short loc_139D                        ; 413A3
     rr xor, ax, ax                           ; 413A5
     mov ds,ax                                ; 413A7
@@ -2213,8 +2256,8 @@ loc_1674:
 loc_1680:
     rr xor, ax, ax                           ; 41680
     mov ds,ax                                ; 41682
-    mov [0x1386],al                          ; 41684
-    call sub_056A                            ; 41687
+    mov [vblank_line],al                     ; 41684
+    call objects_update                      ; 41687
     mov bl,[0x1398]                          ; 4168A
     and bx,0x1                               ; 4168E
     shl bx,1                                 ; 41692
@@ -2295,7 +2338,7 @@ loc_173A:
     mov dx,[0x1388]                          ; 4174F
 loc_1753:
     hlt                                      ; 41753
-    cmp byte [0x1386],0x0                    ; 41754
+    cmp byte [vblank_line],0x0               ; 41754
     jz short loc_1753                        ; 41759
     mov ax,[0x138e]                          ; 4175B
     cmp ax,0xea60                            ; 4175E
@@ -2308,7 +2351,7 @@ loc_176A:
     call sub_DE51                            ; 41771
     cli                                      ; 41774
     mov si,0x1                               ; 41775
-    call sub_086A                            ; 41778
+    call install_game_vblank                 ; 41778
     and byte [0x1399],0x3f                   ; 4177B
     rr mov, bx, bp                           ; 41780
     rr mov, ax, bx                           ; 41782
@@ -2329,23 +2372,23 @@ loc_176A:
     rr xor, ax, ax                           ; 417A6
     mov [0x13fe],ax                          ; 417A8
     out 0x0,ax                               ; 417AB
-    mov word [0x1380],0x9                    ; 417AD
+    mov word [game_state],0x9                ; 417AD
     call sub_AD25                            ; 417B3
     or byte [0x1399],0x4                     ; 417B6
-    jmp near loc_0229                        ; 417BB
+    jmp near main_loop                       ; 417BB
 loc_17BE:
     and byte [0x1399],0xfb                   ; 417BE
-    mov word [0x1380],0xc                    ; 417C3
+    mov word [game_state],0xc                ; 417C3
     rr xor, ax, ax                           ; 417C9
     out 0x0,ax                               ; 417CB
-    jmp near loc_0229                        ; 417CD
+    jmp near main_loop                       ; 417CD
 loc_17D0:
     and byte [0x1399],0xfb                   ; 417D0
     rr xor, ax, ax                           ; 417D5
     mov [0x13fe],ax                          ; 417D7
-    mov word [0x1380],0x10                   ; 417DA
+    mov word [game_state],0x10               ; 417DA
     out 0x0,ax                               ; 417E0
-    jmp near loc_0229                        ; 417E2
+    jmp near main_loop                       ; 417E2
 h_17E5:
     call sub_1480                            ; 417E5
     mov al,0x4                               ; 417E8
@@ -2360,7 +2403,7 @@ h_17E5:
 loc_1800:
     rr xor, ax, ax                           ; 41800
     mov ds,ax                                ; 41802
-    mov [0x1386],al                          ; 41804
+    mov [vblank_line],al                     ; 41804
     call sub_EC00                            ; 41807
     push ax                                  ; 4180A
     mov ax,[0x1382]                          ; 4180B
@@ -2374,7 +2417,7 @@ loc_1800:
     jnz short loc_1835                       ; 41824
 loc_1826:
     hlt                                      ; 41826
-    cmp byte [0x1386],0x0                    ; 41827
+    cmp byte [vblank_line],0x0               ; 41827
     jz short loc_1826                        ; 4182C
     inc word [0x138e]                        ; 4182E
     jmp near loc_1800                        ; 41832
@@ -2398,14 +2441,14 @@ loc_1835:
     and ax,0xf00                             ; 4185A
     cmp ax,0x100                             ; 4185D
     jz short loc_186B                        ; 41860
-    mov word [0x1380],0x3                    ; 41862
-    jmp near loc_0229                        ; 41868
+    mov word [game_state],0x3                ; 41862
+    jmp near main_loop                       ; 41868
 loc_186B:
-    mov word [0x1380],0x9                    ; 4186B
-    jmp near loc_0229                        ; 41871
+    mov word [game_state],0x9                ; 4186B
+    jmp near main_loop                       ; 41871
 loc_1874:
-    mov word [0x1380],0x13                   ; 41874
-    jmp near loc_0229                        ; 4187A
+    mov word [game_state],0x13               ; 41874
+    jmp near main_loop                       ; 4187A
 h_187D:
     call sub_1480                            ; 4187D
     mov al,0x4                               ; 41880
@@ -2416,12 +2459,12 @@ h_187D:
 loc_188D:
     rr xor, ax, ax                           ; 4188D
     mov ds,ax                                ; 4188F
-    mov byte [0x1386],0x0                    ; 41891
+    mov byte [vblank_line],0x0               ; 41891
     call sub_F86B                            ; 41896
     test ax,ax                               ; 41899
     jnz short loc_18D6                       ; 4189B
     mov ax,[0x138c]                          ; 4189D
-    call sub_056A                            ; 418A0
+    call objects_update                      ; 418A0
     mov bl,[0x1398]                          ; 418A3
     and bx,0x1                               ; 418A7
     shl bx,1                                 ; 418AB
@@ -2434,7 +2477,7 @@ loc_188D:
     mov word [0x1382],0x1600                 ; 418BE
 loc_18C4:
     hlt                                      ; 418C4
-    cmp byte [0x1386],0x0                    ; 418C5
+    cmp byte [vblank_line],0x0               ; 418C5
     jz short loc_18C4                        ; 418CA
     mov ax,[0x138e]                          ; 418CC
     inc ax                                   ; 418CF
@@ -2449,8 +2492,8 @@ loc_18DB:
     rr xor, ax, ax                           ; 418DF
     out 0x0,ax                               ; 418E1
     mov ds,ax                                ; 418E3
-    mov word [0x1380],0x2                    ; 418E5
-    jmp near loc_0229                        ; 418EB
+    mov word [game_state],0x2                ; 418E5
+    jmp near main_loop                       ; 418EB
 h_18EE:
     call sub_1480                            ; 418EE
     mov al,0x4                               ; 418F1
@@ -2466,11 +2509,11 @@ loc_1904:
 loc_1908:
     rr xor, ax, ax                           ; 41908
     mov ds,ax                                ; 4190A
-    mov byte [0x1386],0x0                    ; 4190C
+    mov byte [vblank_line],0x0               ; 4190C
     call sub_F60B                            ; 41911
     test ax,ax                               ; 41914
     jnz short loc_194B                       ; 41916
-    call sub_056A                            ; 41918
+    call objects_update                      ; 41918
     mov bl,[0x1398]                          ; 4191B
     and bx,0x1                               ; 4191F
     shl bx,1                                 ; 41923
@@ -2483,7 +2526,7 @@ loc_1908:
     mov word [0x1382],0x1600                 ; 41936
 loc_193C:
     hlt                                      ; 4193C
-    cmp byte [0x1386],0x0                    ; 4193D
+    cmp byte [vblank_line],0x0               ; 4193D
     jz short loc_193C                        ; 41942
     inc word [0x138e]                        ; 41944
     jmp near loc_1908                        ; 41948
@@ -2497,16 +2540,16 @@ loc_194B:
     rr xor, ax, ax                           ; 4195B
     out 0x0,ax                               ; 4195D
     mov ds,ax                                ; 4195F
-    mov word [0x1380],0x2                    ; 41961
-    jmp near loc_0229                        ; 41967
+    mov word [game_state],0x2                ; 41961
+    jmp near main_loop                       ; 41967
 loc_196A:
     call sub_0250                            ; 4196A
     cli                                      ; 4196D
     rr xor, ax, ax                           ; 4196E
     out 0x0,ax                               ; 41970
     mov ds,ax                                ; 41972
-    mov word [0x1380],0x0                    ; 41974
-    jmp near loc_0229                        ; 4197A
+    mov word [game_state],0x0                ; 41974
+    jmp near main_loop                       ; 4197A
 loc_197D:
     and byte [0x1399],0xf3                   ; 4197D
     call sub_0250                            ; 41982
@@ -2514,8 +2557,8 @@ loc_197D:
     rr xor, ax, ax                           ; 41986
     out 0x0,ax                               ; 41988
     mov ds,ax                                ; 4198A
-    mov word [0x1380],0xa                    ; 4198C
-    jmp near loc_0229                        ; 41992
+    mov word [game_state],0xa                ; 4198C
+    jmp near main_loop                       ; 41992
 h_1995:
     call sub_1480                            ; 41995
     mov al,0x4                               ; 41998
@@ -2566,8 +2609,8 @@ h_1995:
 loc_1A1B:
     rr xor, ax, ax                           ; 41A1B
     mov ds,ax                                ; 41A1D
-    mov [0x1386],al                          ; 41A1F
-    call sub_056A                            ; 41A22
+    mov [vblank_line],al                     ; 41A1F
+    call objects_update                      ; 41A22
     call sub_05AE                            ; 41A25
     test word [0x1388],0x10                  ; 41A28
     jz short loc_1A35                        ; 41A2E
@@ -2603,7 +2646,7 @@ loc_1A76:
     jnz short loc_1AA7                       ; 41A8E
 loc_1A90:
     hlt                                      ; 41A90
-    cmp byte [0x1386],0x0                    ; 41A91
+    cmp byte [vblank_line],0x0               ; 41A91
     jz short loc_1A90                        ; 41A96
     mov ax,[0x138e]                          ; 41A98
     inc ax                                   ; 41A9B
@@ -2617,8 +2660,8 @@ loc_1AA7:
     rr xor, ax, ax                           ; 41AAB
     mov ds,ax                                ; 41AAD
     mov word [0x13fe],0xffff                 ; 41AAF
-    mov word [0x1380],0x9                    ; 41AB5
-    jmp near loc_0229                        ; 41ABB
+    mov word [game_state],0x9                ; 41AB5
+    jmp near main_loop                       ; 41ABB
 h_1ABE:
     mov ax,[0x13fe]                          ; 41ABE
     and ax,0xf000                            ; 41AC1
@@ -2627,11 +2670,11 @@ h_1ABE:
     mov [0x12d8],ax                          ; 41ACA
     cmp ax,0x1101                            ; 41ACD
     jz short loc_1ADB                        ; 41AD0
-    mov word [0x1380],0xb                    ; 41AD2
-    jmp near loc_0229                        ; 41AD8
+    mov word [game_state],0xb                ; 41AD2
+    jmp near main_loop                       ; 41AD8
 loc_1ADB:
-    mov word [0x1380],0x9                    ; 41ADB
-    jmp near loc_0229                        ; 41AE1
+    mov word [game_state],0x9                ; 41ADB
+    jmp near main_loop                       ; 41AE1
 h_1AE4:
     cli                                      ; 41AE4
     rr xor, ax, ax                           ; 41AE5
@@ -2657,8 +2700,8 @@ h_1AE4:
     call sub_DE51                            ; 41B17
     rr xor, ax, ax                           ; 41B1A
     out 0x0,ax                               ; 41B1C
-    mov word [0x1380],0xa                    ; 41B1E
-    jmp near loc_0229                        ; 41B24
+    mov word [game_state],0xa                ; 41B1E
+    jmp near main_loop                       ; 41B24
 loc_1B27:
     mov al,[0x14a7]                          ; 41B27
     test al,al                               ; 41B2A
@@ -2669,8 +2712,8 @@ loc_1B35:
     call sub_DE51                            ; 41B35
     rr xor, ax, ax                           ; 41B38
     out 0x0,ax                               ; 41B3A
-    mov word [0x1380],0x3                    ; 41B3C
-    jmp near loc_0229                        ; 41B42
+    mov word [game_state],0x3                ; 41B3C
+    jmp near main_loop                       ; 41B42
 loc_1B45:
     rr mov, cx, dx                           ; 41B45
     and cx,0xf00                             ; 41B47
@@ -2687,20 +2730,20 @@ loc_1B5A:
     add bx,byte +0x6                         ; 41B63
     loop loc_1B5A                            ; 41B66
     mov si,0x1                               ; 41B68
-    call sub_086A                            ; 41B6B
+    call install_game_vblank                 ; 41B6B
     call sub_DE51                            ; 41B6E
     cli                                      ; 41B71
     rr xor, ax, ax                           ; 41B72
     out 0x0,ax                               ; 41B74
-    mov word [0x1380],0xa                    ; 41B76
-    jmp near loc_0229                        ; 41B7C
+    mov word [game_state],0xa                ; 41B76
+    jmp near main_loop                       ; 41B7C
 loc_1B7F:
     add bx,byte +0x2                         ; 41B7F
     mov ax,[es:bx-0x1221]                    ; 41B82
     mov [0x13c0],ax                          ; 41B87
     add bx,byte +0x2                         ; 41B8A
     mov ax,[es:bx-0x1221]                    ; 41B8D
-    mov [0x1380],ax                          ; 41B92
+    mov [game_state],ax                      ; 41B92
     call sub_1480                            ; 41B95
     mov al,0x4                               ; 41B98
     out 0x15,al                              ; 41B9A
@@ -2730,8 +2773,8 @@ loc_1B7F:
 loc_1BD5:
     rr xor, ax, ax                           ; 41BD5
     mov ds,ax                                ; 41BD7
-    mov byte [0x1386],0x0                    ; 41BD9
-    call sub_056A                            ; 41BDE
+    mov byte [vblank_line],0x0               ; 41BD9
+    call objects_update                      ; 41BDE
     mov bl,[0x1398]                          ; 41BE1
     and bx,0x1                               ; 41BE5
     shl bx,1                                 ; 41BE9
@@ -2755,7 +2798,7 @@ loc_1C10:
     mov word [0x1382],0x1600                 ; 41C1C
 loc_1C22:
     hlt                                      ; 41C22
-    cmp byte [0x1386],0x0                    ; 41C23
+    cmp byte [vblank_line],0x0               ; 41C23
     jz short loc_1C22                        ; 41C28
     mov ax,[0x138e]                          ; 41C2A
     inc ax                                   ; 41C2D
@@ -2772,7 +2815,7 @@ loc_1C3E:
     cli                                      ; 41C41
     mov ax,[0x13fe]                          ; 41C42
     mov [0x12d8],ax                          ; 41C45
-    jmp near loc_0229                        ; 41C48
+    jmp near main_loop                       ; 41C48
 
 sub_1C4B:
     pusha                                    ; 41C4B
@@ -2887,7 +2930,7 @@ sub_1D1C:
     shl bx,1                                 ; 41D3C
     mov bp,[word es:bx+0x0]                  ; 41D3E
     mov si,0x1000                            ; 41D43
-    call sub_C760                            ; 41D46
+    call bpe_expand                          ; 41D46
     mov ax,[0x13fe]                          ; 41D49
     rr mov, al, ah                           ; 41D4C
     shr ax,byte 0x4                          ; 41D4E
@@ -2916,7 +2959,7 @@ sub_1D82:
     mov ax,0x3000                            ; 41D82
     mov es,ax                                ; 41D85
     mov si,0x1000                            ; 41D87
-    call sub_C760                            ; 41D8A
+    call bpe_expand                          ; 41D8A
     ret                                      ; 41D8D
 
 sub_1D8E:
@@ -3156,8 +3199,8 @@ h_1F92:
 loc_1FC3:
     rr xor, ax, ax                           ; 41FC3
     mov ds,ax                                ; 41FC5
-    mov [0x1386],al                          ; 41FC7
-    call sub_056A                            ; 41FCA
+    mov [vblank_line],al                     ; 41FC7
+    call objects_update                      ; 41FCA
     mov bl,[0x1398]                          ; 41FCD
     and bx,0x1                               ; 41FD1
     shl bx,1                                 ; 41FD5
@@ -3209,7 +3252,7 @@ loc_2050:
     jnz short loc_2074                       ; 42056
 loc_2058:
     hlt                                      ; 42058
-    cmp byte [0x1386],0x0                    ; 42059
+    cmp byte [vblank_line],0x0               ; 42059
     jz short loc_2058                        ; 4205E
     mov ax,0x7                               ; 42060
     out 0x0,ax                               ; 42063
@@ -3226,8 +3269,8 @@ loc_2074:
     call sub_0250                            ; 4207E
     rr xor, ax, ax                           ; 42081
     mov ds,ax                                ; 42083
-    mov word [0x1380],0x2                    ; 42085
-    jmp near loc_0229                        ; 4208B
+    mov word [game_state],0x2                ; 42085
+    jmp near main_loop                       ; 4208B
 h_208E:
     call sub_1480                            ; 4208E
     mov al,0x40                              ; 42091
@@ -3268,8 +3311,8 @@ h_208E:
 loc_20F2:
     rr xor, ax, ax                           ; 420F2
     mov ds,ax                                ; 420F4
-    mov byte [0x1386],0x0                    ; 420F6
-    call sub_056A                            ; 420FB
+    mov byte [vblank_line],0x0               ; 420F6
+    call objects_update                      ; 420FB
     mov bl,[0x1398]                          ; 420FE
     and bx,0x1                               ; 42102
     shl bx,1                                 ; 42106
@@ -3332,7 +3375,7 @@ loc_2189:
     jnz short loc_21BD                       ; 421A4
 loc_21A6:
     hlt                                      ; 421A6
-    cmp byte [0x1386],0x0                    ; 421A7
+    cmp byte [vblank_line],0x0               ; 421A7
     jz short loc_21A6                        ; 421AC
     mov ax,[0x138e]                          ; 421AE
     inc ax                                   ; 421B1
@@ -3345,8 +3388,8 @@ loc_21BD:
     cli                                      ; 421C0
     rr xor, ax, ax                           ; 421C1
     mov ds,ax                                ; 421C3
-    mov word [0x1380],0x9                    ; 421C5
-    jmp near loc_0229                        ; 421CB
+    mov word [game_state],0x9                ; 421C5
+    jmp near main_loop                       ; 421CB
 h_21CE:
     rr xor, ax, ax                           ; 421CE
     mov ds,ax                                ; 421D0
@@ -3358,13 +3401,13 @@ h_21CE:
     and ah,0xf                               ; 421E0
     cmp ah,0x6                               ; 421E3
     jz short loc_21FE                        ; 421E6
-    mov word [0x1380],0xb                    ; 421E8
+    mov word [game_state],0xb                ; 421E8
     mov ax,[0x13fe]                          ; 421EE
     inc ah                                   ; 421F1
     mov al,0x1                               ; 421F3
     mov [0x13fe],ax                          ; 421F5
     mov [0x12d8],ax                          ; 421F8
-    jmp near loc_0229                        ; 421FB
+    jmp near main_loop                       ; 421FB
 loc_21FE:
     or byte [0x1399],0x80                    ; 421FE
 loc_2203:
@@ -3376,15 +3419,15 @@ loc_2203:
     cmp ax,0x1101                            ; 42212
     jz short loc_2224                        ; 42215
 loc_2217:
-    mov word [0x1380],0xb                    ; 42217
+    mov word [game_state],0xb                ; 42217
     rr xor, ax, ax                           ; 4221D
     out 0x0,ax                               ; 4221F
-    jmp near loc_0229                        ; 42221
+    jmp near main_loop                       ; 42221
 loc_2224:
-    mov word [0x1380],0x9                    ; 42224
+    mov word [game_state],0x9                ; 42224
     rr xor, ax, ax                           ; 4222A
     out 0x0,ax                               ; 4222C
-    jmp near loc_0229                        ; 4222E
+    jmp near main_loop                       ; 4222E
     db 0x90   ; 42231
 
 sub_2232:
@@ -3529,12 +3572,12 @@ loc_236C:
 loc_239B:
     rr xor, ax, ax                           ; 4239B
     mov ds,ax                                ; 4239D
-    mov [0x1386],al                          ; 4239F
-    call sub_056A                            ; 423A2
+    mov [vblank_line],al                     ; 4239F
+    call objects_update                      ; 423A2
     call sub_05AE                            ; 423A5
 loc_23A8:
     hlt                                      ; 423A8
-    cmp byte [0x1386],0x0                    ; 423A9
+    cmp byte [vblank_line],0x0               ; 423A9
     jz short loc_23A8                        ; 423AE
     mov ax,[0x138e]                          ; 423B0
     inc ax                                   ; 423B3
@@ -3564,7 +3607,7 @@ loc_23E5:
     mov [0x1390],ax                          ; 423ED
     mov [0x1392],ax                          ; 423F0
     mov si,0x1                               ; 423F3
-    call sub_086A                            ; 423F6
+    call install_game_vblank                 ; 423F6
     popa                                     ; 423F9
     ret                                      ; 423FA
     db 0x00,0x08,0x28,0x04,0x40,0x1C,0x0C,0x00,0x00,0x20,0x00,0x42,0x00,0x04   ; 423FB
@@ -3628,8 +3671,8 @@ loc_248B:
     call sub_F332                            ; 424AA
     rr xor, ax, ax                           ; 424AD
     mov ds,ax                                ; 424AF
-    mov word [0x1380],0x4                    ; 424B1
-    jmp near loc_0229                        ; 424B7
+    mov word [game_state],0x4                ; 424B1
+    jmp near main_loop                       ; 424B7
 h_24BA:
     rr xor, ax, ax                           ; 424BA
     out 0x0,ax                               ; 424BC
@@ -3711,8 +3754,8 @@ loc_258B:
     call sub_C4DE                            ; 4258E
     rr xor, ax, ax                           ; 42591
     mov ds,ax                                ; 42593
-    mov word [0x1380],0x1                    ; 42595
-    jmp near loc_0229                        ; 4259B
+    mov word [game_state],0x1                ; 42595
+    jmp near main_loop                       ; 4259B
 
 ; jump table tbl_259E: 4 words, bound: hint (first use at 425D7)
 tbl_259E:
@@ -3766,8 +3809,8 @@ h_25A6:
 loc_2613:
     mov ax,[0x13fe]                          ; 42613
     mov [0x12d8],ax                          ; 42616
-    mov word [0x1380],0x4                    ; 42619
-    jmp near loc_0229                        ; 4261F
+    mov word [game_state],0x4                ; 42619
+    jmp near main_loop                       ; 4261F
 h_2622:
     push ax                                  ; 42622
     rr xor, ax, ax                           ; 42623
@@ -3776,10 +3819,10 @@ h_2622:
     out 0x6,al                               ; 42629
     mov word [0x1382],0x1600                 ; 4262B
     call sub_B11A                            ; 42631
-    mov word [0x1380],0x4                    ; 42634
+    mov word [game_state],0x4                ; 42634
     call sub_1C4B                            ; 4263A
     pop ax                                   ; 4263D
-    jmp near loc_0229                        ; 4263E
+    jmp near main_loop                       ; 4263E
 h_2641:
     call sub_DE51                            ; 42641
     call sub_1480                            ; 42644
@@ -3821,8 +3864,8 @@ loc_2691:
     mov [0x1442],ax                          ; 426AA
     mov [0x1440],ax                          ; 426AD
     mov ds,ax                                ; 426B0
-    mov word [0x1380],0x4                    ; 426B2
-    jmp near loc_0229                        ; 426B8
+    mov word [game_state],0x4                ; 426B2
+    jmp near main_loop                       ; 426B8
     db 0x90   ; 426BB
 
 sub_26BC:
@@ -4010,8 +4053,8 @@ loc_2840:
 loc_288E:
     rr xor, ax, ax                           ; 4288E
     mov ds,ax                                ; 42890
-    mov byte [0x1386],0x0                    ; 42892
-    call sub_056A                            ; 42897
+    mov byte [vblank_line],0x0               ; 42892
+    call objects_update                      ; 42897
     mov bl,[0x1398]                          ; 4289A
     and bx,0x1                               ; 4289E
     shl bx,1                                 ; 428A2
@@ -4053,7 +4096,7 @@ loc_28FD:
     mov word [0x1382],0x1600                 ; 42909
 loc_290F:
     hlt                                      ; 4290F
-    cmp byte [0x1386],0x0                    ; 42910
+    cmp byte [vblank_line],0x0               ; 42910
     jz short loc_290F                        ; 42915
     mov ax,[0x138e]                          ; 42917
     inc ax                                   ; 4291A
@@ -4067,8 +4110,8 @@ loc_2921:
     mov ds,ax                                ; 42929
     cmp byte [0x13e1],0x0                    ; 4292B
     jl short loc_293B                        ; 42930
-    mov word [0x1380],0x6                    ; 42932
-    jmp near loc_0229                        ; 42938
+    mov word [game_state],0x6                ; 42932
+    jmp near main_loop                       ; 42938
 loc_293B:
     cmp byte [0x1384],0x0                    ; 4293B
     jnz short loc_2957                       ; 42940
@@ -4076,11 +4119,11 @@ loc_293B:
     mov di,0x1480                            ; 42945
     mov cx,0x1d                              ; 42948
     call sub_F302                            ; 4294B
-    mov word [0x1380],0x2                    ; 4294E
-    jmp near loc_0229                        ; 42954
+    mov word [game_state],0x2                ; 4294E
+    jmp near main_loop                       ; 42954
 loc_2957:
-    mov word [0x1380],0x11                   ; 42957
-    jmp near loc_0229                        ; 4295D
+    mov word [game_state],0x11               ; 42957
+    jmp near main_loop                       ; 4295D
 h_2960:
     call sub_1480                            ; 42960
     mov al,0x40                              ; 42963
@@ -4123,8 +4166,8 @@ h_2960:
 loc_29C2:
     rr xor, ax, ax                           ; 429C2
     mov ds,ax                                ; 429C4
-    mov byte [0x1386],0x0                    ; 429C6
-    call sub_056A                            ; 429CB
+    mov byte [vblank_line],0x0               ; 429C6
+    call objects_update                      ; 429CB
     mov bl,[0x1398]                          ; 429CE
     and bx,0x1                               ; 429D2
     shl bx,1                                 ; 429D6
@@ -4152,7 +4195,7 @@ loc_2A05:
     mov word [0x1382],0x1600                 ; 42A19
 loc_2A1F:
     hlt                                      ; 42A1F
-    cmp byte [0x1386],0x0                    ; 42A20
+    cmp byte [vblank_line],0x0               ; 42A20
     jz short loc_2A1F                        ; 42A25
     mov ax,[0x138e]                          ; 42A27
     inc ax                                   ; 42A2A
@@ -4167,8 +4210,8 @@ loc_2A36:
     cli                                      ; 42A3D
     rr xor, ax, ax                           ; 42A3E
     mov ds,ax                                ; 42A40
-    mov word [0x1380],0x0                    ; 42A42
-    jmp near loc_0229                        ; 42A48
+    mov word [game_state],0x0                ; 42A42
+    jmp near main_loop                       ; 42A48
 h_2A4B:
     mov byte [0x1385],0x0                    ; 42A4B
     mov ax,0x4                               ; 42A50
@@ -4183,15 +4226,15 @@ h_2A4B:
 loc_2A68:
     mov word [0x1394],0x1ff                  ; 42A68
     sti                                      ; 42A6E
-    mov byte [0x1386],0x0                    ; 42A6F
+    mov byte [vblank_line],0x0               ; 42A6F
 loc_2A74:
     hlt                                      ; 42A74
-    cmp byte [0x1386],0x0                    ; 42A75
+    cmp byte [vblank_line],0x0               ; 42A75
     jz short loc_2A74                        ; 42A7A
 loc_2A7C:
     rr xor, ax, ax                           ; 42A7C
     mov ds,ax                                ; 42A7E
-    mov [0x1386],al                          ; 42A80
+    mov [vblank_line],al                     ; 42A80
     mov [0x1384],al                          ; 42A83
     mov dx,[0x1388]                          ; 42A86
     call sub_BFD6                            ; 42A8A
@@ -4212,8 +4255,8 @@ loc_2AB3:
 loc_2ABD:
     call sub_C49C                            ; 42ABD
     inc word [0x138e]                        ; 42AC0
-    call sub_056A                            ; 42AC4
-    call sub_06D6                            ; 42AC7
+    call objects_update                      ; 42AC4
+    call objects_collide                     ; 42AC7
     call sub_4C96                            ; 42ACA
     mov di,0x3c0                             ; 42ACD
     mov al,[0x13b4]                          ; 42AD0
@@ -4247,10 +4290,10 @@ loc_2ADD:
     cmp al,0x3c                              ; 42B28
     jc short loc_2B7F                        ; 42B2A
 loc_2B2C:
-    mov byte [0x1386],0x0                    ; 42B2C
+    mov byte [vblank_line],0x0               ; 42B2C
 loc_2B31:
     hlt                                      ; 42B31
-    cmp byte [0x1386],0x0                    ; 42B32
+    cmp byte [vblank_line],0x0               ; 42B32
     jz short loc_2B31                        ; 42B37
     mov ax,0x2f                              ; 42B39
     out 0x0,ax                               ; 42B3C
@@ -4265,22 +4308,22 @@ loc_2B41:
     test al,0x40                             ; 42B4E
     jnz short loc_2B72                       ; 42B50
 loc_2B52:
-    mov word [0x1380],0x5                    ; 42B52
-    jmp near loc_0229                        ; 42B58
+    mov word [game_state],0x5                ; 42B52
+    jmp near main_loop                       ; 42B58
 loc_2B5B:
     call sub_DE51                            ; 42B5B
     call sub_3B5E                            ; 42B5E
     cli                                      ; 42B61
     rr xor, ax, ax                           ; 42B62
     mov ds,ax                                ; 42B64
-    mov word [0x1380],0x7                    ; 42B66
+    mov word [game_state],0x7                ; 42B66
     call sub_AD5F                            ; 42B6C
-    jmp near loc_0229                        ; 42B6F
+    jmp near main_loop                       ; 42B6F
 loc_2B72:
     call sub_0250                            ; 42B72
     cli                                      ; 42B75
-    mov word [0x1380],0x6                    ; 42B76
-    jmp near loc_0229                        ; 42B7C
+    mov word [game_state],0x6                ; 42B76
+    jmp near main_loop                       ; 42B7C
 loc_2B7F:
     call sub_DE51                            ; 42B7F
     call sub_2762                            ; 42B82
@@ -4292,8 +4335,8 @@ loc_2B7F:
     mov word [0x1382],0x1600                 ; 42B90
     rr xor, ax, ax                           ; 42B96
     mov ds,ax                                ; 42B98
-    mov word [0x1380],0xd                    ; 42B9A
-    jmp near loc_0229                        ; 42BA0
+    mov word [game_state],0xd                ; 42B9A
+    jmp near main_loop                       ; 42BA0
 
 sub_2BA3:
     push cx                                  ; 42BA3
@@ -4322,7 +4365,7 @@ irq_2BE4:
     rr xor, ax, ax                           ; 42BE5
     mov ds,ax                                ; 42BE7
     in al,0x2                                ; 42BE9
-    mov [0x1386],al                          ; 42BEB
+    mov [vblank_line],al                     ; 42BEB
     rr mov, dx, bp                           ; 42BEE
     shl dx,1                                 ; 42BF0
     rr mov, si, di                           ; 42BF2
@@ -4346,7 +4389,7 @@ loc_2C02:
     add di,byte +0x40                        ; 42C25
     and di,0x7c0                             ; 42C28
     loop loc_2C02                            ; 42C2C
-    call sub_DE8D                            ; 42C2E
+    call sound_tick                          ; 42C2E
     mov al,0x40                              ; 42C31
     out 0xb6,al                              ; 42C33
     popa                                     ; 42C35
@@ -4377,10 +4420,10 @@ h_2C37:
     rr mov, di, ax                           ; 42C6E
     rr mov, si, di                           ; 42C70
 loc_2C72:
-    mov byte [0x1386],0x0                    ; 42C72
+    mov byte [vblank_line],0x0               ; 42C72
 loc_2C77:
     hlt                                      ; 42C77
-    cmp byte [0x1386],0x0                    ; 42C78
+    cmp byte [vblank_line],0x0               ; 42C78
     jz short loc_2C77                        ; 42C7D
     rr mov, ax, bp                           ; 42C7F
     and ax,0x3                               ; 42C81
@@ -4706,10 +4749,10 @@ irq_2F67:
     rr xor, ax, ax                           ; 42F68
     mov ds,ax                                ; 42F6A
     pusha                                    ; 42F6C
-    call sub_DE8D                            ; 42F6D
+    call sound_tick                          ; 42F6D
     popa                                     ; 42F70
     in al,0x2                                ; 42F71
-    mov [0x1386],al                          ; 42F73
+    mov [vblank_line],al                     ; 42F73
     cmp bp,byte +0x20                        ; 42F76
     ja short loc_2FBD                        ; 42F79
     rr mov, ax, bp                           ; 42F7B
@@ -5110,10 +5153,10 @@ loc_3059:
     rr mov, ax, ax                           ; 43325
     out 0x3e,ax                              ; 43327
 loc_3329:
-    mov byte [0x1386],0x0                    ; 43329
+    mov byte [vblank_line],0x0               ; 43329
 loc_332E:
     hlt                                      ; 4332E
-    cmp byte [0x1386],0x0                    ; 4332F
+    cmp byte [vblank_line],0x0               ; 4332F
     jz short loc_332E                        ; 43334
     cmp bp,byte +0x46                        ; 43336
     jz short loc_333F                        ; 43339
@@ -5127,10 +5170,10 @@ irq_3341:
     rr xor, ax, ax                           ; 43341
     mov ds,ax                                ; 43343
     pusha                                    ; 43345
-    call sub_DE8D                            ; 43346
+    call sound_tick                          ; 43346
     popa                                     ; 43349
     in al,0x2                                ; 4334A
-    mov [0x1386],al                          ; 4334C
+    mov [vblank_line],al                     ; 4334C
     cmp bp,byte +0x15                        ; 4334F
     ja short loc_3377                        ; 43352
     mov cx,0x10                              ; 43354
@@ -5504,10 +5547,10 @@ loc_33F3:
     rr mov, ax, ax                           ; 436BF
     out 0x3e,ax                              ; 436C1
 loc_36C3:
-    mov byte [0x1386],0x0                    ; 436C3
+    mov byte [vblank_line],0x0               ; 436C3
 loc_36C8:
     hlt                                      ; 436C8
-    cmp byte [0x1386],0x0                    ; 436C9
+    cmp byte [vblank_line],0x0               ; 436C9
     jz short loc_36C8                        ; 436CE
     cmp bp,byte +0x32                        ; 436D0
     jz short loc_36D9                        ; 436D3
@@ -5524,10 +5567,10 @@ irq_36DB:
     rr xor, ax, ax                           ; 436DE
     mov ds,ax                                ; 436E0
     pusha                                    ; 436E2
-    call sub_DE8D                            ; 436E3
+    call sound_tick                          ; 436E3
     popa                                     ; 436E6
     in al,0x2                                ; 436E7
-    mov [0x1386],al                          ; 436E9
+    mov [vblank_line],al                     ; 436E9
     and bp,0x3f                              ; 436EC
     rr mov, ax, bp                           ; 436F0
     rr mov, cx, ax                           ; 436F2
@@ -5889,10 +5932,10 @@ loc_376C:
     rr mov, ax, ax                           ; 43A38
     out 0x3e,ax                              ; 43A3A
 loc_3A3C:
-    mov byte [0x1386],0x0                    ; 43A3C
+    mov byte [vblank_line],0x0               ; 43A3C
 loc_3A41:
     hlt                                      ; 43A41
-    cmp byte [0x1386],0x0                    ; 43A42
+    cmp byte [vblank_line],0x0               ; 43A42
     jz short loc_3A41                        ; 43A47
     cmp bp,byte +0x30                        ; 43A49
     jz short loc_3A52                        ; 43A4C
@@ -5909,10 +5952,10 @@ irq_3A54:
     rr xor, ax, ax                           ; 43A57
     mov ds,ax                                ; 43A59
     pusha                                    ; 43A5B
-    call sub_DE8D                            ; 43A5C
+    call sound_tick                          ; 43A5C
     popa                                     ; 43A5F
     in al,0x2                                ; 43A60
-    mov [0x1386],al                          ; 43A62
+    mov [vblank_line],al                     ; 43A62
     mov al,0x40                              ; 43A65
     out 0xb6,al                              ; 43A67
     pop es                                   ; 43A69
@@ -6394,10 +6437,10 @@ loc_3E9D:
     inc dx                                   ; 43EA5
     rr sub, ax, dx                           ; 43EA6
     mov [0x1394],ax                          ; 43EA8
-    mov byte [0x1386],0x0                    ; 43EAB
+    mov byte [vblank_line],0x0               ; 43EAB
 loc_3EB0:
     hlt                                      ; 43EB0
-    cmp byte [0x1386],0x0                    ; 43EB1
+    cmp byte [vblank_line],0x0               ; 43EB1
     jz short loc_3EB0                        ; 43EB6
     cmp bp,0xc8                              ; 43EB8
     jz short loc_3EC2                        ; 43EBC
@@ -6418,10 +6461,10 @@ irq_3ECC:
     rr xor, ax, ax                           ; 43ECF
     mov ds,ax                                ; 43ED1
     pusha                                    ; 43ED3
-    call sub_DE8D                            ; 43ED4
+    call sound_tick                          ; 43ED4
     popa                                     ; 43ED7
     in al,0x2                                ; 43ED8
-    mov [0x1386],al                          ; 43EDA
+    mov [vblank_line],al                     ; 43EDA
     mov al,0x40                              ; 43EDD
     out 0xb6,al                              ; 43EDF
     pop es                                   ; 43EE1
@@ -6777,10 +6820,10 @@ loc_41F8:
     mov ax,0x11d3                            ; 44205
     mov [bx+0x1800],ax                       ; 44208
     loop loc_41F8                            ; 4420C
-    mov byte [0x1386],0x0                    ; 4420E
+    mov byte [vblank_line],0x0               ; 4420E
 loc_4213:
     hlt                                      ; 44213
-    cmp byte [0x1386],0x0                    ; 44214
+    cmp byte [vblank_line],0x0               ; 44214
     jz short loc_4213                        ; 44219
     cmp bp,byte +0x60                        ; 4421B
     jz short loc_4224                        ; 4421E
@@ -6924,7 +6967,7 @@ loc_4323:
     mov es,ax                                ; 44329
     mov bp,[0x1330]                          ; 4432B
     mov si,0xc80                             ; 4432F
-    call sub_C760                            ; 44332
+    call bpe_expand                          ; 44332
 loc_4335:
     mov di,0xc80                             ; 44335
     rr xor, ch, ch                           ; 44338
@@ -19685,11 +19728,14 @@ loc_B59A:
     pop ax                                   ; 4B59B
     ret                                      ; 4B59C
     db 0xFF,0xFF,0xFF,0xC3   ; 4B59D
-h_B5A1:
+
+; nullsub [high]
+; Single RET shared as the "no handler" entry of the object handler tables in bank 8.
+nullsub:
     ret                                      ; 4B5A1
 
-; jump table tbl_B5A2: 20 words, bound: hint (first use at 40245)
-tbl_B5A2:
+; jump table game_state_table: 20 words, bound: hint (first use at 40245)
+game_state_table:
     dw h_1616
     dw h_2A4B
     dw h_17E5
@@ -20804,10 +20850,10 @@ irq_C27B:
     push es                                  ; 4C27D
     rr xor, ax, ax                           ; 4C27E
     mov ds,ax                                ; 4C280
-    call sub_0000                            ; 4C282
+    call read_keypad                         ; 4C282
     rr xor, ax, ax                           ; 4C285
     in al,0x2                                ; 4C287
-    mov [0x1386],al                          ; 4C289
+    mov [vblank_line],al                     ; 4C289
     mov al,0x40                              ; 4C28C
     out 0xb6,al                              ; 4C28E
     pop es                                   ; 4C290
@@ -20868,8 +20914,8 @@ h_C294:
 loc_C315:
     rr xor, ax, ax                           ; 4C315
     mov ds,ax                                ; 4C317
-    mov [0x1386],al                          ; 4C319
-    call sub_056A                            ; 4C31C
+    mov [vblank_line],al                     ; 4C319
+    call objects_update                      ; 4C31C
     call sub_05AE                            ; 4C31F
     mov ax,[0x1382]                          ; 4C322
     sub ax,0x1600                            ; 4C325
@@ -20883,7 +20929,7 @@ loc_C315:
     jnz short loc_C35A                       ; 4C341
 loc_C343:
     hlt                                      ; 4C343
-    cmp byte [0x1386],0x0                    ; 4C344
+    cmp byte [vblank_line],0x0               ; 4C344
     jz short loc_C343                        ; 4C349
     mov ax,[0x138e]                          ; 4C34B
     inc ax                                   ; 4C34E
@@ -20896,8 +20942,8 @@ loc_C35A:
     rr xor, ax, ax                           ; 4C35B
     mov ds,ax                                ; 4C35D
     out 0x0,ax                               ; 4C35F
-    mov word [0x1380],0x0                    ; 4C361
-    jmp near loc_0229                        ; 4C367
+    mov word [game_state],0x0                ; 4C361
+    jmp near main_loop                       ; 4C367
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 4C36A
 
 sub_C370:
@@ -21379,7 +21425,12 @@ loc_C759:
     ret                                      ; 4C75A
     db 0xFF,0xFF,0xFF,0xFF,0xFF   ; 4C75B
 
-sub_C760:
+; bpe_expand [high]
+; Byte-pair-encoding expander (P. Gage, C/C++ Users Journal 1994 scheme).
+; In: ES:BP = stream, DS:SI = 512-byte pair table work area, DS:DI = output.
+; Stream: dword packed length (incl. 8-byte header), dword unpacked length, then blocks of
+; [pair table][big-endian size][packed bytes].  Ported and validated in tools/bpe.py.
+bpe_expand:
     pusha                                    ; 4C760
     mov ax,[es:bp+0x0]                       ; 4C761
     rr mov, dx, bp                           ; 4C765
@@ -23695,7 +23746,11 @@ loc_DD25:
     ret                                      ; 4DD3D
     db 0xFF,0xFF   ; 4DD3E
 
-sub_DD40:
+; sound_init [medium]
+; Silences channel volumes (88h/8Ah), clears sound work RAM 0100h-02FFh, sets sound
+; control (90h = 2Fh, 91h = 0Bh), copies 64 bytes of wave data from bank 5 (pointer at
+; 5000:0000) to RAM 0280h and sets wave base 8Fh = 0Ah (0280h / 40h).
+sound_init:
     push ds                                  ; 4DD40
     rr xor, ax, ax                           ; 4DD41
     out 0x88,ax                              ; 4DD43
@@ -23852,7 +23907,10 @@ sub_DE51:
     pop ax                                   ; 4DE8B
     ret                                      ; 4DE8C
 
-sub_DE8D:
+; sound_tick [medium]
+; Per-frame sound driver update called from irq_vblank_game; sequence data in bank 5
+; (DS = 5000h), channel work areas at RAM 0100h+, command dispatch via tables DF5F/DF8A.
+sound_tick:
     rr xor, ax, ax                           ; 4DE8D
     mov es,ax                                ; 4DE8F
     mov si,0x260                             ; 4DE91
@@ -24768,11 +24826,11 @@ loc_E718:
     sub al,[es:si+0x15]                      ; 4E721
     jc short loc_E72E                        ; 4E725
     mov [es:si+0x16],al                      ; 4E727
-    jmp near sub_DE8D                        ; 4E72B
+    jmp near sound_tick                      ; 4E72B
 loc_E72E:
     mov byte [es:si+0x16],0x0                ; 4E72E
     mov byte [es:si+0x14],0x0                ; 4E733
-    jmp near sub_DE8D                        ; 4E738
+    jmp near sound_tick                      ; 4E738
 h_E73B:
     mov al,[es:si+0x16]                      ; 4E73B
     sub al,[es:si+0x15]                      ; 4E73F
@@ -24937,7 +24995,7 @@ sub_EA06:
 loc_EA10:
     push bx                                  ; 4EA10
     rr mov, bx, si                           ; 4EA11
-    call 0x4000:sub_EB82                     ; 4EA13
+    call 0x4000:ieep_read_word               ; 4EA13
     pop bx                                   ; 4EA18
     mov ax,0x2                               ; 4EA19
     rr cmp, dx, bx                           ; 4EA1C
@@ -24966,7 +25024,7 @@ sub_EA31:
     mov bx,0x0                               ; 4EA39
     jmp short loc_EA48                       ; 4EA3C
 loc_EA3E:
-    call 0x4000:sub_EB82                     ; 4EA3E
+    call 0x4000:ieep_read_word               ; 4EA3E
     mov [si],dx                              ; 4EA43
     inc bx                                   ; 4EA45
     inc si                                   ; 4EA46
@@ -25036,7 +25094,7 @@ loc_EAAD:
     jmp short loc_EABE                       ; 4EAB2
 loc_EAB4:
     mov dx,[si]                              ; 4EAB4
-    call 0x4000:sub_EBAF                     ; 4EAB6
+    call 0x4000:ieep_write_word              ; 4EAB6
     inc bx                                   ; 4EABB
     inc si                                   ; 4EABC
     inc si                                   ; 4EABD
@@ -25056,7 +25114,7 @@ sub_EAC8:
     push si                                  ; 4EACB
     rr xor, ax, ax                           ; 4EACC
     mov bx,0x0                               ; 4EACE
-    call 0x4000:sub_EB82                     ; 4EAD1
+    call 0x4000:ieep_read_word               ; 4EAD1
     rr mov, al, dl                           ; 4EAD6
     mov cx,0x1                               ; 4EAD8
     mov si,0x1                               ; 4EADB
@@ -25068,7 +25126,7 @@ sub_EAC8:
 loc_EAE7:
     inc bx                                   ; 4EAE7
     push ax                                  ; 4EAE8
-    call 0x4000:sub_EB82                     ; 4EAE9
+    call 0x4000:ieep_read_word               ; 4EAE9
     pop ax                                   ; 4EAEE
     inc si                                   ; 4EAEF
     rr cmp, al, dl                           ; 4EAF0
@@ -25084,7 +25142,7 @@ loc_EAF8:
 loc_EB01:
     inc bx                                   ; 4EB01
     push ax                                  ; 4EB02
-    call 0x4000:sub_EB82                     ; 4EB03
+    call 0x4000:ieep_read_word               ; 4EB03
     pop ax                                   ; 4EB08
     inc si                                   ; 4EB09
     rr cmp, al, dl                           ; 4EB0A
@@ -25100,7 +25158,7 @@ loc_EB12:
 loc_EB1B:
     inc bx                                   ; 4EB1B
     push ax                                  ; 4EB1C
-    call 0x4000:sub_EB82                     ; 4EB1D
+    call 0x4000:ieep_read_word               ; 4EB1D
     pop ax                                   ; 4EB22
     inc si                                   ; 4EB23
     rr cmp, al, dl                           ; 4EB24
@@ -25127,7 +25185,7 @@ loc_EB38:
     rr mov, si, dx                           ; 4EB3E
     mov cx,0x5                               ; 4EB40
 loc_EB43:
-    call 0x4000:sub_EB82                     ; 4EB43
+    call 0x4000:ieep_read_word               ; 4EB43
     mov [si],dx                              ; 4EB48
     inc bx                                   ; 4EB4A
     inc si                                   ; 4EB4B
@@ -25152,12 +25210,12 @@ loc_EB60:
     add bx,byte +0x6                         ; 4EB60
     loop loc_EB60                            ; 4EB63
     rr mov, dx, ax                           ; 4EB65
-    call 0x4000:sub_EBAF                     ; 4EB67
+    call 0x4000:ieep_write_word              ; 4EB67
     inc bx                                   ; 4EB6C
     mov cx,0x5                               ; 4EB6D
 loc_EB70:
     mov dx,[si]                              ; 4EB70
-    call 0x4000:sub_EBAF                     ; 4EB72
+    call 0x4000:ieep_write_word              ; 4EB72
     inc bx                                   ; 4EB77
     inc si                                   ; 4EB78
     inc si                                   ; 4EB79
@@ -25169,7 +25227,11 @@ loc_EB70:
     pop ax                                   ; 4EB80
     ret                                      ; 4EB81
 
-sub_EB82:
+; ieep_read_word [high]
+; Far routine.  Reads word BX (< 40h) of the console's internal 93C46-type EEPROM:
+; BCh = 180h | addr (start bit + READ opcode), BEh = 10h, poll BEh bit 0 up to 32 times,
+; data from BAh.  Returns AX = 0 and DX = data, AX = 1 bad address, AX = 2 timeout.
+ieep_read_word:
     push bx                                  ; 4EB82
     mov ax,0x1                               ; 4EB83
     cmp bx,byte +0x40                        ; 4EB86
@@ -25195,7 +25257,12 @@ loc_EBAD:
     pop bx                                   ; 4EBAD
     retf                                     ; 4EBAE
 
-sub_EBAF:
+; ieep_write_word [high]
+; Far routine.  Writes DX to word BX (< 40h) of the internal EEPROM: BCh = 140h | addr
+; (start bit + WRITE opcode), BAh = data, BEh = 20h, polls BEh bit 1 (up to 1600h tries).
+; On timeout writes 40h to port C8h (cartridge EEPROM control) and delays - purpose on
+; this SRAM cartridge is an OPEN QUESTION.
+ieep_write_word:
     push dx                                  ; 4EBAF
     push bx                                  ; 4EBB0
     mov ax,0x1                               ; 4EBB1
@@ -25728,7 +25795,7 @@ sub_F148:
     mov di,0x2010                            ; 4F163
     mov es,ax                                ; 4F166
     mov si,0xc80                             ; 4F168
-    call sub_C760                            ; 4F16B
+    call bpe_expand                          ; 4F16B
     mov di,0x2000                            ; 4F16E
     mov cx,0x8                               ; 4F171
     rr xor, ax, ax                           ; 4F174
@@ -25838,7 +25905,7 @@ loc_F25C:
     mov es,ax                                ; 4F277
     mov bp,0xf027                            ; 4F279
     mov si,0xc80                             ; 4F27C
-    call sub_C760                            ; 4F27F
+    call bpe_expand                          ; 4F27F
     mov ax,0x9000                            ; 4F282
     mov es,ax                                ; 4F285
     mov bx,0xfa30                            ; 4F287
@@ -25870,7 +25937,11 @@ sub_F2AE:
     rep movsw                                ; 4F2BB
     ret                                      ; 4F2BD
 
-sub_F2BE:
+; sram_check_signature [high]
+; Compares the 8-byte signature "KLONOA  " (4000:F2FA) with SRAM 1000:0000.  On mismatch
+; writes the signature and clears the following 1F8h bytes.  SRAM bank is selected by
+; port C1h around the access.
+sram_check_signature:
     push ds                                  ; 4F2BE
     pusha                                    ; 4F2BF
     mov ax,0x4000                            ; 4F2C0
@@ -25899,6 +25970,7 @@ loc_F2F3:
     popa                                     ; 4F2F7
     pop ds                                   ; 4F2F8
     ret                                      ; 4F2F9
+sram_signature:
     db 0x4B,0x4C,0x4F,0x4E,0x4F,0x41,0x20,0x20   ; 4F2FA
 
 sub_F302:
@@ -26080,7 +26152,7 @@ loc_F43A:
     mov es,ax                                ; 4F470
     mov bp,0xa6b0                            ; 4F472
     mov si,0xc80                             ; 4F475
-    call sub_C760                            ; 4F478
+    call bpe_expand                          ; 4F478
     mov ax,0x9000                            ; 4F47B
     mov es,ax                                ; 4F47E
     mov bx,0xfa40                            ; 4F480

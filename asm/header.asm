@@ -1,7 +1,7 @@
 ; WonderSwan cartridge footer (file FFFF0h-FFFFFh).  Field meanings per WSdev wiki.
 ; Values verified against the baserom; the checksum is re-verified by tools/verify.py.
 
-    jmp 0x4000:entry_01D9   ; EA D9 01 00 40 - reset vector (CPU starts at FFFF:0000)
+    jmp 0x4000:reset         ; EA D9 01 00 40 - reset vector (CPU starts at FFFF:0000)
     db 0x00                 ; +5 maintenance / boot flags
     db 0x01                 ; +6 publisher: Bandai
     db 0x00                 ; +7 system: 0 = WonderSwan (mono); no Color features required

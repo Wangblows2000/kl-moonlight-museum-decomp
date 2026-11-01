@@ -98,6 +98,8 @@ def rewrite(f, t):
     m = re.match(r'^mov word \[bx\],(0x[0-9a-f]+)$', t)
     if m and 'irq' in labels.get(BANK + int(m.group(1), 16), set()):
         t = 'mov word [bx],%s' % label_name(BANK + int(m.group(1), 16))
+    for addr, nm in SYM.RAM.items():
+        t = re.sub(r'\[(\w\w:)?0x%x\]' % addr, lambda mm: '[%s%s]' % (mm.group(1) or '', nm), t)
     return t, 'plain'
 
 RR_OPS = {0x02: 'add', 0x0A: 'or', 0x12: 'adc', 0x1A: 'sbb', 0x22: 'and', 0x2A: 'sub',
@@ -168,6 +170,8 @@ def main():
             t = t.replace(nm, '0x%04X' % (tf - BANK))
         for off, nm in SYM.NAMES.items():
             t = re.sub(r'\b%s\b' % re.escape(nm), '0x%04X' % off, t)
+        for off, nm in SYM.RAM.items():
+            t = re.sub(r'\b%s\b' % re.escape(nm), '0x%04X' % off, t)
         return t
     bad = check([(f, numeric(t)) for f, t in plain])
     retry = []
@@ -216,6 +220,9 @@ def main():
     out.append('; then hand-annotated names come from tools/symbols.py.  Do not edit by hand:')
     out.append('; edit symbols.py / hints.py and regenerate.')
     out.append('')
+    for addr, nm in sorted(SYM.RAM.items()):
+        out.append('%-20s equ 0x%04X' % (nm, addr))
+    out.append('')
     f = BANK
     end = BANK + 0x10000
     while f < end:
@@ -247,9 +254,9 @@ def main():
             f += 2
         else:
             g = f
-            while g < end and g not in insn and g not in tbl_words and g - f < 16:
+            while g < end and g not in insn and g not in tbl_words and g - f < 16 and (g == f or (g - BANK) not in SYM.NAMES):
                 g += 1
-            if f in labels:
+            if f in labels or (f - BANK) in SYM.NAMES:
                 out.append('%s:' % label_name(f))
             blk = ROM[f:g]
             out.append('    db ' + ','.join('0x%02X' % b for b in blk) + '   ; %05X' % f)
