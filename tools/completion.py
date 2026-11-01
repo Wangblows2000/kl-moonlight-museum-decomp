@@ -78,8 +78,9 @@ metrics = {
         'numerator': cov['static_instructions_executed'], 'denominator': cov['static_instructions'],
         'definition': 'statically traced instructions executed in at least one emulator run',
         'entry_points_executed': '%d / %d (%.1f %%)' % (ran, n_ep, pct(ran, n_ep)),
-        'states': '20/20 reached; 12 naturally (0,1,2,3,4,6,8,9,12,13,16,19), 8 only with fault injection '
-                  '(5,7,10,11,14,15,17,18) - see docs/game-states.md',
+        'states': '20/20 reached; 13 naturally (0,1,2,3,4,5,6,8,9,12,13,16,19), 7 only with fault injection '
+                  '(7,10,11,14,15,17,18) - see docs/game-states.md; all 36 Visions loaded via the museum '
+                  'menu with an unlock fixture',
         'runs': len(cov['runs']),
         'executed_outside_static_trace': len(cov['executed_but_not_in_static_trace'])},
     'reproducible_source_build': {

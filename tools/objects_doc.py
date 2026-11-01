@@ -25,8 +25,8 @@ VISUAL = {
     0x3B: ('invisible controller', 'low', 'live in every world but never on screen'),
 }
 runtime = {}
-for d in sorted(glob.glob(os.path.join(ROOT, 'build', 'runtime', 'atlas_w*'))):
-    wn = d[-1]
+for d in sorted(glob.glob(os.path.join(ROOT, 'build', 'runtime', 'atlas_w*')) + glob.glob(os.path.join(ROOT, 'build', 'runtime', 'visions_v*'))):
+    wn = d[-2] if 'visions_v' in d else d[-1]
     p = os.path.join(d, 'objtypes.txt')
     if not os.path.exists(p):
         continue
