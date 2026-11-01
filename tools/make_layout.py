@@ -55,6 +55,28 @@ for off in sorted(streams) + [FOOTER]:
                     'unpacked_sha1': hashlib.sha1(data).hexdigest(), 'sha1': hashlib.sha1(rom[off:off + used]).hexdigest()})
     pos = off + used
 emit_raw_or_fill(pos, FOOTER)
+# refine with decoded structures (assets/structures.json): cut them out of raw/fill regions
+S = json.load(open(os.path.join(ROOT, 'assets', 'structures.json')))['structures']
+for st in S:
+    a = int(st['offset'], 16); b = a + st['size']
+    new = []
+    for r in regions:
+        ra = int(r['offset'], 16); rb = ra + r['size']
+        if rb <= a or ra >= b or r['type'] == 'bpe':
+            new.append(r)
+            continue
+        assert r['type'] in ('raw', 'fill'), (st, r)
+        for lo, hi in ((ra, a), (b, rb)):
+            lo, hi = max(lo, ra), min(hi, rb)
+            if hi > lo:
+                part = dict(r, offset='%05X' % lo, size=hi - lo)
+                if r['type'] == 'raw':
+                    part['sha1'] = hashlib.sha1(rom[lo:hi]).hexdigest()
+                new.append(part)
+    reg = {k: v for k, v in st.items() if k not in ('confidence',)}
+    reg['sha1'] = hashlib.sha1(rom[a:b]).hexdigest()
+    new.append(reg)
+    regions = sorted(new, key=lambda r: int(r['offset'], 16))
 json.dump({'note': __doc__.strip(), 'code_bank': ['40000', '50000'], 'footer': 'FFFF0', 'regions': regions},
           open(os.path.join(ROOT, 'assets', 'layout.json'), 'w'), indent=0)
 from collections import Counter

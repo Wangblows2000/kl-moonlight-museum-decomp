@@ -38,12 +38,32 @@ static void kt_add_edge(uint32_t from, uint32_t to)
 }
 
 uint32_t kt_frame;                 /* set by the frontend each frame */
+
+/* ROM data-read tracing: per ROM file byte, the linear PC of the first instruction that read
+ * it as data (0xFFFFFFFF = never read) and a read counter.  Instruction fetches are filtered
+ * out (address within 8 bytes of the executing instruction), as are the harness's own peeks. */
+uint32_t kt_rd_first[0x100000];
+uint32_t kt_rd_count[0x100000];
+static uint32_t kt_cur = 0xFFFFFFFF;
+static int kt_peeking;
+
+void kt_read(uint32_t lin, uint32_t file)
+{
+   if (kt_peeking || file >= 0x100000)
+      return;
+   if (lin - kt_cur < 8)            /* instruction fetch (incl. prefixes / immediates) */
+      return;
+   if (kt_rd_count[file]++ == 0)
+      kt_rd_first[file] = kt_cur;
+}
 uint32_t kt_dispatch[1 << 16][2];  /* (frame, game_state) at every main_loop dispatch */
 uint32_t kt_dispatch_n;
 
 void kt_hook(uint32_t lin)
 {
    kt_insn_count++;
+   kt_cur = lin;
+   kt_peeking = 1;
    if (lin == 0x4023A && kt_force_state >= 0) {       /* main_loop: mov bx,[game_state] */
       WSwan_writemem20(0x1380, kt_force_state & 0xFF);
       WSwan_writemem20(0x1381, kt_force_state >> 8);
@@ -72,6 +92,7 @@ void kt_hook(uint32_t lin)
       kt_prev_indirect = (r >= 2 && r <= 5);
    }
    kt_prev = lin;
+   kt_peeking = 0;
 }
 
 void kt_port(uint32_t port, uint8_t v)

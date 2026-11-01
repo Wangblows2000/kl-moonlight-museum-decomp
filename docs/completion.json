@@ -2,9 +2,9 @@
  "rom_sha1": "207a3ceb9a09eabca6e455deeb7035e7e04c9795",
  "complete": false,
  "overall": {
-  "decompiled_bytes": 456071,
+  "decompiled_bytes": 505060,
   "rom_bytes": 1048576,
-  "percent": 43.49,
+  "percent": 48.17,
   "definition": "bytes that are classified AND represented as source, editable data or explained generated padding; 100 % only when this equals 1,048,576 and every metric is 100 %"
  },
  "metrics": {
@@ -31,31 +31,32 @@
    "remaining": "9 role-only/low-confidence, 1 generic, 5 dead-code routines without a behaviour description; reviewed entries are spot-checked, not individually re-verified"
   },
   "data_classification": {
-   "percent": 40.7,
-   "numerator": 400051,
+   "percent": 45.68,
+   "numerator": 449040,
    "denominator": 983024,
    "definition": "data bytes whose class (asset, tiles, table, padding) is established by code or decoding",
    "breakdown": {
-    "unknown": 553092,
+    "unknown": 504103,
     "compressed_asset": 194269,
     "padding": 186944,
     "zero_run": 29881,
-    "table": 18838
+    "table": 18838,
+    "pcm_voice": 48989
    },
-   "remaining": "553092 unknown bytes + 29881 zero-run bytes of unestablished meaning"
+   "remaining": "504103 unknown bytes + 29881 zero-run bytes of unestablished meaning"
   },
   "data_decoding_editable": {
-   "percent": 40.1,
-   "numerator": 394176,
+   "percent": 45.08,
+   "numerator": 443165,
    "denominator": 983024,
    "definition": "data bytes rebuilt from an editable decoded representation (PNG etc.) or generated FFh padding",
    "breakdown": {
-    "opaque": 558967,
-    "editable": 194269,
+    "opaque": 509978,
+    "editable": 243258,
     "generated": 199907,
     "generated_unexplained": 29881
    },
-   "remaining": "558967 opaque bytes (gamedata/raw) + 29881 generated zero-run bytes not yet explained"
+   "remaining": "509978 opaque bytes (gamedata/raw) + 29881 generated zero-run bytes not yet explained"
   },
   "runtime_coverage": {
    "percent": 65.98,
@@ -71,14 +72,14 @@
    "percent_rom_free": 100.0,
    "definition": "share of ROM bytes rebuilt without the original ROM (committed source + gamedata/)",
    "by_representation_bytes": {
-    "opaque": 558967,
-    "editable": 194269,
+    "opaque": 509978,
+    "editable": 243258,
     "generated": 229788,
     "source": 65552
    },
    "by_representation_percent": {
-    "opaque": 53.31,
-    "editable": 18.53,
+    "opaque": 48.64,
+    "editable": 23.2,
     "generated": 21.91,
     "source": 6.25
    },

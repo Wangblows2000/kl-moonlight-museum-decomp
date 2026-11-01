@@ -79,8 +79,11 @@ for r in layout:
             put(a, b, 'padding', 'generated', 'FFh run (erased-flash padding)')
         else:
             put(a, b, 'zero_run', 'generated', '00h run: generated, meaning not established (may be table data)')
-    else:
+    elif r['type'] == 'raw':
         put(a, b, 'unknown', 'opaque', 'raw bytes, not decoded')
+    else:   # decoded structure (assets/structures.json)
+        from assetcodec import CODECS
+        put(a, b, r.get('family', r['type']), CODECS[r['type']].level, r.get('evidence', r['type']))
 # annotations / proven pointer tables refine 'unknown' raw bytes (still opaque representation)
 extra = [(int(x['start'], 16), int(x['end'], 16), x['family'] + ': ' + x['evidence']) for x in ann]
 extra += [(v[0], v[0] + 2 * (v[1] + v[2]), 'pointer table used at %s' % s) for s, v in hints.EXT_TABLES.items()]

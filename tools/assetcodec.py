@@ -145,7 +145,31 @@ class Bpe:
         return compress_stream(data)
 
 
-CODECS = {'fill': Fill(), 'raw': Raw(), 'tiles': Tiles(), 'bpe': Bpe()}
+class Pcm:
+    """8-bit unsigned PCM voice sample -> WAV (mono, 8-bit, rate from params; data bytes verbatim)."""
+    level = 'editable'
+
+    def extract(self, blob, region, outdir):
+        import wave
+        p = os.path.join(outdir, region.get('family', 'pcm'), '%s_%s.wav' % (region['offset'], region.get('name', '')))
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with wave.open(p, 'wb') as wv:
+            wv.setnchannels(1)
+            wv.setsampwidth(1)
+            wv.setframerate(region.get('params', {}).get('rate', 12000))
+            wv.writeframes(blob)
+        return [p]
+
+    def build(self, region, gamedir):
+        import wave
+        p = os.path.join(gamedir, region.get('family', 'pcm'), '%s_%s.wav' % (region['offset'], region.get('name', '')))
+        with wave.open(p, 'rb') as wv:
+            if wv.getsampwidth() != 1 or wv.getnchannels() != 1:
+                raise ValueError('%s: must be 8-bit mono' % p)
+            return wv.readframes(wv.getnframes())
+
+
+CODECS = {'fill': Fill(), 'raw': Raw(), 'tiles': Tiles(), 'bpe': Bpe(), 'pcm': Pcm()}
 
 
 def codec(region):

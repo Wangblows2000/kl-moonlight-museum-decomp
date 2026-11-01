@@ -29,6 +29,7 @@ extern uint32_t kt_port_hist[256][256];
 extern uint64_t kt_insn_count;
 extern uint32_t kt_frame, kt_dispatch[][2], kt_dispatch_n;
 extern int kt_force_state;
+extern uint32_t kt_rd_first[0x100000], kt_rd_count[0x100000];
 
 static const char *outdir;
 static uint16_t held;
@@ -250,6 +251,9 @@ int main(int argc, char **argv)
    fclose(f);
    path(p, "dispatch", ".txt"); f = fopen(p, "w");
    for (uint32_t i = 0; i < kt_dispatch_n; i++) fprintf(f, "%u %u\n", kt_dispatch[i][0], kt_dispatch[i][1]);
+   fclose(f);
+   path(p, "romreads", ".bin"); f = fopen(p, "wb");   /* per ROM byte: u32 first reader PC, u32 count */
+   for (uint32_t i = 0; i < 0x100000; i++) { fwrite(&kt_rd_first[i], 4, 1, f); fwrite(&kt_rd_count[i], 4, 1, f); }
    fclose(f);
    path(p, "objtypes", ".txt"); f = fopen(p, "w");
    for (int t = 1; t < 256; t++) if (atlas_count[t]) fprintf(f, "%02X %ld %ld\n", t, atlas_count[t], atlas_seen[t]);
