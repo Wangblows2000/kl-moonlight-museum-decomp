@@ -34,7 +34,15 @@ baserom-check:
 	  echo "Expected SHA-1 207a3ceb9a09eabca6e455deeb7035e7e04c9795 (see baserom/README.md)."; \
 	  exit 1; fi
 
-$(ROM): $(SOURCES) | baserom-check
+# Data banks: decode assets from the ROM, then rebuild every data byte from assets/layout.json
+build/assets/.stamp: assets/layout.json tools/extract_assets.py tools/bpe.py | baserom-check
+	$(PYTHON) tools/extract_assets.py
+	@touch $@
+
+build/data.bin: build/assets/.stamp tools/build_data.py tools/bpe_gage.py
+	$(PYTHON) tools/build_data.py
+
+$(ROM): $(SOURCES) build/data.bin | baserom-check
 	@mkdir -p build
 	$(NASM) -O0 -f bin -o $@ klonoa.asm
 
@@ -74,8 +82,7 @@ inventory: baserom-check
 	$(PYTHON) tools/scan_bpe.py
 	$(PYTHON) tools/inventory.py
 
-assets: baserom-check
-	$(PYTHON) tools/extract_assets.py
+assets: build/assets/.stamp
 
 clean:
 	rm -rf build
