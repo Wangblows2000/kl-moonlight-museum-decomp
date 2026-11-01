@@ -4,7 +4,7 @@ All 129 byte-pair-encoded streams decode with `tools/bpe.py` (port of `bpe_expan
 
 | family | streams | evidence | description |
 |---|---:|---|---|
-| tileset | 37 | structural | world tiles (bank 9): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision) |
+| tileset | 37 | structural | World 1 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision |
 | hint_sign | 32 | visual | in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes |
 | story_picture | 27 | visual | story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block |
 | menu_label | 10 | visual | menu option label (Japanese text strip), 19 tiles |

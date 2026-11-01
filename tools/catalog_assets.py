@@ -19,8 +19,8 @@ FAMILIES = [
     ((0xF, 234, 12), 'story_picture', 20, 'visual', 'story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block'),
     ((0xF, 113, 0), 'font_hud', 16, 'visual', 'font digits / kana / HUD glyphs'),
 ]
-WORLD_BANK = {0x9: 'world tiles (bank 9)', 0xA: 'world tiles (bank A)', 0xB: 'world tiles (bank B)',
-              0xC: 'world tiles (bank C)', 0xD: 'world tiles (bank D)', 0xE: 'world tiles (bank E)'}
+WORLD_BANK = {0x9: 'World 1 tiles', 0xA: 'World 2 tiles', 0xB: 'World 3 tiles',
+              0xC: 'World 4 tiles', 0xD: 'World 5 tiles', 0xE: 'World EX tiles'}
 
 cat = []
 for s in man:
@@ -32,8 +32,9 @@ for s in man:
             fam = (name, w, ev, desc)
             break
     if fam is None and bank in WORLD_BANK:
-        fam = ('tileset', 16, 'structural', WORLD_BANK[bank] + ': unique 2bpp terrain/object tiles; '
-               'bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)')
+        fam = ('tileset', 16, 'structural', WORLD_BANK[bank] + ': 2bpp terrain/object tiles; world from the '
+               'level directory at 9:0000, whose Vision records for that world point into this bank '
+               '(docs/level-data.md); not yet tied to a specific Vision')
     if fam is None:
         fam = ('unidentified', 16, 'none', 'decodes correctly; content not yet identified')
     cat.append(dict(offset=s['offset'], packed=s['packed'], unpacked=s['unpacked'], tiles=tiles, trailing_bytes=rem,

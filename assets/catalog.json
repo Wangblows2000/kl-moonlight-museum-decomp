@@ -906,7 +906,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank 9): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 1 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -920,7 +920,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank 9): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 1 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -934,7 +934,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank 9): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 1 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -948,7 +948,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank 9): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 1 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -962,7 +962,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank 9): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 1 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -976,7 +976,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank 9): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 1 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -990,7 +990,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank A): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 2 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1004,7 +1004,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank A): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 2 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1018,7 +1018,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank A): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 2 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1032,7 +1032,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank A): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 2 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1046,7 +1046,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank A): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 2 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1060,7 +1060,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank A): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 2 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1074,7 +1074,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank A): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 2 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1088,7 +1088,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank B): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 3 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1102,7 +1102,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank B): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 3 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1116,7 +1116,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank B): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 3 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1130,7 +1130,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank B): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 3 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1144,7 +1144,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank B): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 3 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1158,7 +1158,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank B): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 3 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1172,7 +1172,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank C): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 4 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1186,7 +1186,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank C): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 4 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1200,7 +1200,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank C): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 4 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1214,7 +1214,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank C): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 4 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1228,7 +1228,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank C): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 4 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1242,7 +1242,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank C): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 4 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1256,7 +1256,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank D): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 5 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1270,7 +1270,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank D): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 5 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1284,7 +1284,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank D): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 5 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1298,7 +1298,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank D): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 5 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1312,7 +1312,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank D): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 5 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1326,7 +1326,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank D): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World 5 tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1340,7 +1340,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank E): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World EX tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1354,7 +1354,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank E): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World EX tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1368,7 +1368,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank E): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World EX tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1382,7 +1382,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank E): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World EX tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1396,7 +1396,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank E): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World EX tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
@@ -1410,7 +1410,7 @@
    "family": "tileset",
    "layout_width_tiles": 16,
    "evidence": "structural",
-   "description": "world tiles (bank E): unique 2bpp terrain/object tiles; bank reached through the level directory at 9:0000 (not yet tied to a specific Vision)",
+   "description": "World EX tiles: 2bpp terrain/object tiles; world from the level directory at 9:0000, whose Vision records for that world point into this bank (docs/level-data.md); not yet tied to a specific Vision",
    "decoder": "bpe_expand / tools/bpe.py",
    "encoder": "tools/bpe_gage.py (exact)"
   },
