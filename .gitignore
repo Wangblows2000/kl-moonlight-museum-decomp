@@ -1,0 +1,8 @@
+# Proprietary data: never commit the ROM or anything extracted/built from it
+baserom/*
+!baserom/README.md
+build/
+*.ws
+*.wsc
+*.bin
+__pycache__/
