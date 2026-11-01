@@ -36,7 +36,9 @@ rom_exec = [a for a in range(0x40000, 0xFFFF0) if execd[a]]   # FFFF0 = footer r
 ram_exec = [a for a in range(0, 0x40000) if execd[a]]
 unknown = [a for a in rom_exec if a not in insn and a not in cover]
 misaligned = [a for a in rom_exec if a not in insn and a in cover]
-static_starts = [f for f in insn]
+dead = set(T.get('dead_insn', []))
+static_starts = [f for f in insn if f not in dead]          # live code only
+dead_hit = [f for f in dead if execd[f]]
 hit = [f for f in static_starts if execd[f]]
 entry_pts = [f for f, k in labels.items() if k & {'call', 'farcall', 'entry', 'irq', 'table'} and f in insn]
 entry_hit = [f for f in entry_pts if execd[f]]
@@ -50,6 +52,8 @@ res = {
     'ram_code_executed': len(ram_exec),
     'static_instructions': len(static_starts),
     'static_instructions_executed': len(hit),
+    'dead_instructions': len(dead),
+    'dead_instructions_executed': ['%05X' % f for f in sorted(dead_hit)],
     'entry_points': len(entry_pts),
     'entry_points_executed': len(entry_hit),
     'indirect_edges': len(edges),

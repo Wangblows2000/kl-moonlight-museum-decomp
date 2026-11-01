@@ -82,6 +82,13 @@ class Tracer:
     def covered(self, f):
         return f in self.cover
 
+    def in_table(self, f):
+        for tf, v in self.tables.items():
+            first, n = v[1]
+            if tf <= f < tf + 2 * (first + n):
+                return True
+        return False
+
     def adjacent_bound(self, tf):
         """Number of words before the table runs into traced code or into one of its own targets."""
         tgts = set()
@@ -106,6 +113,12 @@ class Tracer:
         while True:
             f = to_file(seg, off)
             if f is None or f in self.insn:
+                return
+            if self.in_table(f):
+                # an alignment NOP directly before a table is the normal case; anything else
+                # falling into a table is a tracing error
+                if not (f - 1 in self.insn and self.insn[f - 1][3] == 'nop'):
+                    self.unresolved.append((f, 'fall-through into a jump table'))
                 return
             code = ROM[f:f + 16]
             try:
@@ -194,9 +207,6 @@ def main():
     for s in hints.SEEDS:
         seg, off = (int(x, 16) for x in s.split(':'))
         t.add(seg, off, 'entry')
-    for k in getattr(hints, 'DEAD_CODE', []):
-        seg, off = (int(x, 16) for x in k.split(':'))
-        t.add(seg, off, 'dead')
     for k, n in getattr(hints, 'IRQ_TABLES', {}).items():
         seg, off = (int(x, 16) for x in k.split(':'))
         tf = to_file(seg, off)
@@ -204,6 +214,29 @@ def main():
         for j in range(n):
             t.add(seg, ROM[tf + 2 * j] | ROM[tf + 2 * j + 1] << 8, 'irq', tf + 2 * j)
     t.run()
+    live = set(t.insn)
+    # Dead code: unreferenced routines are disassembled too (labelled dead_XXXX), but only
+    # after the live trace is complete, so 'dead_insn' lists exactly the instructions that
+    # are reachable from dead seeds alone.  Ranges come from hints.DEAD_CODE and the
+    # reviewed bank-4 classification (assets/structures/objects_bank4_notes.json); within
+    # each range the first byte not yet decoded is re-seeded until the range is covered.
+    for k in getattr(hints, 'DEAD_CODE', []):
+        seg, off = (int(x, 16) for x in k.split(':'))
+        t.add(seg, off, 'dead')
+    t.run()
+    for a, b, routine in hints.dead_ranges():
+        for _ in range(64):
+            f = next((x for x in range(a, b) if not t.covered(x)), None)
+            if f is None:
+                break
+            before = len(t.insn)
+            t.add(0x4000, f - 0x40000, 'dead' if routine else 'filler')
+            t.run()
+            if len(t.insn) == before:
+                break
+    dead_insn = sorted(set(t.insn) - live)
+    for f in [f for f, k in t.labels.items() if k == {'filler'}]:
+        del t.labels[f]          # filler gets no label
     # summarise
     banks = {}
     for f, v in t.insn.items():
@@ -222,6 +255,7 @@ def main():
         'xrefs': {str(k): v for k, v in t.xrefs.items()},
         'tables': {str(k): v for k, v in t.tables.items()},
         'unresolved': t.unresolved,
+        'dead_insn': dead_insn,
     }
     json.dump(out, open(os.path.join(HERE, '..', 'build', 'trace.json'), 'w'))
 

@@ -9,6 +9,7 @@ This file records the target, the evidence behind the main findings, and open qu
 |---|---|---|
 | 2026-11-01 (1) | tracer, matching bank-4 source, BPE decoder, inventory | 40767c7, 3ff41b4 |
 | 2026-11-01 (3) | three parallel code-review passes document 705 routines (merged by tools/apply_proposals.py after validation and spot checks); RAM names corrected (13E0h = hearts); state 5 = room transition; save format corrected | see git log |
+| 2026-11-01 (4) | data banks decoded by four domain passes (PCM, level, sound, graphics, objects; each validated by exact round trip, spot-checked, integrated with tests); code bank fully classified: 36 unreferenced routines disassembled as instructions and described, 1,018 bytes of in-code tables documented, 26 bytes kept as documented exceptions | see git log |
 | 2026-11-01 (2) | ROM-free CI, English build switch, traced emulator, all 20 game states, runtime coverage (found 2 missed HBlank handlers), role names for 447 entry points, runtime save tests, exact BPE re-encoding, data banks rebuilt from decoded assets, asset catalog | 21c2b54 .. HEAD |
 
 Correction to sprint 1: the game was developed by **Namco** ((c)1997 1998 NAMCO on the title
@@ -48,10 +49,12 @@ Interrupts: base 20h (port B0h).  Vector 26h (VBlank) and 27h (HBlank timer) at
 ## Metrics
 
 See `docs/completion.json` (computed by `tools/completion.py` from the trace, layout,
-catalog, function index and runtime coverage).  Headline: byte-perfect build; 23,425
-instructions in source; 741 entry points (36 hand-named, 447 role-named); 129/129
-compressed streams decode and re-encode exactly; 42.6 % of ROM bytes classified with
-evidence; 404 entry points executed in the emulator.
+catalog, function index and runtime coverage).  Headline: byte-perfect ROM-free build;
+24,782 instructions in source (23,425 live + 1,357 unreferenced); 779 entry points
+(743 live, 36 unreferenced routines); 129/129 compressed streams re-encode exactly;
+99.87 % of ROM bytes classified and represented as source or editable data; 18,705 live
+instructions (79.85 %) and 562 entry points executed in the emulator; no unreferenced
+instruction ever executed.
 
 **Not claimed:** "100% decompiled".
 
@@ -102,11 +105,14 @@ no run ever wrote it (`ports.txt`), consistent with an error path.
 
 ## Open questions
 
-1. Banks 2, 5, 7 (outside matrices), 8 (outside tables) and level data in 9-E: formats
-   not decoded; 55.7% of the ROM is still "unknown" data.
+1. 1,274 data bytes are still raw (bank 7 leftovers 768A0-77A00 and small groups in banks
+   5, 7, A, D; see docs/ROADMAP.md) plus 50 zero bytes; each is listed with bounds and the
+   reason in docs/formats/*.md.
 2. Why `ieep_write_word` touches port C8h on timeout (never observed at runtime).
-3. Unreferenced code-shaped blocks in bank 4 (e.g. 4000:091C-0DC7): dead code, or
-   reached through a pointer not yet found?
+3. Resolved: 4000:091C-0DC7 and 30 other blocks are unreferenced routines (no caller,
+   pointer or table entry; never executed in 63 runs), e.g. a debug sound-test screen at
+   4000:F01A with hex printers at B75E/B7F0.  Meaning of 26 unread bytes in bank 4 (four
+   groups, see docs/formats/objects.md) is unknown.
 4. The 63 object types are role-named (objTT_update/draw) but not yet identified on screen.
 5. Natural trigger for state 5 (play_flags bit 4) not yet found.
 

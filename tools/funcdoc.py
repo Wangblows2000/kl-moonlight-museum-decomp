@@ -11,6 +11,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, '..')
 sys.path.insert(0, HERE)
 import symbols as SYM
+import hints
+
+# reviewed descriptions of dead (unreferenced) code ranges, keyed by every byte of the range
+DEADDOC = {}
+for _r in hints.bank4_notes():
+    if _r['kind'] == 'dead_code':
+        for _i in range(int(_r['start'], 16), int(_r['end'], 16)):
+            DEADDOC[_i] = _r
 
 T = json.load(open(os.path.join(ROOT, 'build', 'trace.json')))
 F = json.load(open(os.path.join(ROOT, 'build', 'funcs.json')))
@@ -30,12 +38,15 @@ for k, v in sorted(F.items(), key=lambda kv: int(kv[0])):
         name = RD['%04X' % off].get('name') or R.get('%04X' % off, {}).get('name') or 'sub_%04X' % off
         basis, conf = 'reviewed', RD['%04X' % off]['confidence']
     elif v['kind'] == ['dead']:
-        name, basis, conf = 'dead_%04X' % off, 'dead', '-'
+        name, basis, conf = 'dead_%04X' % off, 'dead', DEADDOC[f]['confidence'] if f in DEADDOC else '-'
     elif '%04X' % off in R:
         name, basis, conf = R['%04X' % off]['name'], 'role', 'role'
     else:
         name, basis, conf = ('sub_%04X' if v['callers'] and set(v['kind']) & {'call', 'farcall'} else 'h_%04X') % off, 'none', '-'
     summ = RD.get('%04X' % off, {}).get('summary') or ''
+    if not summ and basis == 'dead' and f in DEADDOC:
+        d = DEADDOC[f]
+        summ = 'Unreferenced (range %s-%s): %s' % (d['start'], d['end'], d['format'])
     rows.append(dict(summary=summ, addr='4000:%04X' % off, file='%05X' % f, name=name, basis=basis, confidence=conf,
                      kind=v['kind'], size=v['size'], callers=v['callers'],
                      callees=['%04X' % c for c in v['calls']], ports_out=v['out'], ports_in=v['inp'], segments=v['segs'],

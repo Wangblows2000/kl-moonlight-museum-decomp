@@ -341,7 +341,11 @@ main_loop:
     shl bx,1                                 ; 4023E
     mov ax,[cs:bx+game_state_table]          ; 40240
     jmp ax                                   ; 40245
-    db 0xE9,0xDF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 40247
+    jmp near main_loop                       ; 40247
+
+; unread bytes 4024A-40250: FFh fill
+; evidence: six FFh bytes (erased-flash fill) before fade_out_and_stop_sound; not read
+    db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 4024A
 
 ; Sets two sound-work bytes ([274h]=1, [275h]=4), runs install_game_vblank with SI=2 (fades both palette groups) and then calls DE51 which silences the sound channels. [medium, reviewed: range_0000_7B9B.json]
 ; in:  none
@@ -554,7 +558,7 @@ irq_vblank_simple:
     pop ds                                   ; 403B4
     popa                                     ; 403B5
     iret                                     ; 403B6
-    db 0x90   ; 403B7
+    nop                                      ; 403B7
 
 ; HBlank-timer interrupt handler that only acknowledges the interrupt (same behaviour as irq_hblank_timer_ack). Installed at vector 27h by video_reset_menu. [high, reviewed: range_0000_7B9B.json]
 ; in:  none
@@ -583,8 +587,26 @@ scr2_scroll_from_camera:
     shr ax,cl                                ; 403CB
     out 0x13,al                              ; 403CD
     ret                                      ; 403CF
-    db 0xB1,0x04,0xA1,0xA0,0x13,0xD3,0xF8,0x32,0xD2,0x2A,0xD0,0x8A,0xC2,0xE6,0x12,0xA1   ; 403D0
-    db 0xA2,0x13,0xD3,0xF8,0xE6,0x13,0xC3,0x90   ; 403E0
+
+; UNREFERENCED CODE 403D0-403E8 (no caller, jump or table entry; never executed): complete routine: ports 12h/13h = -([13A0h]>>4), [13A2h]>>4 (SCR scroll from camera), ret + alignment NOP
+; evidence: decodes as one complete routine (mov cl,4 ... out 13h,al / ret / nop); emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_03D0:
+    mov cl,0x4                               ; 403D0
+    mov ax,[0x13a0]                          ; 403D2
+    sar ax,cl                                ; 403D5
+    rr xor, dl, dl                           ; 403D7
+    rr sub, dl, al                           ; 403D9
+    rr mov, al, dl                           ; 403DB
+    out 0x12,al                              ; 403DD
+    mov ax,[0x13a2]                          ; 403DF
+    sar ax,cl                                ; 403E2
+    out 0x13,al                              ; 403E4
+    ret                                      ; 403E6
+
+; UNREFERENCED CODE 403D0-403E8 (no caller, jump or table entry; never executed): complete routine: ports 12h/13h = -([13A0h]>>4), [13A2h]>>4 (SCR scroll from camera), ret + alignment NOP
+; evidence: decodes as one complete routine (mov cl,4 ... out 13h,al / ret / nop); emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_03E7:
+    nop                                      ; 403E7
 
 ; jump table tbl_03E8: 4 words, bound: hint (first use at 40413)
 tbl_03E8:
@@ -818,7 +840,19 @@ irq_parallax2_band1:
     pop ds                                   ; 4055C
     popa                                     ; 4055D
     iret                                     ; 4055E
-    db 0x60,0x1E,0x06,0x33,0xC0,0x8E,0xD8,0x07,0x1F,0x61,0xCF   ; 4055F
+
+; UNREFERENCED CODE 4055F-4056A (no caller, jump or table entry; never executed): empty interrupt handler: pusha/push ds/push es/ds=0/pop/pop/popa/iret
+; evidence: decodes as a complete IRQ stub ending in IRET; no vector install (mov word [bx],handler) references it; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_055F:
+    pusha                                    ; 4055F
+    push ds                                  ; 40560
+    push es                                  ; 40561
+    rr xor, ax, ax                           ; 40562
+    mov ds,ax                                ; 40564
+    pop es                                   ; 40566
+    pop ds                                   ; 40567
+    popa                                     ; 40568
+    iret                                     ; 40569
 
 ; objects_update [high]
 ; Walks 40 (28h) object slots of 20h bytes at RAM 0300h.  For each live slot (type byte
@@ -1010,7 +1044,7 @@ loc_06C4:
     loop loc_0650                            ; 406CD
     popa                                     ; 406CF
     ret                                      ; 406D0
-    db 0x90   ; 406D1
+    nop                                      ; 406D1
 
 ; jump table tbl_06D2: 2 words, bound: hint (first use at 41FD7)
 tbl_06D2:
@@ -1197,7 +1231,7 @@ loc_0840:
     cmp di,0x7e0                             ; 40844
     ja short loc_084E                        ; 40848
     jmp near loc_07CE                        ; 4084A
-    db 0x90   ; 4084D
+    nop                                      ; 4084D
 loc_084E:
     popa                                     ; 4084E
     ret                                      ; 4084F
@@ -1322,81 +1356,507 @@ loc_08E2:
     out 0x30,ax                              ; 40918
     popa                                     ; 4091A
     ret                                      ; 4091B
-    db 0x60,0x83,0xEC,0x10,0x8B,0xEC,0xE5,0x20,0x50,0xE5,0x22,0x50,0xE5,0x24,0x50,0xE5   ; 4091C
-    db 0x26,0x50,0xE5,0x28,0x50,0xE5,0x2A,0x50,0xE5,0x2C,0x50,0xE5,0x2E,0x50,0xE5,0x20   ; 4092C
-    db 0x89,0x46,0x00,0xE5,0x22,0x89,0x46,0x02,0xE5,0x24,0x89,0x46,0x04,0xE5,0x26,0x89   ; 4093C
-    db 0x46,0x06,0xE5,0x28,0x89,0x46,0x08,0xE5,0x2A,0x89,0x46,0x0A,0xE5,0x2C,0x89,0x46   ; 4094C
-    db 0x0C,0xE5,0x2E,0x89,0x46,0x0E,0x33,0xC0,0xE7,0x20,0xE7,0x22,0xE7,0x24,0xE7,0x26   ; 4095C
-    db 0xE7,0x28,0xE7,0x2A,0xE7,0x2C,0xE7,0x2E,0x33,0xFF,0x33,0xC0,0x8E,0xD8,0xA2,0x86   ; 4096C
-    db 0x13,0x8B,0xC7,0x25,0x07,0x00,0x85,0xC0,0x74,0x03,0xE9,0x00,0x04,0xE5,0x20,0x33   ; 4097C
-    db 0xF6,0xB1,0x00,0x8B,0xD0,0xD3,0xEA,0x81,0xE2,0x0F,0x00,0x8B,0x5E,0x00,0xD3,0xEB   ; 4098C
-    db 0x81,0xE3,0x0F,0x00,0x3B,0xD3,0x83,0xD2,0x00,0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04   ; 4099C
-    db 0x8B,0xD0,0xD3,0xEA,0x81,0xE2,0x0F,0x00,0x8B,0x5E,0x00,0xD3,0xEB,0x81,0xE3,0x0F   ; 409AC
-    db 0x00,0x3B,0xD3,0x83,0xD2,0x00,0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04,0x8B,0xD0,0xD3   ; 409BC
-    db 0xEA,0x81,0xE2,0x0F,0x00,0x8B,0x5E,0x00,0xD3,0xEB,0x81,0xE3,0x0F,0x00,0x3B,0xD3   ; 409CC
-    db 0x83,0xD2,0x00,0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04,0x8B,0xD0,0xD3,0xEA,0x81,0xE2   ; 409DC
-    db 0x0F,0x00,0x8B,0x5E,0x00,0xD3,0xEB,0x81,0xE3,0x0F,0x00,0x3B,0xD3,0x83,0xD2,0x00   ; 409EC
-    db 0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04,0x8B,0xC6,0x8B,0xC0,0xE7,0x20,0xE5,0x22,0x33   ; 409FC
-    db 0xF6,0xB1,0x00,0x8B,0xD0,0xD3,0xEA,0x81,0xE2,0x0F,0x00,0x8B,0x5E,0x02,0xD3,0xEB   ; 40A0C
-    db 0x81,0xE3,0x0F,0x00,0x3B,0xD3,0x83,0xD2,0x00,0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04   ; 40A1C
-    db 0x8B,0xD0,0xD3,0xEA,0x81,0xE2,0x0F,0x00,0x8B,0x5E,0x02,0xD3,0xEB,0x81,0xE3,0x0F   ; 40A2C
-    db 0x00,0x3B,0xD3,0x83,0xD2,0x00,0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04,0x8B,0xD0,0xD3   ; 40A3C
-    db 0xEA,0x81,0xE2,0x0F,0x00,0x8B,0x5E,0x02,0xD3,0xEB,0x81,0xE3,0x0F,0x00,0x3B,0xD3   ; 40A4C
-    db 0x83,0xD2,0x00,0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04,0x8B,0xD0,0xD3,0xEA,0x81,0xE2   ; 40A5C
-    db 0x0F,0x00,0x8B,0x5E,0x02,0xD3,0xEB,0x81,0xE3,0x0F,0x00,0x3B,0xD3,0x83,0xD2,0x00   ; 40A6C
-    db 0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04,0x8B,0xC6,0x8B,0xC0,0xE7,0x22,0xE5,0x24,0x33   ; 40A7C
-    db 0xF6,0xB1,0x00,0x8B,0xD0,0xD3,0xEA,0x81,0xE2,0x0F,0x00,0x8B,0x5E,0x04,0xD3,0xEB   ; 40A8C
-    db 0x81,0xE3,0x0F,0x00,0x3B,0xD3,0x83,0xD2,0x00,0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04   ; 40A9C
-    db 0x8B,0xD0,0xD3,0xEA,0x81,0xE2,0x0F,0x00,0x8B,0x5E,0x04,0xD3,0xEB,0x81,0xE3,0x0F   ; 40AAC
-    db 0x00,0x3B,0xD3,0x83,0xD2,0x00,0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04,0x8B,0xD0,0xD3   ; 40ABC
-    db 0xEA,0x81,0xE2,0x0F,0x00,0x8B,0x5E,0x04,0xD3,0xEB,0x81,0xE3,0x0F,0x00,0x3B,0xD3   ; 40ACC
-    db 0x83,0xD2,0x00,0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04,0x8B,0xD0,0xD3,0xEA,0x81,0xE2   ; 40ADC
-    db 0x0F,0x00,0x8B,0x5E,0x04,0xD3,0xEB,0x81,0xE3,0x0F,0x00,0x3B,0xD3,0x83,0xD2,0x00   ; 40AEC
-    db 0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04,0x8B,0xC6,0x8B,0xC0,0xE7,0x24,0xE5,0x26,0x33   ; 40AFC
-    db 0xF6,0xB1,0x00,0x8B,0xD0,0xD3,0xEA,0x81,0xE2,0x0F,0x00,0x8B,0x5E,0x06,0xD3,0xEB   ; 40B0C
-    db 0x81,0xE3,0x0F,0x00,0x3B,0xD3,0x83,0xD2,0x00,0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04   ; 40B1C
-    db 0x8B,0xD0,0xD3,0xEA,0x81,0xE2,0x0F,0x00,0x8B,0x5E,0x06,0xD3,0xEB,0x81,0xE3,0x0F   ; 40B2C
-    db 0x00,0x3B,0xD3,0x83,0xD2,0x00,0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04,0x8B,0xD0,0xD3   ; 40B3C
-    db 0xEA,0x81,0xE2,0x0F,0x00,0x8B,0x5E,0x06,0xD3,0xEB,0x81,0xE3,0x0F,0x00,0x3B,0xD3   ; 40B4C
-    db 0x83,0xD2,0x00,0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04,0x8B,0xD0,0xD3,0xEA,0x81,0xE2   ; 40B5C
-    db 0x0F,0x00,0x8B,0x5E,0x06,0xD3,0xEB,0x81,0xE3,0x0F,0x00,0x3B,0xD3,0x83,0xD2,0x00   ; 40B6C
-    db 0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04,0x8B,0xC6,0x8B,0xC0,0xE7,0x26,0xE5,0x28,0x33   ; 40B7C
-    db 0xF6,0xB1,0x00,0x8B,0xD0,0xD3,0xEA,0x81,0xE2,0x0F,0x00,0x8B,0x5E,0x08,0xD3,0xEB   ; 40B8C
-    db 0x81,0xE3,0x0F,0x00,0x3B,0xD3,0x83,0xD2,0x00,0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04   ; 40B9C
-    db 0x8B,0xD0,0xD3,0xEA,0x81,0xE2,0x0F,0x00,0x8B,0x5E,0x08,0xD3,0xEB,0x81,0xE3,0x0F   ; 40BAC
-    db 0x00,0x3B,0xD3,0x83,0xD2,0x00,0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04,0x8B,0xD0,0xD3   ; 40BBC
-    db 0xEA,0x81,0xE2,0x0F,0x00,0x8B,0x5E,0x08,0xD3,0xEB,0x81,0xE3,0x0F,0x00,0x3B,0xD3   ; 40BCC
-    db 0x83,0xD2,0x00,0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04,0x8B,0xD0,0xD3,0xEA,0x81,0xE2   ; 40BDC
-    db 0x0F,0x00,0x8B,0x5E,0x08,0xD3,0xEB,0x81,0xE3,0x0F,0x00,0x3B,0xD3,0x83,0xD2,0x00   ; 40BEC
-    db 0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04,0x8B,0xC6,0x8B,0xC0,0xE7,0x28,0xE5,0x2A,0x33   ; 40BFC
-    db 0xF6,0xB1,0x00,0x8B,0xD0,0xD3,0xEA,0x81,0xE2,0x0F,0x00,0x8B,0x5E,0x0A,0xD3,0xEB   ; 40C0C
-    db 0x81,0xE3,0x0F,0x00,0x3B,0xD3,0x83,0xD2,0x00,0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04   ; 40C1C
-    db 0x8B,0xD0,0xD3,0xEA,0x81,0xE2,0x0F,0x00,0x8B,0x5E,0x0A,0xD3,0xEB,0x81,0xE3,0x0F   ; 40C2C
-    db 0x00,0x3B,0xD3,0x83,0xD2,0x00,0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04,0x8B,0xD0,0xD3   ; 40C3C
-    db 0xEA,0x81,0xE2,0x0F,0x00,0x8B,0x5E,0x0A,0xD3,0xEB,0x81,0xE3,0x0F,0x00,0x3B,0xD3   ; 40C4C
-    db 0x83,0xD2,0x00,0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04,0x8B,0xD0,0xD3,0xEA,0x81,0xE2   ; 40C5C
-    db 0x0F,0x00,0x8B,0x5E,0x0A,0xD3,0xEB,0x81,0xE3,0x0F,0x00,0x3B,0xD3,0x83,0xD2,0x00   ; 40C6C
-    db 0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04,0x8B,0xC6,0x8B,0xC0,0xE7,0x2A,0xE5,0x2C,0x33   ; 40C7C
-    db 0xF6,0xB1,0x00,0x8B,0xD0,0xD3,0xEA,0x81,0xE2,0x0F,0x00,0x8B,0x5E,0x0C,0xD3,0xEB   ; 40C8C
-    db 0x81,0xE3,0x0F,0x00,0x3B,0xD3,0x83,0xD2,0x00,0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04   ; 40C9C
-    db 0x8B,0xD0,0xD3,0xEA,0x81,0xE2,0x0F,0x00,0x8B,0x5E,0x0C,0xD3,0xEB,0x81,0xE3,0x0F   ; 40CAC
-    db 0x00,0x3B,0xD3,0x83,0xD2,0x00,0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04,0x8B,0xD0,0xD3   ; 40CBC
-    db 0xEA,0x81,0xE2,0x0F,0x00,0x8B,0x5E,0x0C,0xD3,0xEB,0x81,0xE3,0x0F,0x00,0x3B,0xD3   ; 40CCC
-    db 0x83,0xD2,0x00,0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04,0x8B,0xD0,0xD3,0xEA,0x81,0xE2   ; 40CDC
-    db 0x0F,0x00,0x8B,0x5E,0x0C,0xD3,0xEB,0x81,0xE3,0x0F,0x00,0x3B,0xD3,0x83,0xD2,0x00   ; 40CEC
-    db 0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04,0x8B,0xC6,0x8B,0xC0,0xE7,0x2C,0xE5,0x2E,0x33   ; 40CFC
-    db 0xF6,0xB1,0x00,0x8B,0xD0,0xD3,0xEA,0x81,0xE2,0x0F,0x00,0x8B,0x5E,0x0E,0xD3,0xEB   ; 40D0C
-    db 0x81,0xE3,0x0F,0x00,0x3B,0xD3,0x83,0xD2,0x00,0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04   ; 40D1C
-    db 0x8B,0xD0,0xD3,0xEA,0x81,0xE2,0x0F,0x00,0x8B,0x5E,0x0E,0xD3,0xEB,0x81,0xE3,0x0F   ; 40D2C
-    db 0x00,0x3B,0xD3,0x83,0xD2,0x00,0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04,0x8B,0xD0,0xD3   ; 40D3C
-    db 0xEA,0x81,0xE2,0x0F,0x00,0x8B,0x5E,0x0E,0xD3,0xEB,0x81,0xE3,0x0F,0x00,0x3B,0xD3   ; 40D4C
-    db 0x83,0xD2,0x00,0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04,0x8B,0xD0,0xD3,0xEA,0x81,0xE2   ; 40D5C
-    db 0x0F,0x00,0x8B,0x5E,0x0E,0xD3,0xEB,0x81,0xE3,0x0F,0x00,0x3B,0xD3,0x83,0xD2,0x00   ; 40D6C
-    db 0xD3,0xE2,0x0B,0xF2,0x80,0xC1,0x04,0x8B,0xC6,0x8B,0xC0,0xE7,0x2E,0x83,0xFF,0x3C   ; 40D7C
-    db 0x77,0x0C,0xF4,0x80,0x3E,0x86,0x13,0x00,0x74,0xF8,0x47,0xE9,0xDC,0xFB,0x58,0x8B   ; 40D8C
-    db 0xC0,0xE7,0x2E,0x58,0x8B,0xC0,0xE7,0x2C,0x58,0x8B,0xC0,0xE7,0x2A,0x58,0x8B,0xC0   ; 40D9C
-    db 0xE7,0x28,0x58,0x8B,0xC0,0xE7,0x26,0x58,0x8B,0xC0,0xE7,0x24,0x58,0x8B,0xC0,0xE7   ; 40DAC
-    db 0x22,0x58,0x8B,0xC0,0xE7,0x20,0x83,0xC4,0x10,0x61,0xC3,0x90   ; 40DBC
+
+; UNREFERENCED CODE 4091C-40DC8 (no caller, jump or table entry; never executed): complete routine (1196 bytes): saves palette ports 20h-2Eh, zeroes them, then over 60 frames (hlt on [1386h]) steps every nibble toward the saved value (fade in), restores ports, ret + NOP
+; evidence: decodes as one complete routine with balanced stack (sub sp,10h ... add sp,10h / popa / ret); same nibble-step idiom as obj38_update_palette_fade; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_091C:
+    pusha                                    ; 4091C
+    sub sp,byte +0x10                        ; 4091D
+    rr mov, bp, sp                           ; 40920
+    in ax,0x20                               ; 40922
+    push ax                                  ; 40924
+    in ax,0x22                               ; 40925
+    push ax                                  ; 40927
+    in ax,0x24                               ; 40928
+    push ax                                  ; 4092A
+    in ax,0x26                               ; 4092B
+    push ax                                  ; 4092D
+    in ax,0x28                               ; 4092E
+    push ax                                  ; 40930
+    in ax,0x2a                               ; 40931
+    push ax                                  ; 40933
+    in ax,0x2c                               ; 40934
+    push ax                                  ; 40936
+    in ax,0x2e                               ; 40937
+    push ax                                  ; 40939
+    in ax,0x20                               ; 4093A
+    mov [bp+0x0],ax                          ; 4093C
+    in ax,0x22                               ; 4093F
+    mov [bp+0x2],ax                          ; 40941
+    in ax,0x24                               ; 40944
+    mov [bp+0x4],ax                          ; 40946
+    in ax,0x26                               ; 40949
+    mov [bp+0x6],ax                          ; 4094B
+    in ax,0x28                               ; 4094E
+    mov [bp+0x8],ax                          ; 40950
+    in ax,0x2a                               ; 40953
+    mov [bp+0xa],ax                          ; 40955
+    in ax,0x2c                               ; 40958
+    mov [bp+0xc],ax                          ; 4095A
+    in ax,0x2e                               ; 4095D
+    mov [bp+0xe],ax                          ; 4095F
+    rr xor, ax, ax                           ; 40962
+    out 0x20,ax                              ; 40964
+    out 0x22,ax                              ; 40966
+    out 0x24,ax                              ; 40968
+    out 0x26,ax                              ; 4096A
+    out 0x28,ax                              ; 4096C
+    out 0x2a,ax                              ; 4096E
+    out 0x2c,ax                              ; 40970
+    out 0x2e,ax                              ; 40972
+    rr xor, di, di                           ; 40974
+loc_0976:
+    rr xor, ax, ax                           ; 40976
+    mov ds,ax                                ; 40978
+    mov [vblank_line],al                     ; 4097A
+    rr mov, ax, di                           ; 4097D
+    and ax,0x7                               ; 4097F
+    test ax,ax                               ; 40982
+    jz short loc_0989                        ; 40984
+    jmp near loc_0D89                        ; 40986
+loc_0989:
+    in ax,0x20                               ; 40989
+    rr xor, si, si                           ; 4098B
+    mov cl,0x0                               ; 4098D
+    rr mov, dx, ax                           ; 4098F
+    shr dx,cl                                ; 40991
+    and dx,0xf                               ; 40993
+    mov bx,[bp+0x0]                          ; 40997
+    shr bx,cl                                ; 4099A
+    and bx,0xf                               ; 4099C
+    rr cmp, dx, bx                           ; 409A0
+    adc dx,byte +0x0                         ; 409A2
+    shl dx,cl                                ; 409A5
+    rr or, si, dx                            ; 409A7
+    add cl,0x4                               ; 409A9
+    rr mov, dx, ax                           ; 409AC
+    shr dx,cl                                ; 409AE
+    and dx,0xf                               ; 409B0
+    mov bx,[bp+0x0]                          ; 409B4
+    shr bx,cl                                ; 409B7
+    and bx,0xf                               ; 409B9
+    rr cmp, dx, bx                           ; 409BD
+    adc dx,byte +0x0                         ; 409BF
+    shl dx,cl                                ; 409C2
+    rr or, si, dx                            ; 409C4
+    add cl,0x4                               ; 409C6
+    rr mov, dx, ax                           ; 409C9
+    shr dx,cl                                ; 409CB
+    and dx,0xf                               ; 409CD
+    mov bx,[bp+0x0]                          ; 409D1
+    shr bx,cl                                ; 409D4
+    and bx,0xf                               ; 409D6
+    rr cmp, dx, bx                           ; 409DA
+    adc dx,byte +0x0                         ; 409DC
+    shl dx,cl                                ; 409DF
+    rr or, si, dx                            ; 409E1
+    add cl,0x4                               ; 409E3
+    rr mov, dx, ax                           ; 409E6
+    shr dx,cl                                ; 409E8
+    and dx,0xf                               ; 409EA
+    mov bx,[bp+0x0]                          ; 409EE
+    shr bx,cl                                ; 409F1
+    and bx,0xf                               ; 409F3
+    rr cmp, dx, bx                           ; 409F7
+    adc dx,byte +0x0                         ; 409F9
+    shl dx,cl                                ; 409FC
+    rr or, si, dx                            ; 409FE
+    add cl,0x4                               ; 40A00
+    rr mov, ax, si                           ; 40A03
+    rr mov, ax, ax                           ; 40A05
+    out 0x20,ax                              ; 40A07
+    in ax,0x22                               ; 40A09
+    rr xor, si, si                           ; 40A0B
+    mov cl,0x0                               ; 40A0D
+    rr mov, dx, ax                           ; 40A0F
+    shr dx,cl                                ; 40A11
+    and dx,0xf                               ; 40A13
+    mov bx,[bp+0x2]                          ; 40A17
+    shr bx,cl                                ; 40A1A
+    and bx,0xf                               ; 40A1C
+    rr cmp, dx, bx                           ; 40A20
+    adc dx,byte +0x0                         ; 40A22
+    shl dx,cl                                ; 40A25
+    rr or, si, dx                            ; 40A27
+    add cl,0x4                               ; 40A29
+    rr mov, dx, ax                           ; 40A2C
+    shr dx,cl                                ; 40A2E
+    and dx,0xf                               ; 40A30
+    mov bx,[bp+0x2]                          ; 40A34
+    shr bx,cl                                ; 40A37
+    and bx,0xf                               ; 40A39
+    rr cmp, dx, bx                           ; 40A3D
+    adc dx,byte +0x0                         ; 40A3F
+    shl dx,cl                                ; 40A42
+    rr or, si, dx                            ; 40A44
+    add cl,0x4                               ; 40A46
+    rr mov, dx, ax                           ; 40A49
+    shr dx,cl                                ; 40A4B
+    and dx,0xf                               ; 40A4D
+    mov bx,[bp+0x2]                          ; 40A51
+    shr bx,cl                                ; 40A54
+    and bx,0xf                               ; 40A56
+    rr cmp, dx, bx                           ; 40A5A
+    adc dx,byte +0x0                         ; 40A5C
+    shl dx,cl                                ; 40A5F
+    rr or, si, dx                            ; 40A61
+    add cl,0x4                               ; 40A63
+    rr mov, dx, ax                           ; 40A66
+    shr dx,cl                                ; 40A68
+    and dx,0xf                               ; 40A6A
+    mov bx,[bp+0x2]                          ; 40A6E
+    shr bx,cl                                ; 40A71
+    and bx,0xf                               ; 40A73
+    rr cmp, dx, bx                           ; 40A77
+    adc dx,byte +0x0                         ; 40A79
+    shl dx,cl                                ; 40A7C
+    rr or, si, dx                            ; 40A7E
+    add cl,0x4                               ; 40A80
+    rr mov, ax, si                           ; 40A83
+    rr mov, ax, ax                           ; 40A85
+    out 0x22,ax                              ; 40A87
+    in ax,0x24                               ; 40A89
+    rr xor, si, si                           ; 40A8B
+    mov cl,0x0                               ; 40A8D
+    rr mov, dx, ax                           ; 40A8F
+    shr dx,cl                                ; 40A91
+    and dx,0xf                               ; 40A93
+    mov bx,[bp+0x4]                          ; 40A97
+    shr bx,cl                                ; 40A9A
+    and bx,0xf                               ; 40A9C
+    rr cmp, dx, bx                           ; 40AA0
+    adc dx,byte +0x0                         ; 40AA2
+    shl dx,cl                                ; 40AA5
+    rr or, si, dx                            ; 40AA7
+    add cl,0x4                               ; 40AA9
+    rr mov, dx, ax                           ; 40AAC
+    shr dx,cl                                ; 40AAE
+    and dx,0xf                               ; 40AB0
+    mov bx,[bp+0x4]                          ; 40AB4
+    shr bx,cl                                ; 40AB7
+    and bx,0xf                               ; 40AB9
+    rr cmp, dx, bx                           ; 40ABD
+    adc dx,byte +0x0                         ; 40ABF
+    shl dx,cl                                ; 40AC2
+    rr or, si, dx                            ; 40AC4
+    add cl,0x4                               ; 40AC6
+    rr mov, dx, ax                           ; 40AC9
+    shr dx,cl                                ; 40ACB
+    and dx,0xf                               ; 40ACD
+    mov bx,[bp+0x4]                          ; 40AD1
+    shr bx,cl                                ; 40AD4
+    and bx,0xf                               ; 40AD6
+    rr cmp, dx, bx                           ; 40ADA
+    adc dx,byte +0x0                         ; 40ADC
+    shl dx,cl                                ; 40ADF
+    rr or, si, dx                            ; 40AE1
+    add cl,0x4                               ; 40AE3
+    rr mov, dx, ax                           ; 40AE6
+    shr dx,cl                                ; 40AE8
+    and dx,0xf                               ; 40AEA
+    mov bx,[bp+0x4]                          ; 40AEE
+    shr bx,cl                                ; 40AF1
+    and bx,0xf                               ; 40AF3
+    rr cmp, dx, bx                           ; 40AF7
+    adc dx,byte +0x0                         ; 40AF9
+    shl dx,cl                                ; 40AFC
+    rr or, si, dx                            ; 40AFE
+    add cl,0x4                               ; 40B00
+    rr mov, ax, si                           ; 40B03
+    rr mov, ax, ax                           ; 40B05
+    out 0x24,ax                              ; 40B07
+    in ax,0x26                               ; 40B09
+    rr xor, si, si                           ; 40B0B
+    mov cl,0x0                               ; 40B0D
+    rr mov, dx, ax                           ; 40B0F
+    shr dx,cl                                ; 40B11
+    and dx,0xf                               ; 40B13
+    mov bx,[bp+0x6]                          ; 40B17
+    shr bx,cl                                ; 40B1A
+    and bx,0xf                               ; 40B1C
+    rr cmp, dx, bx                           ; 40B20
+    adc dx,byte +0x0                         ; 40B22
+    shl dx,cl                                ; 40B25
+    rr or, si, dx                            ; 40B27
+    add cl,0x4                               ; 40B29
+    rr mov, dx, ax                           ; 40B2C
+    shr dx,cl                                ; 40B2E
+    and dx,0xf                               ; 40B30
+    mov bx,[bp+0x6]                          ; 40B34
+    shr bx,cl                                ; 40B37
+    and bx,0xf                               ; 40B39
+    rr cmp, dx, bx                           ; 40B3D
+    adc dx,byte +0x0                         ; 40B3F
+    shl dx,cl                                ; 40B42
+    rr or, si, dx                            ; 40B44
+    add cl,0x4                               ; 40B46
+    rr mov, dx, ax                           ; 40B49
+    shr dx,cl                                ; 40B4B
+    and dx,0xf                               ; 40B4D
+    mov bx,[bp+0x6]                          ; 40B51
+    shr bx,cl                                ; 40B54
+    and bx,0xf                               ; 40B56
+    rr cmp, dx, bx                           ; 40B5A
+    adc dx,byte +0x0                         ; 40B5C
+    shl dx,cl                                ; 40B5F
+    rr or, si, dx                            ; 40B61
+    add cl,0x4                               ; 40B63
+    rr mov, dx, ax                           ; 40B66
+    shr dx,cl                                ; 40B68
+    and dx,0xf                               ; 40B6A
+    mov bx,[bp+0x6]                          ; 40B6E
+    shr bx,cl                                ; 40B71
+    and bx,0xf                               ; 40B73
+    rr cmp, dx, bx                           ; 40B77
+    adc dx,byte +0x0                         ; 40B79
+    shl dx,cl                                ; 40B7C
+    rr or, si, dx                            ; 40B7E
+    add cl,0x4                               ; 40B80
+    rr mov, ax, si                           ; 40B83
+    rr mov, ax, ax                           ; 40B85
+    out 0x26,ax                              ; 40B87
+    in ax,0x28                               ; 40B89
+    rr xor, si, si                           ; 40B8B
+    mov cl,0x0                               ; 40B8D
+    rr mov, dx, ax                           ; 40B8F
+    shr dx,cl                                ; 40B91
+    and dx,0xf                               ; 40B93
+    mov bx,[bp+0x8]                          ; 40B97
+    shr bx,cl                                ; 40B9A
+    and bx,0xf                               ; 40B9C
+    rr cmp, dx, bx                           ; 40BA0
+    adc dx,byte +0x0                         ; 40BA2
+    shl dx,cl                                ; 40BA5
+    rr or, si, dx                            ; 40BA7
+    add cl,0x4                               ; 40BA9
+    rr mov, dx, ax                           ; 40BAC
+    shr dx,cl                                ; 40BAE
+    and dx,0xf                               ; 40BB0
+    mov bx,[bp+0x8]                          ; 40BB4
+    shr bx,cl                                ; 40BB7
+    and bx,0xf                               ; 40BB9
+    rr cmp, dx, bx                           ; 40BBD
+    adc dx,byte +0x0                         ; 40BBF
+    shl dx,cl                                ; 40BC2
+    rr or, si, dx                            ; 40BC4
+    add cl,0x4                               ; 40BC6
+    rr mov, dx, ax                           ; 40BC9
+    shr dx,cl                                ; 40BCB
+    and dx,0xf                               ; 40BCD
+    mov bx,[bp+0x8]                          ; 40BD1
+    shr bx,cl                                ; 40BD4
+    and bx,0xf                               ; 40BD6
+    rr cmp, dx, bx                           ; 40BDA
+    adc dx,byte +0x0                         ; 40BDC
+    shl dx,cl                                ; 40BDF
+    rr or, si, dx                            ; 40BE1
+    add cl,0x4                               ; 40BE3
+    rr mov, dx, ax                           ; 40BE6
+    shr dx,cl                                ; 40BE8
+    and dx,0xf                               ; 40BEA
+    mov bx,[bp+0x8]                          ; 40BEE
+    shr bx,cl                                ; 40BF1
+    and bx,0xf                               ; 40BF3
+    rr cmp, dx, bx                           ; 40BF7
+    adc dx,byte +0x0                         ; 40BF9
+    shl dx,cl                                ; 40BFC
+    rr or, si, dx                            ; 40BFE
+    add cl,0x4                               ; 40C00
+    rr mov, ax, si                           ; 40C03
+    rr mov, ax, ax                           ; 40C05
+    out 0x28,ax                              ; 40C07
+    in ax,0x2a                               ; 40C09
+    rr xor, si, si                           ; 40C0B
+    mov cl,0x0                               ; 40C0D
+    rr mov, dx, ax                           ; 40C0F
+    shr dx,cl                                ; 40C11
+    and dx,0xf                               ; 40C13
+    mov bx,[bp+0xa]                          ; 40C17
+    shr bx,cl                                ; 40C1A
+    and bx,0xf                               ; 40C1C
+    rr cmp, dx, bx                           ; 40C20
+    adc dx,byte +0x0                         ; 40C22
+    shl dx,cl                                ; 40C25
+    rr or, si, dx                            ; 40C27
+    add cl,0x4                               ; 40C29
+    rr mov, dx, ax                           ; 40C2C
+    shr dx,cl                                ; 40C2E
+    and dx,0xf                               ; 40C30
+    mov bx,[bp+0xa]                          ; 40C34
+    shr bx,cl                                ; 40C37
+    and bx,0xf                               ; 40C39
+    rr cmp, dx, bx                           ; 40C3D
+    adc dx,byte +0x0                         ; 40C3F
+    shl dx,cl                                ; 40C42
+    rr or, si, dx                            ; 40C44
+    add cl,0x4                               ; 40C46
+    rr mov, dx, ax                           ; 40C49
+    shr dx,cl                                ; 40C4B
+    and dx,0xf                               ; 40C4D
+    mov bx,[bp+0xa]                          ; 40C51
+    shr bx,cl                                ; 40C54
+    and bx,0xf                               ; 40C56
+    rr cmp, dx, bx                           ; 40C5A
+    adc dx,byte +0x0                         ; 40C5C
+    shl dx,cl                                ; 40C5F
+    rr or, si, dx                            ; 40C61
+    add cl,0x4                               ; 40C63
+    rr mov, dx, ax                           ; 40C66
+    shr dx,cl                                ; 40C68
+    and dx,0xf                               ; 40C6A
+    mov bx,[bp+0xa]                          ; 40C6E
+    shr bx,cl                                ; 40C71
+    and bx,0xf                               ; 40C73
+    rr cmp, dx, bx                           ; 40C77
+    adc dx,byte +0x0                         ; 40C79
+    shl dx,cl                                ; 40C7C
+    rr or, si, dx                            ; 40C7E
+    add cl,0x4                               ; 40C80
+    rr mov, ax, si                           ; 40C83
+    rr mov, ax, ax                           ; 40C85
+    out 0x2a,ax                              ; 40C87
+    in ax,0x2c                               ; 40C89
+    rr xor, si, si                           ; 40C8B
+    mov cl,0x0                               ; 40C8D
+    rr mov, dx, ax                           ; 40C8F
+    shr dx,cl                                ; 40C91
+    and dx,0xf                               ; 40C93
+    mov bx,[bp+0xc]                          ; 40C97
+    shr bx,cl                                ; 40C9A
+    and bx,0xf                               ; 40C9C
+    rr cmp, dx, bx                           ; 40CA0
+    adc dx,byte +0x0                         ; 40CA2
+    shl dx,cl                                ; 40CA5
+    rr or, si, dx                            ; 40CA7
+    add cl,0x4                               ; 40CA9
+    rr mov, dx, ax                           ; 40CAC
+    shr dx,cl                                ; 40CAE
+    and dx,0xf                               ; 40CB0
+    mov bx,[bp+0xc]                          ; 40CB4
+    shr bx,cl                                ; 40CB7
+    and bx,0xf                               ; 40CB9
+    rr cmp, dx, bx                           ; 40CBD
+    adc dx,byte +0x0                         ; 40CBF
+    shl dx,cl                                ; 40CC2
+    rr or, si, dx                            ; 40CC4
+    add cl,0x4                               ; 40CC6
+    rr mov, dx, ax                           ; 40CC9
+    shr dx,cl                                ; 40CCB
+    and dx,0xf                               ; 40CCD
+    mov bx,[bp+0xc]                          ; 40CD1
+    shr bx,cl                                ; 40CD4
+    and bx,0xf                               ; 40CD6
+    rr cmp, dx, bx                           ; 40CDA
+    adc dx,byte +0x0                         ; 40CDC
+    shl dx,cl                                ; 40CDF
+    rr or, si, dx                            ; 40CE1
+    add cl,0x4                               ; 40CE3
+    rr mov, dx, ax                           ; 40CE6
+    shr dx,cl                                ; 40CE8
+    and dx,0xf                               ; 40CEA
+    mov bx,[bp+0xc]                          ; 40CEE
+    shr bx,cl                                ; 40CF1
+    and bx,0xf                               ; 40CF3
+    rr cmp, dx, bx                           ; 40CF7
+    adc dx,byte +0x0                         ; 40CF9
+    shl dx,cl                                ; 40CFC
+    rr or, si, dx                            ; 40CFE
+    add cl,0x4                               ; 40D00
+    rr mov, ax, si                           ; 40D03
+    rr mov, ax, ax                           ; 40D05
+    out 0x2c,ax                              ; 40D07
+    in ax,0x2e                               ; 40D09
+    rr xor, si, si                           ; 40D0B
+    mov cl,0x0                               ; 40D0D
+    rr mov, dx, ax                           ; 40D0F
+    shr dx,cl                                ; 40D11
+    and dx,0xf                               ; 40D13
+    mov bx,[bp+0xe]                          ; 40D17
+    shr bx,cl                                ; 40D1A
+    and bx,0xf                               ; 40D1C
+    rr cmp, dx, bx                           ; 40D20
+    adc dx,byte +0x0                         ; 40D22
+    shl dx,cl                                ; 40D25
+    rr or, si, dx                            ; 40D27
+    add cl,0x4                               ; 40D29
+    rr mov, dx, ax                           ; 40D2C
+    shr dx,cl                                ; 40D2E
+    and dx,0xf                               ; 40D30
+    mov bx,[bp+0xe]                          ; 40D34
+    shr bx,cl                                ; 40D37
+    and bx,0xf                               ; 40D39
+    rr cmp, dx, bx                           ; 40D3D
+    adc dx,byte +0x0                         ; 40D3F
+    shl dx,cl                                ; 40D42
+    rr or, si, dx                            ; 40D44
+    add cl,0x4                               ; 40D46
+    rr mov, dx, ax                           ; 40D49
+    shr dx,cl                                ; 40D4B
+    and dx,0xf                               ; 40D4D
+    mov bx,[bp+0xe]                          ; 40D51
+    shr bx,cl                                ; 40D54
+    and bx,0xf                               ; 40D56
+    rr cmp, dx, bx                           ; 40D5A
+    adc dx,byte +0x0                         ; 40D5C
+    shl dx,cl                                ; 40D5F
+    rr or, si, dx                            ; 40D61
+    add cl,0x4                               ; 40D63
+    rr mov, dx, ax                           ; 40D66
+    shr dx,cl                                ; 40D68
+    and dx,0xf                               ; 40D6A
+    mov bx,[bp+0xe]                          ; 40D6E
+    shr bx,cl                                ; 40D71
+    and bx,0xf                               ; 40D73
+    rr cmp, dx, bx                           ; 40D77
+    adc dx,byte +0x0                         ; 40D79
+    shl dx,cl                                ; 40D7C
+    rr or, si, dx                            ; 40D7E
+    add cl,0x4                               ; 40D80
+    rr mov, ax, si                           ; 40D83
+    rr mov, ax, ax                           ; 40D85
+    out 0x2e,ax                              ; 40D87
+loc_0D89:
+    cmp di,byte +0x3c                        ; 40D89
+    ja short loc_0D9A                        ; 40D8C
+loc_0D8E:
+    hlt                                      ; 40D8E
+    cmp byte [vblank_line],0x0               ; 40D8F
+    jz short loc_0D8E                        ; 40D94
+    inc di                                   ; 40D96
+    jmp near loc_0976                        ; 40D97
+loc_0D9A:
+    pop ax                                   ; 40D9A
+    rr mov, ax, ax                           ; 40D9B
+    out 0x2e,ax                              ; 40D9D
+    pop ax                                   ; 40D9F
+    rr mov, ax, ax                           ; 40DA0
+    out 0x2c,ax                              ; 40DA2
+    pop ax                                   ; 40DA4
+    rr mov, ax, ax                           ; 40DA5
+    out 0x2a,ax                              ; 40DA7
+    pop ax                                   ; 40DA9
+    rr mov, ax, ax                           ; 40DAA
+    out 0x28,ax                              ; 40DAC
+    pop ax                                   ; 40DAE
+    rr mov, ax, ax                           ; 40DAF
+    out 0x26,ax                              ; 40DB1
+    pop ax                                   ; 40DB3
+    rr mov, ax, ax                           ; 40DB4
+    out 0x24,ax                              ; 40DB6
+    pop ax                                   ; 40DB8
+    rr mov, ax, ax                           ; 40DB9
+    out 0x22,ax                              ; 40DBB
+    pop ax                                   ; 40DBD
+    rr mov, ax, ax                           ; 40DBE
+    out 0x20,ax                              ; 40DC0
+    add sp,byte +0x10                        ; 40DC2
+    popa                                     ; 40DC5
+    ret                                      ; 40DC6
+
+; UNREFERENCED CODE 4091C-40DC8 (no caller, jump or table entry; never executed): complete routine (1196 bytes): saves palette ports 20h-2Eh, zeroes them, then over 60 frames (hlt on [1386h]) steps every nibble toward the saved value (fade in), restores ports, ret + NOP
+; evidence: decodes as one complete routine with balanced stack (sub sp,10h ... add sp,10h / popa / ret); same nibble-step idiom as obj38_update_palette_fade; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_0DC7:
+    nop                                      ; 40DC7
 
 ; Loads the key-configuration panel graphics: maps ROM bank 1 at 2000h and BPE-expands two panel streams (Type A / Type B) into tile RAM 34C0h and 3A10h, swapping which goes where according to the current choice (DI) and picking the horizontal or vertical set from play_flags bit0. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI = current selection (0 / nonzero), play_flags bit0
@@ -1780,7 +2240,7 @@ loc_10FF:
     mov ds,ax                                ; 41101
     popa                                     ; 41103
     ret                                      ; 41104
-    db 0x90   ; 41105
+    nop                                      ; 41105
 
 ; BPE-expands the menu-label graphic for pause item DI (bank-1 table at 2000:086D, +0Ah entries for vertical mode) into tile RAM 3BF0h. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI = item index, play_flags bit0
@@ -2407,8 +2867,12 @@ loc_15E3:
     call emit_sprite_block                   ; 415F8
     popa                                     ; 415FB
     ret                                      ; 415FC
+
+; data 415FD-41615: byte table 4x6: highlighted option index per (option-set, selection), indexed [cs:bx+15FDh] with bx = 6*hi + lo
+; evidence: title_draw_menu_options 4000:152F mov cl,[cs:bx+0x15fd]
     db 0x00,0x00,0x00,0x00,0x00,0x00,0x02,0x00,0x02,0x00,0x02,0x00,0x01,0x00,0x01,0x00   ; 415FD
-    db 0x01,0x00,0x02,0x00,0x01,0x02,0x00,0x01,0x90   ; 4160D
+    db 0x01,0x00,0x02,0x00,0x01,0x02,0x00,0x01   ; 4160D
+    nop                                      ; 41615
 
 state00_title:
     call video_reset_menu                    ; 41616
@@ -3259,7 +3723,7 @@ loc_1E06:
     call map_fill_tile_rect                  ; 41E24
     popa                                     ; 41E27
     ret                                      ; 41E28
-    db 0x90   ; 41E29
+    nop                                      ; 41E29
 
 ; Graphics setup for the world-record page: calls F2A4, loads the world picture and its palettes (load_world_picture), sets palettes 0, 6 and 15, and copies 16h tiles from 3000:7B69 to tile RAM 3EA0h. [medium, reviewed: range_0000_7B9B.json]
 ; in:  progress_code
@@ -3283,7 +3747,7 @@ world_record_load_gfx:
     call copy_tiles_to_ram                   ; 41E4C
     popa                                     ; 41E4F
     ret                                      ; 41E50
-    db 0x90   ; 41E51
+    nop                                      ; 41E51
 
 ; Per-frame update of the world-record page: counts the displayed tally [13DFh] up toward the value from AEE9 (revealing one record cell per step via DBE3 with entries from bank-3 table 3000:9A2B), plays SFX 38h every 8 frames once the frame counter passes 180, prints the tally with B78A and emits the fixed sprites of the '/180'-style counter (different layout for world 6). [medium, reviewed: range_0000_7B9B.json]
 ; in:  [13DFh], [13DEh], [138Eh], progress_code, AEE9 result
@@ -3423,7 +3887,7 @@ world_record_init:
 loc_1F8F:
     pop ax                                   ; 41F8F
     ret                                      ; 41F90
-    db 0x90   ; 41F91
+    nop                                      ; 41F91
 
 state19_world_record:
     call video_reset_menu                    ; 41F92
@@ -3680,7 +4144,7 @@ loc_2224:
     rr xor, ax, ax                           ; 4222A
     out 0x0,ax                               ; 4222C
     jmp near main_loop                       ; 4222E
-    db 0x90   ; 42231
+    nop                                      ; 42231
 
 ; Draws the 'W-V' Vision number on the SCR2 map: copies digit/dash tiles from bank-3 pointer table 3000:81A9 (dash, world digit from progress_code bits 12-15, vision digit from bits 8-11) to tile RAM 3D70h/3D80h/3DE0h and places them with DC70 at DH,DL; world 6 uses the two special entries (+0Eh,+10h) instead of a digit. [medium, reviewed: range_0000_7B9B.json]
 ; in:  DX = map position, progress_code
@@ -3872,6 +4336,9 @@ loc_23E5:
     call install_game_vblank                 ; 423F6
     popa                                     ; 423F9
     ret                                      ; 423FA
+
+; data 423FB-42409: 14-byte table read with mov al,[cs:bx+23FBh]
+; evidence: state03_world_card_story 4000:243A and state16_resume_card 4000:267E: mov al,[cs:bx+0x23fb]; 12 of 14 bytes read at runtime
     db 0x00,0x08,0x28,0x04,0x40,0x1C,0x0C,0x00,0x00,0x20,0x00,0x42,0x00,0x04   ; 423FB
 
 state03_world_card_story:
@@ -4133,7 +4600,7 @@ loc_2691:
     mov ds,ax                                ; 426B0
     mov word [game_state],0x4                ; 426B2
     jmp near main_loop                       ; 426B8
-    db 0x90   ; 426BB
+    nop                                      ; 426BB
 
 ; Copies the two button graphics of the Continue/Quit prompt from bank-3 pointer table 3000:9737 into tile RAM 3E80h and 3F40h, choosing the highlighted or plain variant (and its size) from the selection byte [1384h]. [medium, reviewed: range_0000_7B9B.json]
 ; in:  [1384h] = selection (0 or FFh)
@@ -6377,7 +6844,7 @@ irq_hblank_iris_window:
     pop ds                                   ; 43ADC
     popa                                     ; 43ADD
     iret                                     ; 43ADE
-    db 0x90   ; 43ADF
+    nop                                      ; 43ADF
 
 ; Vertical-orientation variant of irq_hblank_iris_window: same circle computation with the player axes swapped (screen line vs player x, span from [13B2h]*256 - player y), clamping the left edge to at least 10h. [high, reviewed: range_0000_7B9B.json]
 ; in:  [1394h], [3C2h]/[3C4h], [13A0h]/[13A2h], [13B2h], port 02h
@@ -7212,6 +7679,9 @@ loc_4213:
 loc_4224:
     popa                                     ; 44224
     ret                                      ; 44225
+
+; unread bytes 44226-44230: FFh fill
+; evidence: ten FFh bytes between routines; not read
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 44226
 
 ; Rotates BP consecutive 8x8 2bpp tiles, starting at tile index BX (RAM 2000h + BX*16), 90 degrees clockwise in place using a 16-byte buffer at 1280h. Used when switching to vertical orientation. [high, reviewed: range_0000_7B9B.json]
@@ -8282,6 +8752,9 @@ loc_4A48:
     inc dx                                   ; 44A4F
     loop loc_4A48                            ; 44A50
     ret                                      ; 44A52
+
+; unread bytes 44A53-44A60: FFh fill
+; evidence: FFh bytes between routines; not read
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 44A53
 
 ; Initialises the camera for a level: zeroes camera position/targets and look-ahead state, stores the level extent ([13B3h] = DH*16 width, [13B2h] = DL*16 height, high bytes of 1/16-px coordinates), sets the look offsets [13AEh]/[13ACh] = 400h, runs one camera_update for the player and snaps the camera to the computed target. [high, reviewed: range_0000_7B9B.json]
@@ -8718,6 +9191,9 @@ loc_4DAE:
     mov [0x12d6],dx                          ; 44DC2
     call map_fetch_tile_row                  ; 44DC6
     ret                                      ; 44DC9
+
+; unread bytes 44DCA-44DD0: FFh fill
+; evidence: FFh bytes between routines; not read
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 44DCA
 
 ; VBlank writer: unless [1384h] != 0, copies the 32 prepared entries at 1280h into the SCR2 map as a horizontal row at tile (x=[12D4h], y=[12D6h]) with horizontal wrap. [high, reviewed: range_0000_7B9B.json]
@@ -8788,6 +9264,9 @@ loc_4E44:
     popa                                     ; 44E54
 loc_4E55:
     ret                                      ; 44E55
+
+; unread bytes 44E56-44E60: FFh fill
+; evidence: FFh bytes between routines; not read
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 44E56
 
 ; Damages the player from terrain: unless already invulnerable (flags bit 12), sets invulnerability with timer [3D9h]=100, decrements lives_reserve (health) or sets it to 0 when CL >= 3, redraws the health HUD (C55E) and, unless flags bit 14, applies a knock-back (vx 18h away from facing, vy -17h) and SFX 1. [high, reviewed: range_0000_7B9B.json]
@@ -8856,7 +9335,7 @@ load_player_base_tiles:
     mov ds,ax                                ; 44EE1
     popa                                     ; 44EE3
     ret                                      ; 44EE4
-    db 0x90   ; 44EE5
+    nop                                      ; 44EE5
 
 ; Copies 256 bytes from 2000:2440 to tile RAM 3F00h (the player sprite tiles), replacing the current player frame; called on the life-lost path just before random_dissolve_wipe. [medium, reviewed: range_0000_7B9B.json]
 ; in:  none
@@ -8877,7 +9356,7 @@ load_player_alt_frame:
     mov ds,ax                                ; 44EFD
     popa                                     ; 44EFF
     ret                                      ; 44F00
-    db 0x90   ; 44F01
+    nop                                      ; 44F01
 
 ; Initialises the object at DI as the player's shot (type 02): position = player position, size bytes +0Ah/+0Bh = 80h, facing copied from the player, initial vx 58h (negated when facing left) with deceleration F8h. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI = free slot, player slot 03C0h
@@ -8909,7 +9388,7 @@ loc_4F39:
     pop bp                                   ; 44F3C
     pop ax                                   ; 44F3D
     ret                                      ; 44F3E
-    db 0x90   ; 44F3F
+    nop                                      ; 44F3F
 
 ; Player shot (type 02, spawned by player_shot_init): flies out decelerating; when its horizontal speed reverses it switches to return mode (flag 800h) and homes on the player with velocity proportional to the distance times its timer; after 12 return frames it clears the player's shot flags and deletes itself. Ends with velocity integration. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI = object, player [3C2h]/[3C4h]
@@ -8980,7 +9459,7 @@ loc_4FB8:
     cbw                                      ; 44FCC
     add [di+0x4],ax                          ; 44FCD
     ret                                      ; 44FD0
-    db 0x90   ; 44FD1
+    nop                                      ; 44FD1
 
 ; Draw handler for type 02: loads sprite definition 29ECh into BP and jumps to the shared drawer at D092. [high, reviewed: range_0000_7B9B.json]
 ; in:  DH,DL screen position (from objects_draw), DI
@@ -9008,7 +9487,7 @@ loc_4FE6:
 loc_4FF0:
     or bp,0x4                                ; 44FF0
     ret                                      ; 44FF4
-    db 0x90   ; 44FF5
+    nop                                      ; 44FF5
 
 ; Fire button handler: if the player is not busy (flags 2900h clear) and no shot is out ([3D2h] bit8 clear) allocates a slot (B53D/B4F0), initialises it as the player shot, updates the player's state bits and plays SFX 3; if a shot is already active only plays SFX 3. [high, reviewed: range_0000_7B9B.json]
 ; in:  BP = player flags, [3D2h]
@@ -9045,7 +9524,7 @@ loc_5037:
     pop di                                   ; 45038
     pop ax                                   ; 45039
     ret                                      ; 4503A
-    db 0x90   ; 4503B
+    nop                                      ; 4503B
 
 ; Releases the object the player is holding ([DI+16h]) unless it is type 13h or 08h: clears the player's hold state, places the held object at the player's position, gives it the player's facing and flag 800h (thrown) and plays SFX 6. [medium, reviewed: range_0000_7B9B.json]
 ; in:  DI = player, BP = player flags
@@ -9124,7 +9603,7 @@ loc_50DD:
 loc_50F4:
     and bp,0xffef                            ; 450F4
     ret                                      ; 450F8
-    db 0x90   ; 450F9
+    nop                                      ; 450F9
 
 ; Jump-button logic: on the ground (not jumping and no 88h contact) starts a jump (bp bit4, vy -22h with gravity 1, SFX 4); while jumping with bp bit 400h set, a new press sets bit 20h and resets [di+1Bh]; otherwise when falling (vy >= 0) and bits C0h clear, sets bit 40h with vy/accel 10h/10h and resets [di+18h] (a slowed fall). [medium, reviewed: range_0000_7B9B.json]
 ; in:  DX = new keys (800h), BP = flags, DI = player
@@ -9174,7 +9653,7 @@ loc_514C:
 loc_5167:
     pop ax                                   ; 45167
     ret                                      ; 45168
-    db 0x90   ; 45169
+    nop                                      ; 45169
 
 ; Update handler of the player character (type 01, slot 03C0h): reads the remapped keys [1390h]/[1392h], handles fire/throw (4FF6/503C), facing (4FD8), jump (50FA), the 50FA hover/slow-fall states, invulnerability countdown, carrying/hanging from a held object (types 08/13), riding a platform ([DI+0Eh] object is updated first and its motion applied), gravity, and terrain collision through terrain_attr_at with damage on hazard cells (player_take_damage). [medium, reviewed: range_0000_7B9B.json]
 ; in:  DI = 03C0h, keys [1390h]/[1392h], terrain map, [3D2h]
@@ -9528,7 +10007,7 @@ loc_5488:
 loc_54A3:
     mov [di+0xc],bp                          ; 454A3
     jmp near loc_54AA                        ; 454A6
-    db 0x90   ; 454A9
+    nop                                      ; 454A9
 loc_54AA:
     rr xor, cx, cx                           ; 454AA
     mov bx,[di+0x10]                         ; 454AC
@@ -9664,7 +10143,7 @@ loc_55EA:
     and word [di+0xc],0x7fff                 ; 455EA
     mov word [di+0xe],0x0                    ; 455EF
     ret                                      ; 455F4
-    db 0x90   ; 455F5
+    nop                                      ; 455F5
 
 ; Player-vs-enemy contact (DI = player, SI = enemy; types 03-07,17,2D-2F): unless invulnerable, or holding something while the enemy is not a type-2F projectile, sets invulnerability (timer 100), decrements lives_reserve (health), redraws the HUD hearts and knocks the player back away from the enemy (vx 18h, vy -17h), SFX 1. [high, reviewed: range_0000_7B9B.json]
 ; in:  SI = enemy, player [3CCh], [3C2h]
@@ -9704,7 +10183,7 @@ loc_563D:
 loc_564C:
     mov [0x3cc],bp                           ; 4564C
     ret                                      ; 45650
-    db 0x90   ; 45651
+    nop                                      ; 45651
 
 ; Swapped-argument wrapper: exchanges DI/SI and calls coll_player_hurt_by_enemy (enemy is the first object). [high, reviewed: range_0000_7B9B.json]
 ; in:  DI = enemy, SI = player
@@ -9903,7 +10382,7 @@ loc_5801:
     pop bp                                   ; 45804
     pop ax                                   ; 45805
     ret                                      ; 45806
-    db 0x90   ; 45807
+    nop                                      ; 45807
 
 ; Vertical counterpart of obj_turn_away_x: if SI is moving vertically, makes the sign of its speed byte [SI+12h] point away from DI. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI, SI
@@ -9929,7 +10408,7 @@ loc_5826:
 loc_582F:
     pop ax                                   ; 4582F
     ret                                      ; 45830
-    db 0x90   ; 45831
+    nop                                      ; 45831
 
 ; Player (DI) vs platform types 18h/26h (SI): for type 18h, when the player's held object is type 14h or the player is within 280h below it, sets player state bits (+12h |= C0h); then resolves overlap like a solid block (side push with obj_turn_away_x, landing records SI as ridden object with SFX 5, bump from below with obj_turn_away_y). [medium, reviewed: range_0000_7B9B.json]
 ; in:  DI = player, SI = platform, [3D6h]
@@ -10074,7 +10553,7 @@ loc_5965:
 loc_5983:
     popa                                     ; 45983
     ret                                      ; 45984
-    db 0x90   ; 45985
+    nop                                      ; 45985
 
 ; Player (DI) inside the vertical column of object type 19h (SI, top [SI+18h], bottom [SI+1Ah], >= 280h tall, |dx| < 140h): sets player flag 8000h, limits upward speed to -1Ch and gives upward acceleration (-1), pulls the player toward the column centre near the top, plays SFX 8 every 32 frames; when the player holds a type-14h object it instead caps vy at 8 and moves the column top. [medium, reviewed: range_0000_7B9B.json]
 ; in:  DI = player, SI = column object
@@ -10351,7 +10830,18 @@ loc_5BE3:
     add ax,0x190                             ; 45BE9
     mov [di+0x4],ax                          ; 45BEC
     jmp near loc_5BC4                        ; 45BEF
-    db 0x60,0x61,0xC3,0x90   ; 45BF2
+
+; UNREFERENCED CODE 45BF2-45BF6 (no caller, jump or table entry; never executed): stub routine pusha/popa/ret + NOP
+; evidence: follows jmp near loc_5BC4; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_5BF2:
+    pusha                                    ; 45BF2
+    popa                                     ; 45BF3
+    ret                                      ; 45BF4
+
+; UNREFERENCED CODE 45BF2-45BF6 (no caller, jump or table entry; never executed): stub routine pusha/popa/ret + NOP
+; evidence: follows jmp near loc_5BC4; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_5BF5:
+    nop                                      ; 45BF5
 
 ; Chooses the player's animation while holding something ([DI+15h]=1): picks an animation id (11h-17h, +20h in vertical mode) and frame from the state flags (hurt timer, throw timer [1Bh], hanging from type 08, landing, airborne, walking) and stores them in [139Ah]/[139Ch] for player_upload_anim_frame. [high, reviewed: range_0000_7B9B.json]
 ; in:  player slot 03C0h, play_flags bit0
@@ -10440,7 +10930,7 @@ loc_5C9E:
     mov ds,ax                                ; 45CB7
     popa                                     ; 45CB9
     ret                                      ; 45CBA
-    db 0x90   ; 45CBB
+    nop                                      ; 45CBB
 
 ; Chooses the player's animation in the normal state ([DI+15h]=0): animation id 0-0Ah (+20h vertical) and frame from the player's state bits (hurt, [12h] bits 1/2, landing, grabbing, shot out, slow-fall, 8000h lift, airborne, walking, idle), stored in [139Ah]/[139Ch]. [high, reviewed: range_0000_7B9B.json]
 ; in:  player slot 03C0h, play_flags bit0
@@ -10543,7 +11033,7 @@ loc_5D88:
     mov ds,ax                                ; 45DA1
     popa                                     ; 45DA3
     ret                                      ; 45DA4
-    db 0x90   ; 45DA5
+    nop                                      ; 45DA5
 
 ; Copies the player's current animation frame (16 tiles, 256 bytes) from bank 2 into tile RAM 3F00h: source = 2000:[8000:[139Ah]*2] + [139Ch]. [high, reviewed: range_0000_7B9B.json]
 ; in:  [139Ah] animation id, [139Ch] frame offset
@@ -10728,7 +11218,7 @@ tbl_5F07:
 tbl_5F0B:
     dw obj01_player_draw_sprites_horiz
     dw obj01_player_draw_sprites_vert
-    db 0x90   ; 45F0F
+    nop                                      ; 45F0F
 
 ; Draw handler of the player: skips drawing on alternate 8-frame phases while invulnerable (blink), draws the sprite block for the current orientation (tbl_5F0B) and then selects the next animation (tbl_5F07 by [DI+15h]). [high, reviewed: range_0000_7B9B.json]
 ; in:  DH,DL, player slot 03C0h, play_flags bit0
@@ -10755,6 +11245,9 @@ loc_5F26:
     shl bx,1                                 ; 45F3A
     call [cs:bx+tbl_5F07]                    ; 45F3C
     ret                                      ; 45F41
+
+; unread bytes 45F42-45F50: FFh fill
+; evidence: FFh bytes between routines; not read
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 45F42
 
 ; Horizontal terrain check for a moving object: probes three points (y-A0h, y, y+A0h) just ahead of it in its x direction with terrain_attr_at; on a solid cell snaps x to the 8-px grid centre and, for a hazard cell (attr >= 2), sets object flag 1000h. Stores the contact bits in [DI+10h]. [high, reviewed: range_0000_7B9B.json]
@@ -11174,8 +11667,28 @@ copy_tiles_to_ram:
     rr xor, ax, ax                           ; 4624F
     mov ds,ax                                ; 46251
     ret                                      ; 46253
-    db 0x60,0xB9,0x60,0x00,0xB8,0x00,0x70,0x8E,0xD8,0xBE,0x00,0x7B,0x33,0xC0,0x8E,0xC0   ; 46254
-    db 0xBF,0x30,0x3B,0xF3,0xA5,0x33,0xC0,0x8E,0xD8,0x61,0xC3,0x00,0x7B,0x00,0x83,0x90   ; 46264
+
+; UNREFERENCED CODE 46254-4626F (no caller, jump or table entry; never executed): complete routine: copies 60h words from 7000:7B00 to tile RAM 3B30h (static version of anim_tiles_update), ret
+; evidence: decodes as pusha / mov cx,60h / ds=7000h / si=7B00h / es=0 / di=3B30h / rep movsw / popa / ret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_6254:
+    pusha                                    ; 46254
+    mov cx,0x60                              ; 46255
+    mov ax,0x7000                            ; 46258
+    mov ds,ax                                ; 4625B
+    mov si,0x7b00                            ; 4625D
+    rr xor, ax, ax                           ; 46260
+    mov es,ax                                ; 46262
+    mov di,0x3b30                            ; 46264
+    rep movsw                                ; 46267
+    rr xor, ax, ax                           ; 46269
+    mov ds,ax                                ; 4626B
+    popa                                     ; 4626D
+    ret                                      ; 4626E
+
+; data 4626F-46273: 2-word table {7B00h, 8300h}: bank-7 source per orientation
+; evidence: anim_tiles_update 4000:6298 mov si,[cs:bx+0x626f]
+    db 0x00,0x7B,0x00,0x83   ; 4626F
+    nop                                      ; 46273
 
 ; Animated tile set: copies 256 bytes (16 tiles) from bank 7 into tile RAM 3B30h; source = word table at 4000:626F (by orientation) + ((frame>>4)&7)*256, i.e. an 8-step animation advancing every 16 frames. [high, reviewed: range_0000_7B9B.json]
 ; in:  [138Eh] frame counter, play_flags bit0
@@ -11208,6 +11721,9 @@ anim_tiles_update:
     mov ds,ax                                ; 462AD
     popa                                     ; 462AF
     ret                                      ; 462B0
+
+; data 462B1-462E1: 6-byte records {type word, tile word, tile word} (8 records; the routine scans 7, the 8th repeats the 7th)
+; evidence: held_enemy_anim_update reads the table at 4000:62B1 by grabbed enemy type [3DEh]
     db 0x03,0x00,0xA0,0x01,0xA0,0x31,0x04,0x00,0xA0,0x09,0xA0,0x39,0x07,0x00,0xA0,0x11   ; 462B1
     db 0xA0,0x41,0x17,0x00,0xA0,0x19,0xA0,0x49,0x2D,0x00,0xA0,0x21,0xA0,0x51,0x2E,0x00   ; 462C1
     db 0xA0,0x29,0xA0,0x59,0x03,0x00,0xA0,0x01,0xA0,0x31,0x03,0x00,0xA0,0x01,0xA0,0x31   ; 462D1
@@ -11300,7 +11816,7 @@ tbl_6375:
     dw mscript_op2_init
     dw mscript_op3_init
     dw mscript_nop
-    db 0x90   ; 4637F
+    nop                                      ; 4637F
 
 ; Script opcode 3 init: stores the trigger range arg (+4)<<4 in [DI+18h], remembers this command in [DI+1Ah], and immediately advances to and initialises the following command (which then runs until the player comes within range). [high, reviewed: range_0000_7B9B.json]
 ; in:  DI, ES:SI
@@ -11325,7 +11841,7 @@ mscript_op3_init:
     call [cs:bx+tbl_6375]                    ; 463A4
     popa                                     ; 463A9
     ret                                      ; 463AA
-    db 0x90   ; 463AB
+    nop                                      ; 463AB
 
 ; Script opcode 3 per frame: fires up to arg +3 projectiles, one every arg +2 frames, by calling AB82 (spawns a type-2Fh projectile at the object's position in its facing direction, SFX 16h); then while the player is within [DI+18h] waits arg +6 frames, turns toward the player and starts a new burst; when the player leaves the range it swaps back to the command saved in [DI+1Ah]. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI, ES:SI, player position
@@ -11502,7 +12018,7 @@ loc_64FF:
     call [cs:bx+tbl_6375]                    ; 46514
     popa                                     ; 46519
     ret                                      ; 4651A
-    db 0x90   ; 4651B
+    nop                                      ; 4651B
 
 ; Script opcode 1 init: sets vx and the speed byte [DI+12h] to arg byte +0 (direction randomised from player x + frame counter when byte +0Ah = 0), vy 0, facing bits from the sign, timer 0. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI, ES:SI = command, [3C2h], [138Eh]
@@ -11667,7 +12183,7 @@ loc_666D:
 ; dispatch roles: sub_663C_case0, sub_663C_case4, sub_6670_case0_case0, sub_6670_case0_case4, sub_6670_case4, sub_6670_case5, sub_6670_case9
 mscript_nop:
     ret                                      ; 4666E
-    db 0x90   ; 4666F
+    nop                                      ; 4666F
 
 ; Per-frame movement-script interpreter for enemies/movers: the current command is at [13C4h]:[DI+16h]; its opcode byte (+1) selects the per-frame handler from tbl_636B (0 wait, 1 patrol x, 2 patrol y, 3 attack-when-near, others no-op). [high, reviewed: range_0000_7B9B.json]
 ; in:  DI = object, [13C4h] script segment, [DI+16h] command pointer
@@ -11689,7 +12205,10 @@ mscript_run:
     pop bx                                   ; 46689
     pop ax                                   ; 4668A
     ret                                      ; 4668B
-    db 0xC3,0x90,0xC3,0x90   ; 4668C
+    ret                                      ; 4668C
+    nop                                      ; 4668D
+    ret                                      ; 4668E
+    nop                                      ; 4668F
 
 ; Type 1Bh is a delayed spawner: counts its timer [DI+1Ch] up and, once it exceeds [DI+14h]*4, turns into the object type stored in [DI+1Eh] (flags byte 1). [high, reviewed: range_0000_7B9B.json]
 ; in:  DI
@@ -11788,7 +12307,7 @@ coll_02_1B_coll_shot_vs_spawner:
     call ax                                  ; 46742
 loc_6744:
     ret                                      ; 46744
-    db 0x90   ; 46745
+    nop                                      ; 46745
 
 ; Swapped-argument wrapper of coll_shot_vs_spawner. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI = spawner, SI = shot
@@ -11820,7 +12339,7 @@ load_obj03_tiles:
     mov ds,ax                                ; 46765
     popa                                     ; 46767
     ret                                      ; 46768
-    db 0x90   ; 46769
+    nop                                      ; 46769
 
 ; Level spawn routine (shared by lvl00/2B/2C/2D): places a delayed spawner (type 1Bh) at tile coordinates AX,DX (<<4) that becomes type 03 after CH*4 frames, with size 80h, gravity 1 and facing right. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI = slot, AX/DX = position (px), CH = delay
@@ -11844,7 +12363,7 @@ lvl00_spawn_obj03_delayed:
     mov byte [di+0x9],0x1                    ; 4678B
     or word [di+0xc],0x2                     ; 4678F
     ret                                      ; 46794
-    db 0x90   ; 46795
+    nop                                      ; 46795
 
 ; Type 03 enemy: runs its movement script (mscript_run), applies velocity unless pausing ([DI+13h]) and handles walls/floor with obj_walk_terrain (gravity flag 10h set). [high, reviewed: range_0000_7B9B.json]
 ; in:  DI
@@ -11883,7 +12402,7 @@ loc_67C3:
     and bx,0x1                               ; 467CE
     shl bx,1                                 ; 467D2
     jmp [cs:bx+tbl_D31E]                     ; 467D4
-    db 0x90   ; 467D9
+    nop                                      ; 467D9
 
 ; Swapped-argument wrapper of coll_shot_grabs_enemy (enemy first). [high, reviewed: range_0000_7B9B.json]
 ; in:  DI = enemy, SI = shot
@@ -11973,7 +12492,7 @@ lvl01_spawn_obj04_delayed:
     mov byte [di+0xa],0x80                   ; 46845
     or word [di+0xc],0x12                    ; 46849
     ret                                      ; 4684E
-    db 0x90   ; 4684F
+    nop                                      ; 4684F
 
 ; Type 04 (also type 17h) enemy: always faces the player, plays SFX 0Ch every 64 frames while on screen (byte+1 bit0), runs its movement script and applies velocity unless pausing; no terrain or gravity handling. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI, player x
@@ -12014,7 +12533,7 @@ loc_6890:
     jmp near obj_apply_velocity              ; 46899
 loc_689C:
     ret                                      ; 4689C
-    db 0x90   ; 4689D
+    nop                                      ; 4689D
 
 ; Draw handler for type 04: tile base from the allocated slot [1410h] with attributes 2800h, via the orientation-specific drawer table tbl_D31E. [high, reviewed: range_0000_7B9B.json]
 ; in:  DH,DL, DI, [1410h]
@@ -12191,7 +12710,7 @@ loc_69C0:
 loc_69CD:
     mov [di+0x10],bx                         ; 469CD
     ret                                      ; 469D0
-    db 0x90   ; 469D1
+    nop                                      ; 469D1
 
 ; Type 06 = a type-05 object weighed down by a block (set by coll_block_vs_obj05): falls with gravity and terrain handling while something rests on it; once nothing is on top (no 80h contact) it flies back to its home y [DI+1Ah] at 8 units/frame and then reverts to type 05 with its saved velocities ([1Eh]/[1Fh]). [medium, reviewed: range_0000_7B9B.json]
 ; in:  DI
@@ -12240,7 +12759,7 @@ loc_6A20:
     or word [di+0xc],0x800                   ; 46A2F
 loc_6A34:
     ret                                      ; 46A34
-    db 0x90   ; 46A35
+    nop                                      ; 46A35
 
 ; Block-type object (DI: types 12h,13h,15h,27h) vs weighted mover type 06 (SI): if SI is above, it is set on top of the block; if SI is below, the block is placed on it (block rides SI, SI clears its return flag and gets vy 0/accel 2); on side contact the block stops and is pushed out. [medium, reviewed: range_0000_7B9B.json]
 ; in:  DI = block, SI = obj06
@@ -12656,7 +13175,7 @@ lvl1a_spawn_obj12_delayed:
     adc ch,0x0                               ; 46D5C
     mov [di+0x1f],ch                         ; 46D5F
     ret                                      ; 46D62
-    db 0x90   ; 46D63
+    nop                                      ; 46D63
 
 ; Type 12h block: falls/rides via obj_ride_or_fall; on newly gaining floor contact (bits 44h) it is re-initialised as a resting block (obj_change_type_reset with 12h) and plays SFX 29h (landing). [high, reviewed: range_0000_7B9B.json]
 ; in:  DI
@@ -12791,7 +13310,7 @@ loc_6E61:
     mov [di+0x8],ax                          ; 46E7C
     call player_clear_held                   ; 46E7F
     ret                                      ; 46E82
-    db 0x90   ; 46E83
+    nop                                      ; 46E83
 loc_6E84:
     pusha                                    ; 46E84
     mov bx,[di+0x10]                         ; 46E85
@@ -12862,7 +13381,7 @@ loc_6F24:
     mov [di+0x10],bx                         ; 46F24
     popa                                     ; 46F27
     ret                                      ; 46F28
-    db 0x90   ; 46F29
+    nop                                      ; 46F29
 
 ; Type 14h = block carried above the player: follows the player (x, y-178h) and checks terrain above/ahead, pushing both out of walls (shared code at 6E84); flag 20h turns it back into a resting block (type 12h), flag 800h turns it into a thrown block (type 15h) with vx +/-20h by facing. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI, player slot 03C0h
@@ -12903,7 +13422,7 @@ loc_6F7C:
     mov [di+0x6],ax                          ; 46F7C
     mov word [di+0x8],0x0                    ; 46F7F
     ret                                      ; 46F84
-    db 0x90   ; 46F85
+    nop                                      ; 46F85
 
 ; Type 15h = thrown block: moves (obj_apply_velocity) with wall checks (obj_check_wall_terrain); on hitting a wall, or 4 frames after its counter [13h] has started, it becomes a resting block (type 12h) with vy 0/gravity 2 and plays SFX 29h. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI
@@ -13077,7 +13596,7 @@ loc_70C2:
     mov ah,0x1                               ; 470CD
     mov [si+0x8],ax                          ; 470CF
     ret                                      ; 470D2
-    db 0x90   ; 470D3
+    nop                                      ; 470D3
 
 ; Thrown block (type 15h, DI) vs block/pushable (12h/27h, SI): stops the thrown block horizontally, starts its settle counter [13h] and pushes it out 180h to the side away from SI, setting side-contact bits on both. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI = thrown block, SI = other
@@ -13184,7 +13703,7 @@ coll_12_15_coll_block_vs_thrown_block:
 ; dispatch roles: coll_13_03, coll_13_04, coll_13_2D, coll_13_2E, coll_13_2F, coll_14_03, coll_14_04, coll_14_2D
 coll_13_03_coll_block_kills_second:
     jmp near obj_kill_with_burst_si          ; 47186
-    db 0x90   ; 47189
+    nop                                      ; 47189
 
 ; Enemy (DI) vs held/thrown block (13h-15h): destroys the enemy (tail-jump to obj_kill_with_burst). [high, reviewed: range_0000_7B9B.json]
 ; in:  DI, SI
@@ -13194,7 +13713,7 @@ coll_13_03_coll_block_kills_second:
 ; dispatch roles: coll_03_13, coll_03_14, coll_03_15, coll_04_13, coll_04_14, coll_04_15, coll_2D_13, coll_2D_14
 coll_03_13_coll_block_kills_first:
     jmp near obj_kill_with_burst             ; 4718A
-    db 0x90   ; 4718D
+    nop                                      ; 4718D
 
 ; Enemy (DI: types 03,04,2Dh,2Eh) vs block/pushable (SI: 12h/27h): if the block is falling (flag 10h) or a type-27h block is moving, the enemy is destroyed; otherwise the enemy turns around (facing and speed byte); for enemy types 03/07, when the block lies lower than the enemy, the enemy instead gets vy -20h (hops onto it). [medium, reviewed: range_0000_7B9B.json]
 ; in:  DI = enemy, SI = block
@@ -13433,7 +13952,7 @@ loc_735C:
     or byte [si+0x11],0x10                   ; 4735E
     or byte [di+0x11],0x20                   ; 47362
     ret                                      ; 47366
-    db 0x90   ; 47367
+    nop                                      ; 47367
 
 ; Swapped-argument wrapper of coll_block_vs_obj05. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI = obj05, SI = block
@@ -13570,7 +14089,7 @@ loc_745C:
     or byte [di+0x11],0x20                   ; 47469
     popa                                     ; 4746D
     ret                                      ; 4746E
-    db 0xC3   ; 4746F
+    ret                                      ; 4746F
 
 ; Swapped-argument wrapper of coll_thrown_block_vs_obj05. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI = obj05, SI = thrown block
@@ -13725,7 +14244,7 @@ loc_757B:
     add al,0x8                               ; 47584
     loop loc_757B                            ; 47586
     ret                                      ; 47588
-    db 0x90   ; 47589
+    nop                                      ; 47589
 
 ; Draw handler for type 08: while flagged 1000h (and the player is not hanging, [3CCh] bit14) it bobs using the sine table at B5CA; normally draws with tile slot [1404h] via D29B; when flagged 400h (grabbed) it draws sprite def 29AAh via D1A1 plus a 3-sprite strip from [1404h] (+9 on alternate 16-frame phases), horizontal or vertical layout. [medium, reviewed: range_0000_7B9B.json]
 ; in:  DH,DL, DI, [1404h], [3CCh], play_flags
@@ -13763,7 +14282,7 @@ loc_75C6:
     jmp near loc_D29B                        ; 475D5
 loc_75D8:
     jmp near loc_7527                        ; 475D8
-    db 0x90   ; 475DB
+    nop                                      ; 475DB
 
 ; Type 08 (DI) touched by the player: if not already flagged, sets flags 3000h, resets its timer and plays SFX 9. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI = obj08
@@ -13779,7 +14298,7 @@ coll_08_01_coll_carrier_vs_player:
     call sound_play                          ; 475EF
 loc_75F2:
     ret                                      ; 475F2
-    db 0x90   ; 475F3
+    nop                                      ; 475F3
 
 ; Player (DI) touches type 08 (SI): same as coll_carrier_vs_player applied to SI. [high, reviewed: range_0000_7B9B.json]
 ; in:  SI = obj08
@@ -13795,7 +14314,7 @@ coll_01_08_coll_player_vs_carrier:
     call sound_play                          ; 47607
 loc_760A:
     ret                                      ; 4760A
-    db 0x90   ; 4760B
+    nop                                      ; 4760B
 
 ; Swapped-argument wrapper of coll_shot_latches_carrier. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI = obj08, SI = shot
@@ -13828,7 +14347,7 @@ coll_02_08_coll_shot_latches_carrier:
     mov ax,0xa                               ; 4763E
     call sound_play                          ; 47641
     ret                                      ; 47644
-    db 0x90   ; 47645
+    nop                                      ; 47645
 
 ; Copies 9 tiles (90h bytes) from 7000:0110 to tile RAM 3AA0h (tile 1AAh), the default graphics drawn by obj09_draw_captured_enemy. [high, reviewed: range_0000_7B9B.json]
 ; in:  none
@@ -13849,7 +14368,7 @@ load_held_enemy_tiles:
     mov ds,ax                                ; 4765D
     popa                                     ; 4765F
     ret                                      ; 47660
-    db 0x90   ; 47661
+    nop                                      ; 47661
 
 ; Type 09 = enemy just captured by the player's shot: for 12 frames homes toward the player (velocity = distance*frame>>4), then until frame 32 sits on the player (x = player x, y following the player's vy) checking the terrain above; afterwards, or on overhead contact, when the player's flag 20h is set or its own flag 800h, it becomes type 0Ah (carried) and clears player flag 200h. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI, player slot 03C0h
@@ -13930,7 +14449,7 @@ loc_7708:
     mov byte [di],0xa                        ; 47708
     and word [si+0xc],0xfdff                 ; 4770B
     ret                                      ; 47710
-    db 0x90   ; 47711
+    nop                                      ; 47711
 
 ; Positions a carried enemy above the player: x = player x, y eased toward the player's head (bobbing on the sine table unless its original type is 2Dh), checks the terrain above and ahead with terrain_attr_at, pushes player and object out of walls, and sets flag 1000h on hazard cells. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI = carried object, player slot 03C0h
@@ -14122,7 +14641,7 @@ loc_78B1:
     and word [0x3d2],0xfffe                  ; 478C4
 loc_78CA:
     ret                                      ; 478CA
-    db 0x90   ; 478CB
+    nop                                      ; 478CB
 
 ; Type 0Bh = thrown captured enemy: flies with wall checks (obj_check_wall_terrain); on hitting a wall or after 96 frames it is destroyed with a defeat burst. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI
@@ -14160,7 +14679,7 @@ loc_78F9:
     ret                                      ; 47905
 loc_7906:
     jmp near obj_kill_with_burst             ; 47906
-    db 0x90   ; 47909
+    nop                                      ; 47909
 
 ; Draw handler for captured-enemy types 09h-0Ch: when its original type [DI+1Eh] equals the animated type [3DEh] it uses the animated tiles at 1C3h (held_enemy_anim_update) via D118, otherwise the static tiles at 1AAh via D1A1. [high, reviewed: range_0000_7B9B.json]
 ; in:  DH,DL, DI +1Eh, [3DEh]
@@ -14194,7 +14713,7 @@ coll_03_0A_coll_enemy_vs_held_enemy:
     call obj_kill_with_burst                 ; 47930
     call obj_kill_with_burst_si              ; 47933
     jmp near player_clear_held               ; 47936
-    db 0x90   ; 47939
+    nop                                      ; 47939
 
 ; Enemy vs thrown/dropped captured enemy (0Bh/0Ch), either order: if their x positions are within 120h both are destroyed with defeat bursts. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI, SI
@@ -14212,7 +14731,7 @@ coll_03_0B_coll_enemy_vs_thrown_enemy:
     call obj_kill_with_burst_si              ; 4794B
 loc_794E:
     ret                                      ; 4794E
-    db 0x90   ; 4794F
+    nop                                      ; 4794F
 
 ; Carried captured enemy (0Ah, DI) touches an object of type 05, 06, 29h or 2Fh: the carried enemy is destroyed with a burst and the player's hold is cleared. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI = carried enemy
@@ -14253,7 +14772,8 @@ coll_0B_05_coll_destroy_first:
 coll_05_0B_coll_destroy_second:
     call obj_kill_with_burst_si              ; 47960
     ret                                      ; 47963
-    db 0xC3,0x90   ; 47964
+    ret                                      ; 47964
+    nop                                      ; 47965
 
 ; Copies 9 tiles (90h bytes) from 7000:0080 to tile RAM 3E30h (tile 1E3h), the defeat-burst graphics used by obj16_draw. [high, reviewed: range_0000_7B9B.json]
 ; in:  none
@@ -14274,7 +14794,7 @@ load_burst_tiles:
     mov ds,ax                                ; 4797D
     popa                                     ; 4797F
     ret                                      ; 47980
-    db 0x90   ; 47981
+    nop                                      ; 47981
 
 ; Deletes the object at DI if its Manhattan distance to the player is C00h (192 px) or more. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI, player [3C2h]/[3C4h]
@@ -14300,7 +14820,7 @@ obj_delete_if_far:
     mov byte [di],0x0                        ; 479A1
 loc_79A4:
     ret                                      ; 479A4
-    db 0x90   ; 479A5
+    nop                                      ; 479A5
 
 ; Defeats the object at DI: changes it to type 3Eh with timer 0 and spawns a type-16h defeat burst at its position (slot from B585), which is discarded if far from the player. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI
@@ -14373,7 +14893,7 @@ loc_7A14:
 loc_7A15:
     mov byte [di],0x0                        ; 47A15
     ret                                      ; 47A18
-    db 0x90   ; 47A19
+    nop                                      ; 47A19
 
 ; Draw handler for the defeat burst: two sprites (tile 1E7h, base 1E3h) flying apart diagonally from the centre as the timer grows, then continues in the shared drawer at CDB6 with a size derived from the timer. [medium, reviewed: range_0000_7B9B.json]
 ; in:  DH,DL, DI +14h
@@ -14513,7 +15033,7 @@ loc_7AEC:
     pop ax                                   ; 47B01
 loc_7B02:
     ret                                      ; 47B02
-    db 0x90   ; 47B03
+    nop                                      ; 47B03
 
 ; Level tick (lvl06/lvl20): allocates and loads the type-17h graphics (36 tiles, slot [1414h]) and the type 0Dh-0Fh graphics (slot [140Ah]) if not yet loaded. [high, reviewed: range_0000_7B9B.json]
 ; in:  [1414h], [140Ah], [1396h]
@@ -14565,7 +15085,7 @@ loc_7B44:
     pop ax                                   ; 47B59
 loc_7B5A:
     ret                                      ; 47B5A
-    db 0x90   ; 47B5B
+    nop                                      ; 47B5B
 
 ; Level spawn routine: lvl05_spawn_obj07_delayed with [DI+1Fh] = 0Dh instead of 07h. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI, AX, DX, CH
@@ -14599,7 +15119,7 @@ lvl05_spawn_obj07_delayed:
     mov byte [di+0x9],0x1                    ; 47B89
     or word [di+0xc],0x2                     ; 47B8D
     ret                                      ; 47B92
-    db 0x90   ; 47B93
+    nop                                      ; 47B93
 
 ; Level spawn routine: calls lvl06_spawn (7B9C: delayed spawner that becomes type 17h) and then sets [DI+1Fh] = 0Dh. [high, reviewed: range_0000_7B9B.json]
 ; in:  DI, AX, DX, CH
@@ -14632,7 +15152,7 @@ lvl06_spawn_delayed_obj17:
     mov byte [di+0xa],0x80                   ; 47BBD
     or word [di+0xc],0x12                    ; 47BC1
     ret                                      ; 47BC6
-    db 0x90   ; 47BC7
+    nop                                      ; 47BC7
 
 ; Per-frame update for type 07h: marks the slot updated, counts timers +1Ch/+14h, sets +0Ch bit 4, runs the level-record movement handler (sub_6670), applies velocity (sub_622B) unless +13h is set, then (if still type 07h) tail-jumps to sub_6146 (wall check that reverses facing/speed and floor landing). [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot (called from objects_update with ES = 8000h)
@@ -14680,7 +15200,7 @@ loc_7C08:
     and bx,0x1                               ; 47C10
     shl bx,1                                 ; 47C14
     jmp [cs:bx+tbl_D31E]                     ; 47C16
-    db 0x90   ; 47C1B
+    nop                                      ; 47C1B
 
 ; Swaps DI and SI, calls coll_02_07 (type-02 object captures the 07h/17h object) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI/SI = the two colliding objects (column type in DI after the swap)
@@ -14705,7 +15225,7 @@ coll_02_07_capture:
     call shot_grab_enemy                     ; 47C26
     mov word [si+0x1c],0x0                   ; 47C29
     ret                                      ; 47C2E
-    db 0x90   ; 47C2F
+    nop                                      ; 47C2F
 
 ; 07h/17h enemy (DI) vs type 12h/27h object (SI): if SI+0Ch bit 4 is set, or SI is type 27h with non-zero x velocity, DI is deleted and an explosion burst spawned (sub_812F). Otherwise, if SI is below DI the enemy gets vy = E0h (bounce up); else, if DI is moving horizontally, it is turned to face away from SI (facing bits in +0Ch and sign of +12h). [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object of type 07/17 (matrix row), SI = object of type 12/27 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
@@ -14784,7 +15304,7 @@ coll_07_13_coll_explode_di:
     mov dx,[di+0x4]                          ; 47CA4
     mov ch,[di+0x15]                         ; 47CA7
     jmp near spawn_explosion_burst           ; 47CAA
-    db 0x90   ; 47CAD
+    nop                                      ; 47CAD
 
 ; Generic callback (12 type pairs): deletes the SI object and spawns an explosion burst (type 11h) at its position with its record id. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object of type 05/06/13/14/15/2F (matrix row), SI = object of type 0D/10/07/17 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
@@ -14798,7 +15318,7 @@ coll_05_0D_coll_explode_si:
     mov dx,[si+0x4]                          ; 47CB4
     mov ch,[si+0x15]                         ; 47CB7
     jmp near spawn_explosion_burst           ; 47CBA
-    db 0x90   ; 47CBD
+    nop                                      ; 47CBD
 
 ; Generic callback (16 pairs): deletes DI with an explosion burst (sub_812F) and defeats SI via sub_79D0 (SI becomes type 3Eh, a type-16h puff is spawned). [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object of type 07/0D/10/17 (matrix row), SI = object of type 0A/0B/0C/03/04/2D/2E (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
@@ -14845,7 +15365,7 @@ capture_timer_tick:
     call sound_play                          ; 47CF9
 loc_7CFC:
     ret                                      ; 47CFC
-    db 0x90   ; 47CFD
+    nop                                      ; 47CFD
 
 ; Type 0Dh (captured enemy released downward / falling): marks updated, ticks +1Ch and the capture timer, applies velocity and terrain collision (sub_6146). When the terrain check sets +0Ch bit 12 (tile attribute >= 2) or the timer +1Fh reaches 0, deletes itself and spawns an explosion burst. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot (called from objects_update with ES = 8000h)
@@ -14957,8 +15477,24 @@ loc_7DE6:
     mov byte [di],0xe                        ; 47DE6
     and word [si+0xc],0xfdff                 ; 47DE9
     ret                                      ; 47DEE
-    db 0x80,0x7D,0x1F,0x00,0x74,0x00,0xE8,0xBA,0xE1,0x8B,0x45,0x02,0x8B,0x55,0x04,0x8A   ; 47DEF
-    db 0x6D,0x15,0xC6,0x05,0x00,0xE9,0x28,0x03,0x90   ; 47DFF
+
+; UNREFERENCED CODE 47DEF-47E08 (no caller, jump or table entry; never executed): routine tail: cmp [di+1Fh] / call 5FB2 / x,y,ch from slot / delete / jmp 812F (spawn_explosion_burst) + NOP
+; evidence: decodes as instructions ending in an unconditional jmp; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_7DEF:
+    cmp byte [di+0x1f],0x0                   ; 47DEF
+    jz short loc_7DF5                        ; 47DF3
+loc_7DF5:
+    call player_clear_held                   ; 47DF5
+    mov ax,[di+0x2]                          ; 47DF8
+    mov dx,[di+0x4]                          ; 47DFB
+    mov ch,[di+0x15]                         ; 47DFE
+    mov byte [di],0x0                        ; 47E01
+    jmp near spawn_explosion_burst           ; 47E04
+
+; UNREFERENCED CODE 47DEF-47E08 (no caller, jump or table entry; never executed): routine tail: cmp [di+1Fh] / call 5FB2 / x,y,ch from slot / delete / jmp 812F (spawn_explosion_burst) + NOP
+; evidence: decodes as instructions ending in an unconditional jmp; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_7E07:
+    nop                                      ; 47E07
 
 ; Type 0Eh (enemy held by the player): zero velocity; if +0Ch bit 5 is set becomes type 0Dh falling (vy 8, accel 1); if +0Ch bit 11 is set becomes type 10h moving horizontally at +/-20h by facing bit 0. Otherwise ticks the capture timer, runs sub_7712 against the player, and when the timer expires or +0Ch bit 12 is set releases the player's hold (sub_5FB2) and explodes. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot (called from objects_update with ES = 8000h)
@@ -15010,7 +15546,7 @@ loc_7E6A:
     mov dx,[di+0x4]                          ; 47E72
     mov ch,[di+0x15]                         ; 47E75
     jmp near spawn_explosion_burst           ; 47E78
-    db 0x90   ; 47E7B
+    nop                                      ; 47E7B
 
 ; Type 10h (enemy thrown horizontally): ticks capture timer, applies velocity, horizontal wall check (sub_5F50). Hitting a wall (+11h bits 0-1) converts it to a falling type 0Dh (sub_5FC7); tile attribute >= 2 (+0Ch bit 12) or timer 0 deletes it with an explosion burst. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot (called from objects_update with ES = 8000h)
@@ -15039,10 +15575,34 @@ loc_7EA4:
     mov ch,[di+0x15]                         ; 47EAA
     mov byte [di],0x0                        ; 47EAD
     jmp near spawn_explosion_burst           ; 47EB0
-    db 0x90,0x80,0x4D,0x01,0x02,0xFF,0x45,0x1C,0x3C,0x18,0x7C,0x02,0xB0,0x18,0xE8,0x1E   ; 47EB3
-    db 0xFE,0xE8,0x64,0xE3,0xE8,0x7C,0xE2,0xF6,0x45,0x11,0x04,0x75,0x07,0x80,0x7D,0x1F   ; 47EC3
-    db 0x00,0x74,0x05,0xC3,0xE8,0xED,0xE0,0xC3,0x8B,0x45,0x02,0x8B,0x55,0x04,0x8A,0x6D   ; 47ED3
-    db 0x15,0xC6,0x05,0x00,0xE9,0x45,0x02   ; 47EE3
+
+; UNREFERENCED CODE 47EB3-47EEA (no caller, jump or table entry; never executed): NOP + complete routine: an unused captured-enemy update variant (mark updated, timers, 7CE2/622B/6146, delete with burst)
+; evidence: decodes as one routine whose paths all end in ret or jmp; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_7EB3:
+    nop                                      ; 47EB3
+    or byte [di+0x1],0x2                     ; 47EB4
+    inc word [di+0x1c]                       ; 47EB8
+    cmp al,0x18                              ; 47EBB
+    jl short loc_7EC1                        ; 47EBD
+    mov al,0x18                              ; 47EBF
+loc_7EC1:
+    call capture_timer_tick                  ; 47EC1
+    call obj_apply_velocity                  ; 47EC4
+    call obj_walk_terrain                    ; 47EC7
+    test byte [di+0x11],0x4                  ; 47ECA
+    jnz short loc_7ED7                       ; 47ECE
+    cmp byte [di+0x1f],0x0                   ; 47ED0
+    jz short loc_7EDB                        ; 47ED4
+    ret                                      ; 47ED6
+loc_7ED7:
+    call obj_convert_to_type0d               ; 47ED7
+    ret                                      ; 47EDA
+loc_7EDB:
+    mov ax,[di+0x2]                          ; 47EDB
+    mov dx,[di+0x4]                          ; 47EDE
+    mov ch,[di+0x15]                         ; 47EE1
+    mov byte [di],0x0                        ; 47EE4
+    jmp near spawn_explosion_burst           ; 47EE7
 
 ; Swaps DI and SI, calls coll_02_0D (type-02 object re-captures a released enemy) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI/SI = the two colliding objects (column type in DI after the swap)
@@ -15118,7 +15678,7 @@ loc_7F4C:
     or byte [si+0x11],0x20                   ; 47F59
     popa                                     ; 47F5D
     ret                                      ; 47F5E
-    db 0xC3   ; 47F5F
+    ret                                      ; 47F5F
 
 ; Swaps DI and SI, calls coll_10_12 (thrown enemy stops at block) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI/SI = the two colliding objects (column type in DI after the swap)
@@ -15240,7 +15800,7 @@ coll_0D_0A_coll_explode_di_poof_si_rel:
     call spawn_explosion_burst               ; 48010
     call obj_kill_with_burst_si              ; 48013
     jmp near player_clear_held               ; 48016
-    db 0x90   ; 48019
+    nop                                      ; 48019
 
 ; Swaps DI and SI, calls coll_0D_0A (explode / defeat / release) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI/SI = the two colliding objects (column type in DI after the swap)
@@ -15272,7 +15832,7 @@ coll_07_10_coll_explode_both:
     mov ch,[si+0x15]                         ; 4803A
     call spawn_explosion_burst               ; 4803D
     ret                                      ; 48040
-    db 0x90   ; 48041
+    nop                                      ; 48041
 
 ; Deletes both objects with explosion bursts and releases the player's hold (sub_5FB2); used for held enemy (0Eh) vs 07h/17h. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object of type 07/0E/17 (matrix row), SI = object of type 0E/07/17 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
@@ -15292,7 +15852,7 @@ coll_07_0E_coll_explode_both_release:
     mov ch,[si+0x15]                         ; 4805A
     call spawn_explosion_burst               ; 4805D
     jmp near player_clear_held               ; 48060
-    db 0x90   ; 48063
+    nop                                      ; 48063
 
 ; If either object has +0Ch bit 5 set, deletes both with explosion bursts; otherwise does nothing. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object of type 07/0D/17 (matrix row), SI = object of type 0D/07/17 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
@@ -15318,6 +15878,9 @@ loc_8073:
     mov ch,[si+0x15]                         ; 4808B
     call spawn_explosion_burst               ; 4808E
     ret                                      ; 48091
+
+; data 48092-4809E: 6 words: orientation-dependent digit offsets
+; evidence: obj0d_draw_with_timer 4000:80D6 mov cx,[cs:si-7F6Eh] (=8092h)
     db 0xEA,0xFC,0xFC,0x0E,0x00,0xFC,0xFC,0x00,0x00,0x08,0x08,0x00   ; 48092
 
 ; Draw handler shared by 0Dh/0Eh/0Fh/10h (captured enemies): if room (< 17B0h) and the capture timer +1Fh is non-zero, draws the timer as one or two digit sprites (tiles 2D4Dh + digit, '1' = 2D4Eh for 10+) at an orientation-dependent offset (table 4:8092), flashing palette (2C00h) when below 4; then draws the 32x32 body via loc_D118 using tile base 1C3h if the original type (+1Eh) equals [3DEh], else [140Ah]. [medium, reviewed: range_7B9C_A99F.json]
@@ -15407,6 +15970,9 @@ spawn_explosion_burst:
 loc_814F:
     popa                                     ; 4814F
     ret                                      ; 48150
+
+; data 48151-48175: 18 (dx,dy) byte pairs, +/-16 px pattern
+; evidence: obj11_update_burst reads the offset table at 4:8151 (36/36 bytes read)
     db 0x00,0x00,0x00,0x00,0x00,0xF0,0x00,0x10,0x10,0xF0,0xF0,0x10,0x10,0x00,0xF0,0x00   ; 48151
     db 0x10,0x10,0xF0,0xF0,0x00,0x10,0x00,0xF0,0xF0,0x10,0x10,0xF0,0xF0,0x00,0x10,0x00   ; 48161
     db 0x00,0x00,0x00,0x00   ; 48171
@@ -15458,7 +16024,9 @@ loc_819D:
     inc byte [di+0x14]                       ; 481C8
     mov word [di+0x1c],0x0                   ; 481CB
     ret                                      ; 481D0
-    db 0x90,0xC3,0x90   ; 481D1
+    nop                                      ; 481D1
+    ret                                      ; 481D2
+    nop                                      ; 481D3
 
 ; Explosion fragment (29h, DI) vs enemy (03h/04h/0Bh/0Ch/2Dh/2Eh, SI): if within 130h on both axes (sub_6124), defeats SI via sub_79D0 (type 3Eh + puff 16h). [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object of type 29 (matrix row), SI = object of type 03/04/0B/0C/2D/2E (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
@@ -15474,7 +16042,7 @@ coll_29_03_poof_si:
     call obj_kill_with_burst_si              ; 481DF
 loc_81E2:
     ret                                      ; 481E2
-    db 0x90   ; 481E3
+    nop                                      ; 481E3
 
 ; Swaps DI and SI, calls coll_29_03 (fragment defeats enemy) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI/SI = the two colliding objects (column type in DI after the swap)
@@ -15564,7 +16132,7 @@ coll_14_29_detonate_held_rev:
     call coll_29_14_detonate_held            ; 4825D
     xchg di,si                               ; 48260
     ret                                      ; 48262
-    db 0x90   ; 48263
+    nop                                      ; 48263
 
 ; Fragment (DI) vs enemy 07h/0Dh/10h/17h (SI): if DI+1Ch is 0 (always for fragments created by sub_A326) and within 130h, SI explodes (sub_812F) and is deleted - chain reaction. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object of type 29 (matrix row), SI = object of type 07/0D/10/17 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
@@ -15586,7 +16154,7 @@ coll_29_07_explode_si:
     mov byte [si],0x0                        ; 48281
 loc_8284:
     ret                                      ; 48284
-    db 0x90   ; 48285
+    nop                                      ; 48285
 
 ; Mirror: enemy 07h/0Dh/10h/17h (DI) explodes when a fragment (SI, +1Ch = 0) is within 130h. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object of type 07/0D/10/17 (matrix row), SI = object of type 29 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
@@ -15608,7 +16176,7 @@ coll_07_29_explode_di:
     mov byte [di],0x0                        ; 482A3
 loc_82A6:
     ret                                      ; 482A6
-    db 0x90   ; 482A7
+    nop                                      ; 482A7
 
 ; Swaps DI and SI, calls coll_01_29 (fragment hurts player) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI/SI = the two colliding objects (column type in DI after the swap)
@@ -15634,7 +16202,7 @@ coll_01_29_hurt_player:
     call coll_01_03_coll_player_hurt_by_enemy ; 482BB
 loc_82BE:
     ret                                      ; 482BE
-    db 0x90   ; 482BF
+    nop                                      ; 482BF
 
 ; Copies 128 bytes (8 16-byte 2bpp tiles) of sprite tile data from 7000:8FC0 to 0000:AX (tile RAM). [high, reviewed: range_7B9C_A99F.json]
 ; in:  AX = destination offset in segment 0 (tile RAM, 2000h + 16*tile)
@@ -15746,7 +16314,7 @@ lvl07_spawn_delayed_obj18:
     mov byte [di+0xa],0x80                   ; 4835D
     or word [di+0xc],0x12                    ; 48361
     ret                                      ; 48366
-    db 0x90   ; 48367
+    nop                                      ; 48367
 
 ; Places a type-1Bh delayed spawner that becomes type 26h after CH*4 frames (+1Eh = 26h); +0Ah = 80h, +0Bh = FFh, +0Ch |= 12h. [high, reviewed: range_7B9C_A99F.json]
 ; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
@@ -15768,7 +16336,7 @@ lvl17_spawn_delayed_obj26:
     mov byte [di+0xa],0x80                   ; 48385
     or word [di+0xc],0x12                    ; 48389
     ret                                      ; 4838E
-    db 0x90   ; 4838F
+    nop                                      ; 4838F
 
 ; Update shared by types 18h and 26h: marks updated, counts +14h/+1Ch, runs the level-record movement handler (sub_6670) and applies velocity (sub_622B) unless +13h is non-zero. No terrain collision. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot (called from objects_update with ES = 8000h)
@@ -15786,7 +16354,7 @@ obj18_update_scripted_move:
     jmp near obj_apply_velocity              ; 483A3
 loc_83A6:
     ret                                      ; 483A6
-    db 0x90   ; 483A7
+    nop                                      ; 483A7
 
 ; Draws type 18h as 2 rows of 4 sprites (32x16) from tile base [1422h] with attribute 2C00h via loc_D44C. [high, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
@@ -15802,7 +16370,7 @@ loc_83B1:
     or bp,0x2c00                             ; 483B5
     mov cx,0x2                               ; 483B9
     jmp near loc_D44C                        ; 483BC
-    db 0x90   ; 483BF
+    nop                                      ; 483BF
 
 ; Draws type 26h as 2 rows of 4 sprites (32x16) from tile base [1424h] with attribute 2800h via loc_D44C. [high, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
@@ -15818,7 +16386,7 @@ loc_83C9:
     or bp,0x2800                             ; 483CD
     mov cx,0x2                               ; 483D1
     jmp near loc_D44C                        ; 483D4
-    db 0x90   ; 483D7
+    nop                                      ; 483D7
 
 ; Moving platform (18h/26h, DI) vs object 12h/13h/27h (SI), extents 1C0h x 140h: on side contact sets contact bits and pushes SI to DI.x -/+ 1C0h (also moving the player x when SI is the object the player stands on, [3CEh]); if SI is already blocked on that side (SI+10h|+11h bits 22h/11h) the platform reverses instead. On vertical contact SI is placed on top of DI and linked (SI+0Eh = DI), or, with DI above, DI's vertical direction is reversed. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object of type 18/26 (matrix row), SI = object of type 12/13/27 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
@@ -15967,7 +16535,7 @@ loc_84EB:
 loc_8516:
     or byte [di+0x11],0x80                   ; 48516
     ret                                      ; 4851A
-    db 0x90   ; 4851B
+    nop                                      ; 4851B
 
 ; Swaps DI and SI, calls coll_18_12 (platform pushes / carries object) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI/SI = the two colliding objects (column type in DI after the swap)
@@ -16083,7 +16651,7 @@ loc_85E2:
     pop ax                                   ; 485E2
     and word [di+0xc],0xffdf                 ; 485E3
     ret                                      ; 485E8
-    db 0xC3   ; 485E9
+    ret                                      ; 485E9
 loc_85EA:
     mov ax,[si+0x4]                          ; 485EA
     and ax,0xfff0                            ; 485ED
@@ -16096,7 +16664,7 @@ loc_85EA:
     rr or, ax, dx                            ; 48603
     mov [di+0x2],ax                          ; 48605
     ret                                      ; 48608
-    db 0x90   ; 48609
+    nop                                      ; 48609
 
 ; Moving platform (18h/26h, DI) vs object 0Ah/0Eh/14h (SI) that shares the player's x: side contact pushes SI to DI.x -/+ 1D0h and writes the same x to the player ([3C2h]); vertical contact with DI above: a type-0Ah SI is pushed below DI (y = DI.y + 140h), otherwise DI's vertical direction is reversed and an upward-moving player has its vy cancelled ([3C4h] += -vy, [3C8h] = 0). [low, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object of type 18/26 (matrix row), SI = object of type 0A/0E/14 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
@@ -16352,8 +16920,22 @@ loc_880F:
 loc_8811:
     mov byte [si+0x12],0x3                   ; 48811
     ret                                      ; 48815
-    db 0x8B,0x45,0x04,0x25,0xF0,0xFF,0x2D,0x80,0x01,0x89,0x44,0x04,0x80,0x4C,0x11,0x40   ; 48816
-    db 0x80,0x4D,0x11,0x80,0xC3,0x90   ; 48826
+
+; UNREFERENCED CODE 48816-4882C (no caller, jump or table entry; never executed): routine fragment: positions slot SI 18h px above DI, sets contact bits, ret + NOP
+; evidence: ends in ret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_8816:
+    mov ax,[di+0x4]                          ; 48816
+    and ax,0xfff0                            ; 48819
+    sub ax,0x180                             ; 4881C
+    mov [si+0x4],ax                          ; 4881F
+    or byte [si+0x11],0x40                   ; 48822
+    or byte [di+0x11],0x80                   ; 48826
+    ret                                      ; 4882A
+
+; UNREFERENCED CODE 48816-4882C (no caller, jump or table entry; never executed): routine fragment: positions slot SI 18h px above DI, sets contact bits, ret + NOP
+; evidence: ends in ret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_882B:
+    nop                                      ; 4882B
 
 ; Swaps DI and SI, calls coll_12_0A (block vs player-attached object) with the roles reversed, swaps back. [low, reviewed: range_7B9C_A99F.json]
 ; in:  DI/SI = the two colliding objects (column type in DI after the swap)
@@ -16532,7 +17114,7 @@ load_tiles_1d4:
     mov ds,ax                                ; 48971
     popa                                     ; 48973
     ret                                      ; 48974
-    db 0x90   ; 48975
+    nop                                      ; 48975
 
 ; Creates object type 19h at x = AX*16 (8-px aligned), base y = DX*16 in +4 and +1Ah; +12h/+18h/+1Ch = base y - 180h; +8 = FF00h (vy 0, accel -1). [high, reviewed: range_7B9C_A99F.json]
 ; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
@@ -16558,7 +17140,7 @@ lvl08_spawn_obj19:
     rr xor, al, al                           ; 4899D
     mov [di+0x8],ax                          ; 4899F
     ret                                      ; 489A2
-    db 0x90   ; 489A3
+    nop                                      ; 489A3
 
 ; Type 19h update (two vertical coordinates over a fixed base +1Ah): +18h is a top level driven upward by the velocity/accel in +8 (min speed -40h) and clamped at base-190h; when the player is more than 600h above it the drawn y (+4) is parked at the base, otherwise +4 rises 4 or 16 units per frame and wraps back near the base depending on the player's y (+/-600h, +/-C00h in rotated mode). Map probes (sub_43E5, CH = 8) at +18h and +1Ch reset them on a hit; +1Ch rises 20h per frame and wraps to base-180h. [low, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot (called from objects_update with ES = 8000h); player y [3C4h]
@@ -16772,7 +17354,7 @@ loc_8B5E:
     rr add, al, cl                           ; 48B77
     mov [si+0x2],ax                          ; 48B79
     ret                                      ; 48B7C
-    db 0x90   ; 48B7D
+    nop                                      ; 48B7D
 
 ; Type 19h column (DI) vs object 12h/27h (SI): if SI.y lies between DI+18h and DI+1Ah and |dx| < 140h, clears SI+0Ch bit 5, limits SI's downward speed to 8, lowers DI's top (+18h) to SI.y + D0h when that is lower, and resets DI's vy/accel to FF00h. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object of type 19 (matrix row), SI = object of type 12/27 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
@@ -16825,7 +17407,7 @@ loc_8BD0:
     mov word [di+0x8],0xff00                 ; 48BD0
     popa                                     ; 48BD5
     ret                                      ; 48BD6
-    db 0x90   ; 48BD7
+    nop                                      ; 48BD7
 
 ; Swaps DI and SI, calls coll_19_12 (column caps fall speed) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI/SI = the two colliding objects (column type in DI after the swap)
@@ -16889,7 +17471,7 @@ loc_8C32:
     mov word [di+0x8],0xff00                 ; 48C32
     popa                                     ; 48C37
     ret                                      ; 48C38
-    db 0x90   ; 48C39
+    nop                                      ; 48C39
 
 ; Swaps DI and SI, calls coll_19_26 (column caps fall speed) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI/SI = the two colliding objects (column type in DI after the swap)
@@ -16929,7 +17511,7 @@ load_key_tiles:
     mov ds,ax                                ; 48C6D
     popa                                     ; 48C6F
     ret                                      ; 48C70
-    db 0x90   ; 48C71
+    nop                                      ; 48C71
 
 ; Creates a type-1Ah key at 8-unit-aligned (AX*16, DX*16) with colour +14h = CH & 3; deletes it again if that colour is already collected (bit in [13D1h]). [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
@@ -16957,7 +17539,7 @@ lvl09_spawn_key:
     mov byte [di],0x0                        ; 48C9D
 loc_8CA0:
     ret                                      ; 48CA0
-    db 0x90   ; 48CA1
+    nop                                      ; 48CA1
 
 ; Marks the slot updated (+1 bit 1) and increments the animation counter +1Ch. [high, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot (called from objects_update with ES = 8000h)
@@ -16968,6 +17550,9 @@ obj1a_update_anim_counter:
     or byte [di+0x1],0x2                     ; 48CA2
     inc word [di+0x1c]                       ; 48CA6
     ret                                      ; 48CA9
+
+; data 48CAA-48CB2: 8 signed bytes: bob offsets 0,1,2,1,0,-1,-2,-1
+; evidence: obj1a_draw_key_bob (table 4:8CAA)
     db 0x00,0x01,0x02,0x01,0x00,0xFF,0xFE,0xFF   ; 48CAA
 
 ; Draws the key as a 16x16 sprite (tiles 172h + 4*colour, attribute 2800h) bobbing by 0,+1,+2,+1,0,-1,-2,-1 px (table 4:8CAA indexed by +1Ch/8) along the screen-vertical axis. [medium, reviewed: range_7B9C_A99F.json]
@@ -17107,7 +17692,7 @@ lvl0a_spawn_locked_door:
     call terrain_rect_set                    ; 48D9D
 loc_8DA0:
     ret                                      ; 48DA0
-    db 0x90   ; 48DA1
+    nop                                      ; 48DA1
 
 ; Only marks the slot as updated this frame (+1 bit 1). [high, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot (called from objects_update with ES = 8000h)
@@ -17117,7 +17702,7 @@ loc_8DA0:
 obj1c_update_idle:
     or byte [di+0x1],0x2                     ; 48DA2
     ret                                      ; 48DA6
-    db 0x90   ; 48DA7
+    nop                                      ; 48DA7
 
 ; Emits 12 sprites forming the border of a 32x32 square (top row of 4, two 2-sprite side rows, bottom row of 4) with consecutive tiles starting at BP, into the buffer at BX; layout rotated when play_flags bit 0 is set. [high, reviewed: range_7B9C_A99F.json]
 ; in:  BX = sprite-list write position, BP = first tile/attr, DH/DL = screen centre
@@ -17251,7 +17836,7 @@ loc_8EA1:
     add ax,0x260c                            ; 48EAD
     rr mov, bp, ax                           ; 48EB0
     jmp near loc_D092                        ; 48EB2
-    db 0x90   ; 48EB5
+    nop                                      ; 48EB5
 
 ; Player touches a closed door whose key colour (+1Eh) is in [13D1h]: records it open in [13D2h] (bit +14h), clears the 32x32 solid block (sub_445B), plays sound 21h, sets +1Fh = FFh and spawns effect 3Fh (subtype 2). [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object of type 01 (matrix row), SI = object of type 1C (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
@@ -17287,7 +17872,7 @@ coll_01_1c_unlock_door:
     pop ax                                   ; 48EFF
 loc_8F00:
     ret                                      ; 48F00
-    db 0x90   ; 48F01
+    nop                                      ; 48F01
 
 ; Creates a type-1Dh item at 8-unit-aligned (AX*16, DX*16) with index +14h = CH & 3; deletes it if bit index of [13D0h] is already set. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
@@ -17315,7 +17900,7 @@ lvl0e_spawn_set_item:
     mov byte [di],0x0                        ; 48F2D
 loc_8F30:
     ret                                      ; 48F30
-    db 0x90   ; 48F31
+    nop                                      ; 48F31
 
 ; Marks the slot updated and increments +1Ch. [high, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot (called from objects_update with ES = 8000h)
@@ -17339,7 +17924,7 @@ obj1d_draw_16px:
 loc_8F43:
     mov bp,0x2db7                            ; 48F43
     jmp near loc_D092                        ; 48F46
-    db 0x90   ; 48F49
+    nop                                      ; 48F49
 
 ; Player touches item 1Dh: sets bit +14h in [13D0h], deletes it, spawns effect 3Fh (subtype 3), redraws the HUD count of bits 0-2 (sub_C678), plays sound 24h (25h when all three bits are set) and, when all three are collected, spawns a type-3Bh object via sub_D6AE (AX = 8, DX = 0). [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object of type 01 (matrix row), SI = object of type 1D (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
@@ -17491,7 +18076,7 @@ load_switch_tiles:
     mov ds,ax                                ; 49051
     popa                                     ; 49053
     ret                                      ; 49054
-    db 0x90   ; 49055
+    nop                                      ; 49055
 
 ; Creates a type-1Fh switch with id +1Eh = CH & 0Fh; starts in state 2 (on) if bit id of [13D4h] is already set. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
@@ -17666,7 +18251,7 @@ tbl_917B:
     dw obj1f_draw_activating
     dw obj1f_draw_on
     dw obj1f_draw_none
-    db 0x90   ; 49183
+    nop                                      ; 49183
 
 ; Draw dispatcher for type 1Fh: if room (< 17E0h) jumps through tbl_917B by state +14h. [high, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
@@ -17682,7 +18267,7 @@ loc_918D:
     mov bl,[di+0x14]                         ; 4918F
     shl bx,1                                 ; 49192
     jmp [cs:bx+tbl_917B]                     ; 49194
-    db 0x90   ; 49199
+    nop                                      ; 49199
 
 ; Object 02h (DI) hits switch 1Fh/20h (SI): sub_6000 - if SI state is 0 sets state 1 and bit SI+1Eh in [13D4h]; if state 2 restarts its timer (+1Ch = 0). [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object of type 02 (matrix row), SI = object of type 1F/20 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
@@ -17762,7 +18347,7 @@ coll_1F_0D_coll_20_0d_hit_switch_explode_rev:
 ; dispatch roles: coll_12_1F, coll_12_20, coll_15_1F, coll_15_20, coll_27_1F, coll_27_20, coll_29_1F, coll_29_20
 coll_12_1f_hit_switch:
     jmp near sub_6000                        ; 491CE
-    db 0x90   ; 491D1
+    nop                                      ; 491D1
 
 ; Swaps DI and SI, calls coll_12_1F (switch hit) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI/SI = the two colliding objects (column type in DI after the swap)
@@ -17870,7 +18455,7 @@ tbl_925B:
     dw obj20_update_activating
     dw obj20_update_active
     dw obj20_update_deactivating
-    db 0x90   ; 49263
+    nop                                      ; 49263
 
 ; Type 20h update: marks updated and dispatches on state +14h through tbl_925B (idle / activating / active for +18h frames / deactivating). [high, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot (called from objects_update with ES = 8000h)
@@ -18043,7 +18628,7 @@ tbl_93BF:
     dw obj20_draw_activating
     dw obj1f_draw_idle
     dw obj20_draw_deactivating
-    db 0x90   ; 493C7
+    nop                                      ; 493C7
 
 ; Draw dispatcher for type 20h: if room (< 17D8h) emits two fixed particles, then jumps through tbl_93BF by state. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
@@ -18419,7 +19004,7 @@ loc_9687:
 ; dispatch roles: coll_02_21, coll_02_22
 coll_02_21_hit_switch:
     jmp near sub_5FDB                        ; 4968A
-    db 0x90   ; 4968D
+    nop                                      ; 4968D
 
 ; Swaps DI and SI, calls coll_02_21 (switch hit) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI/SI = the two colliding objects (column type in DI after the swap)
@@ -18489,7 +19074,7 @@ coll_21_0d_hit_switch_explode_rev:
 ; dispatch roles: coll_12_21, coll_12_22, coll_15_21, coll_15_22, coll_27_21, coll_27_22, coll_29_21, coll_29_22
 coll_12_21_hit_switch:
     jmp near sub_5FDB                        ; 496BE
-    db 0x90   ; 496C1
+    nop                                      ; 496C1
 
 ; Swaps DI and SI, calls coll_12_21 (switch hit) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI/SI = the two colliding objects (column type in DI after the swap)
@@ -18653,7 +19238,7 @@ loc_97BD:
     and bx,0x1                               ; 497C2
     shl bx,1                                 ; 497C6
     jmp [cs:bx+tbl_97B0]                     ; 497C8
-    db 0x90   ; 497CD
+    nop                                      ; 497CD
 
 ; Creates a type-23h plate at 8-px-aligned (AX*16, DX*16), rest y in +18h, id +1Eh = CH & 0Fh, and clears bit id of [13D4h]. [high, reviewed: range_7B9C_A99F.json]
 ; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
@@ -18713,7 +19298,7 @@ loc_9822:
     mov [di+0x4],ax                          ; 4983D
 loc_9840:
     ret                                      ; 49840
-    db 0x90   ; 49841
+    nop                                      ; 49841
 
 ; Draws the plate as one row of 4 sprites (tiles 1DFh-1E2h, attribute 2800h) via loc_D44C. [high, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
@@ -18765,7 +19350,7 @@ coll_01_23_press_plate_rev:
     call coll_23_0d_press_plate              ; 4987B
     xchg di,si                               ; 4987E
     ret                                      ; 49880
-    db 0x90   ; 49881
+    nop                                      ; 49881
 
 ; Copies 64 bytes from 7000:8EF0 to tile RAM 0000:3D60 (tiles 1D6h-1D9h); tile 1D6h is drawn by obj24 (attribute 25D6h). [medium, reviewed: range_7B9C_A99F.json]
 ; in:  none
@@ -18786,7 +19371,7 @@ load_gate_tiles:
     mov ds,ax                                ; 49899
     popa                                     ; 4989B
     ret                                      ; 4989C
-    db 0x90   ; 4989D
+    nop                                      ; 4989D
 
 ; Creates a type-24h gate: +1Ah = top y (8-px aligned), y = top + 100h, id +1Eh = CH & 0Fh; if bit id of [13D4h] is set starts open (state 2, collision cleared), else closed (state 0) with a 16x32 solid area (BL = 2 columns, BH = 4 rows) in the collision map. [high, reviewed: range_7B9C_A99F.json]
 ; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
@@ -18917,6 +19502,9 @@ obj24_update_switch_gate:
     mov bl,[di+0x14]                         ; 49973
     shl bx,1                                 ; 49976
     jmp [cs:bx+tbl_9962]                     ; 49978
+
+; unread bytes 4997D-49981: 4 bytes 08 00 00 F8 (looks like +8/0/0/-8 offsets)
+; evidence: follows jmp [cs:bx+tbl_9962]; no instruction reads 4000:997D and it is not read at runtime
     db 0x08,0x00,0x00,0xF8   ; 4997D
 
 ; Draws the closed gate: 4 rows of 2 sprites (16x32), all tile 1D6h attribute 2400h+palette (25D6h); orientation-aware. [high, reviewed: range_7B9C_A99F.json]
@@ -19107,7 +19695,7 @@ tbl_9AF1:
     dw obj24_draw_opening
     dw obj24_draw_open
     dw obj24_draw_closing
-    db 0x90   ; 49AF9
+    nop                                      ; 49AF9
 
 ; Draw dispatcher for type 24h: if room (< 17E8h) jumps through tbl_9AF1 by state. [high, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
@@ -19123,7 +19711,7 @@ loc_9B03:
     mov bl,[di+0x14]                         ; 49B05
     shl bx,1                                 ; 49B08
     jmp [cs:bx+tbl_9AF1]                     ; 49B0A
-    db 0x90   ; 49B0F
+    nop                                      ; 49B0F
 
 ; Copies 384 bytes (24 16-byte 2bpp tiles) of sprite tile data from 7000:9040 to 0000:AX (tile RAM). [high, reviewed: range_7B9C_A99F.json]
 ; in:  AX = destination offset in segment 0 (tile RAM, 2000h + 16*tile)
@@ -19278,7 +19866,7 @@ tbl_9C05:
     dw obj25_update_crumbling
     dw obj25_update_gone
     dw obj25_update_reforming
-    db 0x90   ; 49C0D
+    nop                                      ; 49C0D
 
 ; Type 25h update: marks updated, counts +1Ch, dispatches through tbl_9C05 (wait / crumble / gone / reform). [high, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot (called from objects_update with ES = 8000h)
@@ -19292,6 +19880,9 @@ obj25_update_vanish_platform:
     mov bl,[di+0x14]                         ; 49C17
     shl bx,1                                 ; 49C1A
     jmp [cs:bx+tbl_9C05]                     ; 49C1C
+
+; data 49C21-49C29: 8 signed bytes: 0,0,0,0,0,-1,-1,-1 offsets
+; evidence: obj25_draw_solid (table 4:9C21)
     db 0x00,0x00,0x00,0x00,0x00,0xFF,0xFF,0xFF   ; 49C21
 
 ; State-0 draw: 24x16 frame (loc_CE33, one animation frame, tiles [1420h], attribute 2C00h) offset by 0 or -1 px from table 4:9C21 (+1Ch/8). [medium, reviewed: range_7B9C_A99F.json]
@@ -19367,7 +19958,7 @@ loc_9C7F:
     mov bl,[di+0x14]                         ; 49C81
     shl bx,1                                 ; 49C84
     jmp [cs:bx+tbl_9C6E]                     ; 49C86
-    db 0x90   ; 49C8B
+    nop                                      ; 49C8B
 
 ; Player (DI) vs platform 25h (SI), extents 1C0h x 140h: if the player is above it and falling (vy >= 0) and the platform is untriggered, snaps the player onto it (y = SI.y - 140h), sets SI+1Eh = 1, SI+1Ch = 0 and spawns effect 3Fh (subtype 0). [high, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object of type 01 (matrix row), SI = object of type 25 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
@@ -19444,7 +20035,7 @@ obj3e_update_despawn:
     ret                                      ; 49D15
 loc_9D16:
     jmp near obj_delete_clear_spawn_bit      ; 49D16
-    db 0x90   ; 49D19
+    nop                                      ; 49D19
 
 ; Copies 144 bytes (9 16-byte 2bpp tiles) of sprite tile data from 7000:8F30 to 0000:AX (tile RAM). [high, reviewed: range_7B9C_A99F.json]
 ; in:  AX = destination offset in segment 0 (tile RAM, 2000h + 16*tile)
@@ -19514,7 +20105,7 @@ lvl18_spawn_block:
     mov [di+0x11],al                         ; 49D84
     mov [di+0x10],al                         ; 49D87
     ret                                      ; 49D8A
-    db 0x90   ; 49D8B
+    nop                                      ; 49D8B
 
 ; Type 27h update: counts +14h, sets +0Ch bit 4, decrements +1Eh towards 0, runs the physics routine sub_6B20 with DX = +0Eh (supporting object); zeroes vx when DX ends up 0 or contact bit 2 is set, clears +0Ch bit 12, and plays sound 28h when contact bits 44h become newly set (landing). [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot (called from objects_update with ES = 8000h)
@@ -19686,7 +20277,8 @@ loc_9EB4:
     and word [si+0xc],0xffdf                 ; 49ECB
     popa                                     ; 49ED0
     ret                                      ; 49ED1
-    db 0xC3,0x90   ; 49ED2
+    ret                                      ; 49ED2
+    nop                                      ; 49ED3
 
 ; Swaps DI and SI, calls coll_27_12 (block push / stack) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI/SI = the two colliding objects (column type in DI after the swap)
@@ -19865,7 +20457,7 @@ tbl_9FEF:
     dw obj28_update_vanishing
     dw obj28_update_absent
     dw obj28_update_appearing
-    db 0x90   ; 49FF7
+    nop                                      ; 49FF7
 
 ; Type 28h update: marks updated, counts +1Ch, dispatches through tbl_9FEF following bit +1Eh of [13D6h]. [high, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot (called from objects_update with ES = 8000h)
@@ -20280,9 +20872,39 @@ spawn_explosion_fragment:
 loc_A341:
     popa                                     ; 4A341
     ret                                      ; 4A342
-    db 0x50,0x88,0x44,0x1E,0xC6,0x04,0x29,0x33,0xC0,0x89,0x44,0x06,0x89,0x44,0x08,0x89   ; 4A343
-    db 0x44,0x1C,0x88,0x44,0x14,0x58,0xC3,0x50,0x88,0x45,0x1E,0xC6,0x05,0x29,0x33,0xC0   ; 4A353
-    db 0x89,0x45,0x06,0x89,0x45,0x08,0x89,0x45,0x1C,0x88,0x45,0x14,0x58,0xC3,0x90   ; 4A363
+
+; UNREFERENCED CODE 4A343-4A372 (no caller, jump or table entry; never executed): two complete routines: turn slot SI / slot DI into a type-29h fragment (AL -> +1Eh, clear velocity/timers) + NOP
+; evidence: each decodes as push ax ... pop ax / ret, mirroring the live sub_A326 fragment initialiser; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_A343:
+    push ax                                  ; 4A343
+    mov [si+0x1e],al                         ; 4A344
+    mov byte [si],0x29                       ; 4A347
+    rr xor, ax, ax                           ; 4A34A
+    mov [si+0x6],ax                          ; 4A34C
+    mov [si+0x8],ax                          ; 4A34F
+    mov [si+0x1c],ax                         ; 4A352
+    mov [si+0x14],al                         ; 4A355
+    pop ax                                   ; 4A358
+    ret                                      ; 4A359
+
+; UNREFERENCED CODE 4A343-4A372 (no caller, jump or table entry; never executed): two complete routines: turn slot SI / slot DI into a type-29h fragment (AL -> +1Eh, clear velocity/timers) + NOP
+; evidence: each decodes as push ax ... pop ax / ret, mirroring the live sub_A326 fragment initialiser; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_A35A:
+    push ax                                  ; 4A35A
+    mov [di+0x1e],al                         ; 4A35B
+    mov byte [di],0x29                       ; 4A35E
+    rr xor, ax, ax                           ; 4A361
+    mov [di+0x6],ax                          ; 4A363
+    mov [di+0x8],ax                          ; 4A366
+    mov [di+0x1c],ax                         ; 4A369
+    mov [di+0x14],al                         ; 4A36C
+    pop ax                                   ; 4A36F
+    ret                                      ; 4A370
+
+; UNREFERENCED CODE 4A343-4A372 (no caller, jump or table entry; never executed): two complete routines: turn slot SI / slot DI into a type-29h fragment (AL -> +1Eh, clear velocity/timers) + NOP
+; evidence: each decodes as push ax ... pop ax / ret, mirroring the live sub_A326 fragment initialiser; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_A371:
+    nop                                      ; 4A371
 
 ; Type 29h fragment: increments +14h each frame and deletes itself after 8 frames. [high, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot (called from objects_update with ES = 8000h)
@@ -20300,7 +20922,7 @@ obj29_update_expire:
 loc_A383:
     mov byte [di],0x0                        ; 4A383
     ret                                      ; 4A386
-    db 0x90   ; 4A387
+    nop                                      ; 4A387
 
 ; Draws the fragment with tile 1E3h (attribute 2800h) through loc_CDB6, with size parameters derived from (+14h >> +1Eh) & 7 (CH = n/2 + 4, CL = n + 4). [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
@@ -20486,7 +21108,7 @@ coll_29_2a_crack_block_rev:
     call coll_2a_29_crack_block              ; 4A4C3
     xchg di,si                               ; 4A4C6
     ret                                      ; 4A4C8
-    db 0x90   ; 4A4C9
+    nop                                      ; 4A4C9
 
 ; Creates a type-2Bh object at (AX*16, DX*16): +18h = y - BP*16 (top of the zone), +1Ah = CH (mode 0/1). [high, reviewed: range_7B9C_A99F.json]
 ; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
@@ -20698,7 +21320,7 @@ loc_A65B:
     mov bx,0x401                             ; 4A664
     call terrain_rect_set                    ; 4A667
     ret                                      ; 4A66A
-    db 0x90   ; 4A66B
+    nop                                      ; 4A66B
 
 ; Open timer +14h: when it equals 8 (just set by contact) clears the solid column and plays sound 27h once (+1Fh = 1); when it reaches 1 re-marks the column (+1Fh = 0); decrements +14h towards 0 every frame. [high, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot (called from objects_update with ES = 8000h)
@@ -20799,7 +21421,7 @@ loc_A70A:
     jl short loc_A709                        ; 4A70C
     mov byte [si+0x14],0x8                   ; 4A70E
     ret                                      ; 4A712
-    db 0x90   ; 4A713
+    nop                                      ; 4A713
 
 ; Copies 576 bytes (36 16-byte 2bpp tiles) of sprite tile data from 7000:6AE0 to 0000:AX (tile RAM). [high, reviewed: range_7B9C_A99F.json]
 ; in:  AX = destination offset in segment 0 (tile RAM, 2000h + 16*tile)
@@ -20866,7 +21488,7 @@ lvl1e_spawn_delayed_obj2d:
     mov byte [di+0xa],0x80                   ; 4A771
     or word [di+0xc],0x2                     ; 4A775
     ret                                      ; 4A77A
-    db 0x90   ; 4A77B
+    nop                                      ; 4A77B
 
 ; Type 2Dh update: same body as obj18_update (timers, +0Ch bit 4, sub_6670 movement handler, sub_622B unless +13h) plus the dead 'cmp al,18h' clamp. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot (called from objects_update with ES = 8000h)
@@ -20940,7 +21562,7 @@ lvl22_spawn_big_dream_stone:
     call lvl21_spawn_dream_stone             ; 4A7DD
     mov byte [di+0x1e],0x1                   ; 4A7E0
     ret                                      ; 4A7E4
-    db 0x90   ; 4A7E5
+    nop                                      ; 4A7E5
 
 ; Creates a type-32h collectible with id +14h = CH & 1Fh unless bit id of the 32-bit mask [13DAh]/[13DCh] is already set; +0Ah = +0Bh = 4. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
@@ -20976,7 +21598,7 @@ loc_A814:
     mov byte [di+0xb],0x4                    ; 4A81A
     mov byte [di+0xa],0x4                    ; 4A81E
     ret                                      ; 4A822
-    db 0x90   ; 4A823
+    nop                                      ; 4A823
 
 ; Only marks the slot updated. [high, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot (called from objects_update with ES = 8000h)
@@ -20986,7 +21608,7 @@ loc_A814:
 obj32_update_idle:
     or byte [di+0x1],0x2                     ; 4A824
     ret                                      ; 4A828
-    db 0x90   ; 4A829
+    nop                                      ; 4A829
 
 ; Small stone (+1Eh = 0): one 8x8 sprite 2FBDh; large stone: two sprites 2FBBh/2FBCh stacked (orientation-aware). [high, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
@@ -21039,7 +21661,7 @@ loc_A885:
     mov [bx],ax                              ; 4A897
     mov [bx+0x2],dx                          ; 4A899
     ret                                      ; 4A89C
-    db 0x90   ; 4A89D
+    nop                                      ; 4A89D
 
 ; Player touches a type-32h stone within +/-0C0h horizontally: sets its id bit in [13DAh]/[13DCh], adds 1 (small) or 5 (large) to [13DEh], deletes it, spawns effect 3Fh (subtype 0) and plays sound 0Eh + size. [medium, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object of type 01 (matrix row), SI = object of type 32 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
@@ -21082,7 +21704,7 @@ loc_A8C9:
     call sound_play                          ; 4A8ED
 loc_A8F0:
     ret                                      ; 4A8F0
-    db 0x90   ; 4A8F1
+    nop                                      ; 4A8F1
 
 ; Runs lvl26_spawn only while lives ([13E1h]) is below 3. [high, reviewed: range_7B9C_A99F.json]
 ; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
@@ -21095,7 +21717,7 @@ lvl27_spawn_1up_if_lives_lt3:
     call lvl26_spawn_1up                     ; 4A8F9
 loc_A8FC:
     ret                                      ; 4A8FC
-    db 0x90   ; 4A8FD
+    nop                                      ; 4A8FD
 
 ; Creates a type-33h item with id +14h = CH & 7 unless bit id of [13E9h] (already taken) is set; +0Ah = +0Bh = 4. [high, reviewed: range_7B9C_A99F.json]
 ; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
@@ -21133,7 +21755,7 @@ loc_A92A:
 obj33_update_idle:
     or byte [di+0x1],0x2                     ; 4A92C
     ret                                      ; 4A930
-    db 0x90   ; 4A931
+    nop                                      ; 4A931
 
 ; Draws the item as a 16x16 group, tile 1BFh attribute 2800h (loc_D092). [high, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
@@ -21147,7 +21769,7 @@ obj33_draw_16px:
 loc_A93B:
     mov bp,0x29bf                            ; 4A93B
     jmp near loc_D092                        ; 4A93E
-    db 0x90   ; 4A941
+    nop                                      ; 4A941
 
 ; Player touches a type-33h item: sets its bit in [13E9h], increments lives ([13E1h], capped at 99), plays sound 19h, deletes it, spawns effect 3Fh (subtype 2) and redraws the lives counter (sub_C718). [high, reviewed: range_7B9C_A99F.json]
 ; in:  DI = object of type 01 (matrix row), SI = object of type 33 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
@@ -21207,7 +21829,7 @@ loc_A99F:
 obj34_update_static:
     or byte [di+0x1],0x2                     ; 4A9A0
     ret                                      ; 4A9A4
-    db 0x90   ; 4A9A5
+    nop                                      ; 4A9A5
 
 ; Draw handler for type 34h: if the sprite table write pointer [1382h] is below 17E8h, draws a 2x2 sprite group with base tile word 2DB3h via loc_D092 (the same tile pair used for the HUD hearts in sub_C49C). [medium, reviewed: range_A9A0_FFFF.json]
 ; in:  DI = slot, DH/DL = screen x/y from the draw pass
@@ -21221,7 +21843,7 @@ obj34_draw_heart:
 loc_A9AF:
     mov bp,0x2db3                            ; 4A9AF
     jmp near loc_D092                        ; 4A9B2
-    db 0x90   ; 4A9B5
+    nop                                      ; 4A9B5
 
 ; Collision callback type 01 (player) vs 34h: sets bit [SI+14h] in [13E8h] (collected mask), increments [13E0h] (lives_reserve, behaves as heart/health count) saturating at 3, plays sound 10h, deletes the pickup, spawns a sparkle effect (sub_D4A0 variant 2) at its position and redraws the heart HUD (sub_C55E). [medium, reviewed: range_A9A0_FFFF.json]
 ; in:  SI = pickup object, DI = player
@@ -21247,7 +21869,7 @@ coll_01_34_heart_pickup:
     call spawn_sparkle_effect                ; 4A9DE
     pop ax                                   ; 4A9E1
     jmp near hud_draw_hearts                 ; 4A9E2
-    db 0x90   ; 4A9E5
+    nop                                      ; 4A9E5
 
 ; Copies 120h words (24h tiles of 16 bytes) of graphics from ROM 7000:7580 to RAM address AX (tile RAM). Leaves DS = 7000h (caller restores). [high, reviewed: range_A9A0_FFFF.json]
 ; in:  AX = destination offset in segment 0
@@ -21314,7 +21936,7 @@ loc_AA3A:
     pop ax                                   ; 4AA4F
 loc_AA50:
     ret                                      ; 4AA50
-    db 0x90   ; 4AA51
+    nop                                      ; 4AA51
 
 ; Spawn initialiser for spawn kind 25h: places object at (AX,DX) pixels (stored x16), type 1Bh with byte+1 = 1, [+1Eh] = 2Eh, [+14h] = CH, [+0Ah]/[+0Bh] = 80h, [+9] = 1, sets bit 1 of [+0Ch]. [high, reviewed: range_A9A0_FFFF.json]
 ; in:  DI = slot, AX/DX = position in pixels, CH = parameter
@@ -21337,7 +21959,7 @@ lvl25_spawn_obj1b:
     mov byte [di+0x9],0x1                    ; 4AA73
     or word [di+0xc],0x2                     ; 4AA77
     ret                                      ; 4AA7C
-    db 0x90   ; 4AA7D
+    nop                                      ; 4AA7D
 
 ; obj2E state 0: increments timer [+1Ch]; if Manhattan distance to the player (03C2h/03C4h) is <= [+18h] and the map-contact byte ([+10h] lo|hi) has bit 2, advances to state 1 and clears [+1Fh]/[+14h]; then steps animation (sub_6670), moves by velocity (sub_622B) unless [+13h] set, and tail-calls sub_6146. [medium, reviewed: range_A9A0_FFFF.json]
 ; in:  DI = object
@@ -21375,7 +21997,7 @@ loc_AAB4:
     call obj_apply_velocity                  ; 4AABD
 loc_AAC0:
     jmp near obj_walk_terrain                ; 4AAC0
-    db 0x90   ; 4AAC3
+    nop                                      ; 4AAC3
 
 ; obj2E states 1 and 3: holds horizontal velocity at 0 for 50 frames, then advances the state (mod 4); on entering state 2 sets facing bits of [+0Ch] toward the player (2 = player to the right, 1 = left) and swaps the animation pointers [+16h]/[+1Ah]. [medium, reviewed: range_A9A0_FFFF.json]
 ; in:  DI = object
@@ -21516,7 +22138,7 @@ loc_ABAA:
 loc_ABB3:
     popa                                     ; 4ABB3
     ret                                      ; 4ABB4
-    db 0x90   ; 4ABB5
+    nop                                      ; 4ABB5
 
 ; Update for type 2Fh: animation counter [+14h]++, lifetime [+1Ch]++; moves by velocity and runs map collision (sub_43E5); destroys itself (jmp sub_79A6) after 200 frames or when collision result [+11h] bits 0-1 are set. [medium, reviewed: range_A9A0_FFFF.json]
 ; in:  DI = object
@@ -21622,6 +22244,9 @@ obj36_update_player_flag_6f:
     rr sbb, ax, ax                           ; 4AC5A
     and [di],al                              ; 4AC5C
     ret                                      ; 4AC5E
+
+; unread bytes 4AC5F-4AC60: FFh fill
+; evidence: FFh byte(s) after an unconditional transfer; not read
     db 0xFF   ; 4AC5F
 
 ; Boot-time internal-EEPROM bookkeeping (called from reset): loads the 10-byte record of game ID 1 from the console EEPROM directory into 12CAh (sub_E9D0). If absent, writes the default record 03 BE FC DD B1 00 00 00 00 00 (4000:ACA8). If present but its first byte is not 3, copies the old record to 12C0h and rewrites the default. The record is not read anywhere else in bank 4. [high, reviewed: range_A9A0_FFFF.json]
@@ -21665,9 +22290,15 @@ loc_AC9D:
     inc si                                   ; 4ACA2
     loop loc_AC9D                            ; 4ACA3
     jmp near loc_AC78                        ; 4ACA5
-    db 0x03,0xBE,0xFC,0xDD,0xB1,0x00,0x00,0x00,0x00,0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 4ACA8
-    db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0x00,0x80,0x00,0x80,0x00,0x80,0x00,0x80   ; 4ACB8
-    db 0x00,0x80,0x00,0x30,0x00,0x30,0x00,0x30   ; 4ACC8
+
+; data 4ACA8-4ACB2: 10-byte record copied with mov cx,0Ah / mov al,[si]
+; evidence: ieep_register_game_record copies 10 bytes from 4000:ACA8 (10/10 read)
+    db 0x03,0xBE,0xFC,0xDD,0xB1,0x00,0x00,0x00,0x00,0x00   ; 4ACA8
+
+; unread bytes 4ACB2-4ACC0: FFh fill
+; evidence: FFh bytes before the segment table at 4000:ACC0 (index = world 0-7); not read
+    db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0x00,0x80   ; 4ACB2
+    db 0x00,0x80,0x00,0x80,0x00,0x80,0x00,0x80,0x00,0x30,0x00,0x30,0x00,0x30   ; 4ACC2
 
 ; From progress_code (WVxx) selects the level-data segment [13C4h] (word table at 4000:ACC0: worlds 1-4 -> 8000h, 5-6 -> 3000h) and looks up the Vision/area record pointer through table 8:02EA[world] -> [vision] -> [area nibble], storing it in [13C6h]. [medium, reviewed: range_A9A0_FFFF.json]
 ; in:  progress_code
@@ -21933,7 +22564,7 @@ get_world_stone_total:
     mov al,[di+0x6]                          ; 4AEFE
     pop di                                   ; 4AF01
     ret                                      ; 4AF02
-    db 0x90   ; 4AF03
+    nop                                      ; 4AF03
 
 ; Converts a frame count DX:AX (75 frames/s) to minutes (/4500) and seconds (/75), each returned as a two-digit BCD-style byte, plus hundredths looked up from the 75-entry table 8:0080 (BCD 00,01,03,04,...,99). [high, reviewed: range_A9A0_FFFF.json]
 ; in:  DX:AX = frame count
@@ -22266,7 +22897,7 @@ loc_B1CB:
     mov al,0x10                              ; 4B1CB
     or [play_flags],al                       ; 4B1CD
     ret                                      ; 4B1D1
-    db 0xC3   ; 4B1D2
+    ret                                      ; 4B1D2
 
 ; Warp-point type 2: requires held key bit 80h (left) in [1390h]. If triggered: target record index = high byte of the record word; progress_code low byte = target+0, start position [13E4h] = (target+2)<<4 & FF80h, [13E6h] = (target+4)<<4; [13E3h] bit7 = player facing ([03CCh] bit1 clear); play_flags |= 10h (main loop goes to state 5 = room transition). Returns AX = 10h when taken, else 0. [high, reviewed: range_A9A0_FFFF.json]
 ; in:  ES:DI = warp record in level data (ES = 8000h), [13C2h] = record table base, [1390h]
@@ -22646,6 +23277,9 @@ loc_B4D6:
 loc_B4DF:
     popa                                     ; 4B4DF
     ret                                      ; 4B4E0
+
+; unread bytes 4B4E1-4B4F0: FFh fill
+; evidence: FFh bytes between routines; not read
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 4B4E1
 
 ; Zeroes all 32 bytes of the object slot at DI. [high, reviewed: range_A9A0_FFFF.json]
@@ -22786,7 +23420,11 @@ loc_B59A:
     pop cx                                   ; 4B59A
     pop ax                                   ; 4B59B
     ret                                      ; 4B59C
-    db 0xFF,0xFF,0xFF,0xC3   ; 4B59D
+
+; unread bytes 4B59D-4B5A0: FFh fill
+; evidence: FFh bytes; not read
+    db 0xFF,0xFF,0xFF   ; 4B59D
+    ret                                      ; 4B5A0
 
 ; nullsub [high]
 ; Single RET shared as the "no handler" entry of the object handler tables in bank 8.
@@ -22815,6 +23453,9 @@ game_state_table:
     dw state17_good_night_quit
     dw state18_ending
     dw state19_world_record
+
+; data 4B5CA-4B70A: sine table: 160 signed words, amplitude 16, period 128 entries (entries 128-159 repeat 0-31 so a +32 cosine index stays in range)
+; evidence: obj1b_draw_spawn_sparkle 4000:66EF, obj08 draw 4000:75AF, 4000:77B3, obj19_draw_wobble_sprites (B5CA/B60A), irq_hblank_scr2_warp
     db 0x00,0x00,0x00,0x00,0x01,0x00,0x02,0x00,0x03,0x00,0x03,0x00,0x04,0x00,0x05,0x00   ; 4B5CA
     db 0x06,0x00,0x06,0x00,0x07,0x00,0x08,0x00,0x08,0x00,0x09,0x00,0x0A,0x00,0x0A,0x00   ; 4B5DA
     db 0x0B,0x00,0x0B,0x00,0x0C,0x00,0x0C,0x00,0x0D,0x00,0x0D,0x00,0x0E,0x00,0x0E,0x00   ; 4B5EA
@@ -22835,6 +23476,9 @@ game_state_table:
     db 0x06,0x00,0x06,0x00,0x07,0x00,0x08,0x00,0x08,0x00,0x09,0x00,0x0A,0x00,0x0A,0x00   ; 4B6DA
     db 0x0B,0x00,0x0B,0x00,0x0C,0x00,0x0C,0x00,0x0D,0x00,0x0D,0x00,0x0E,0x00,0x0E,0x00   ; 4B6EA
     db 0x0E,0x00,0x0F,0x00,0x0F,0x00,0x0F,0x00,0x0F,0x00,0x0F,0x00,0x0F,0x00,0x0F,0x00   ; 4B6FA
+
+; unread bytes 4B70A-4B720: FFh fill with 4 bytes 00 00 80 00 at 4B710
+; evidence: after the sine table; no reader found statically or at runtime
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0x00,0x00,0x80,0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 4B70A
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 4B71A
 
@@ -22876,9 +23520,31 @@ dead_B73C:
     pop bx                                   ; 4B75B
     pop ax                                   ; 4B75C
     ret                                      ; 4B75D
-    db 0x50,0x53,0x52,0x56,0x3D,0x0A,0x00,0x1B,0xDB,0xF7,0xD3,0x81,0xE3,0x07,0x00,0x03   ; 4B75E
-    db 0xC3,0x05,0x5B,0x01,0x0D,0x00,0x2C,0x8B,0x1E,0x82,0x13,0x83,0x06,0x82,0x13,0x04   ; 4B76E
-    db 0x89,0x07,0x83,0xC3,0x02,0x89,0x17,0x5E,0x5A,0x5B,0x58,0xC3   ; 4B77E
+
+; UNREFERENCED CODE 4B75E-4B78A (no caller, jump or table entry; never executed): complete routine: emit one hex-digit sprite (tile 15Bh+digit, A-F +7) at DX
+; evidence: decodes as push/pop-balanced routine; only caller is the dead cluster 4B7F0-4B8F3; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+sub_B75E:
+    push ax                                  ; 4B75E
+    push bx                                  ; 4B75F
+    push dx                                  ; 4B760
+    push si                                  ; 4B761
+    cmp ax,0xa                               ; 4B762
+    rr sbb, bx, bx                           ; 4B765
+    not bx                                   ; 4B767
+    and bx,0x7                               ; 4B769
+    rr add, ax, bx                           ; 4B76D
+    add ax,0x15b                             ; 4B76F
+    or ax,0x2c00                             ; 4B772
+    mov bx,[0x1382]                          ; 4B775
+    add word [0x1382],byte +0x4              ; 4B779
+    mov [bx],ax                              ; 4B77E
+    add bx,byte +0x2                         ; 4B780
+    mov [bx],dx                              ; 4B783
+    pop si                                   ; 4B785
+    pop dx                                   ; 4B786
+    pop bx                                   ; 4B787
+    pop ax                                   ; 4B788
+    ret                                      ; 4B789
 
 ; Draws AL (0-255) as up to three decimal digit sprites at [1382h] (tile = SI + digit): ones at x = DH+10h, tens at DH+8, hundreds at DH, suppressing leading zeros. [high, reviewed: range_A9A0_FFFF.json]
 ; in:  AL = value, SI = tile base of '0', DH/DL = x/y (DL stored as sprite y byte)
@@ -22933,23 +23599,156 @@ loc_B7C3:
 loc_B7EE:
     popa                                     ; 4B7EE
     ret                                      ; 4B7EF
-    db 0x50,0x52,0x25,0x0F,0x00,0xE8,0x66,0xFF,0x5A,0x58,0xC3,0x50,0x51,0x52,0x32,0xE4   ; 4B7F0
-    db 0xB1,0x04,0x80,0xC6,0x08,0x8A,0xE8,0x25,0x0F,0x00,0xE8,0x51,0xFF,0x80,0xEE,0x08   ; 4B800
-    db 0xD2,0xED,0x8A,0xC5,0x25,0x0F,0x00,0xE8,0x44,0xFF,0x5A,0x59,0x58,0xC3,0x50,0x51   ; 4B810
-    db 0x52,0x32,0xE4,0xB1,0x04,0x80,0xC2,0x08,0x8A,0xE8,0x25,0x0F,0x00,0xE8,0x2E,0xFF   ; 4B820
-    db 0x80,0xEA,0x08,0xD2,0xED,0x8A,0xC5,0x25,0x0F,0x00,0xE8,0x21,0xFF,0x5A,0x59,0x58   ; 4B830
-    db 0xC3,0x50,0x53,0x51,0x52,0xB1,0x04,0x80,0xC6,0x18,0x8B,0xD8,0x25,0x0F,0x00,0xE8   ; 4B840
-    db 0x0C,0xFF,0x80,0xEE,0x08,0xD3,0xEB,0x8B,0xC3,0x25,0x0F,0x00,0xE8,0xFF,0xFE,0x80   ; 4B850
-    db 0xEE,0x08,0xD3,0xEB,0x8B,0xC3,0x25,0x0F,0x00,0xE8,0xF2,0xFE,0x80,0xEE,0x08,0xD3   ; 4B860
-    db 0xEB,0x8B,0xC3,0x25,0x0F,0x00,0xE8,0xE5,0xFE,0x5A,0x59,0x5B,0x58,0xC3,0x50,0x53   ; 4B870
-    db 0x51,0x52,0xB1,0x04,0x80,0xC2,0x18,0x8B,0xD8,0x25,0x0F,0x00,0xE8,0xCF,0xFE,0x80   ; 4B880
-    db 0xEA,0x08,0xD3,0xEB,0x8B,0xC3,0x25,0x0F,0x00,0xE8,0xC2,0xFE,0x80,0xEA,0x08,0xD3   ; 4B890
-    db 0xEB,0x8B,0xC3,0x25,0x0F,0x00,0xE8,0xB5,0xFE,0x80,0xEA,0x08,0xD3,0xEB,0x8B,0xC3   ; 4B8A0
-    db 0x25,0x0F,0x00,0xE8,0xA8,0xFE,0x5A,0x59,0x5B,0x58,0xC3,0x50,0x53,0x52,0x3D,0x0A   ; 4B8B0
-    db 0x00,0x1B,0xDB,0xF7,0xD3,0x81,0xE3,0x07,0x00,0x03,0xC3,0x05,0x5B,0x01,0x0D,0x00   ; 4B8C0
-    db 0x2C,0xC0,0xEE,0x03,0xC0,0xEA,0x03,0x86,0xF2,0x8B,0xDA,0x81,0xE3,0x1F,0x00,0xC1   ; 4B8D0
-    db 0xEA,0x03,0x81,0xE2,0xE0,0x03,0x03,0xDA,0xD1,0xE3,0x81,0xC3,0x00,0x08,0x89,0x07   ; 4B8E0
-    db 0x5A,0x5B,0x58,0xC3   ; 4B8F0
+
+; UNREFERENCED CODE 4B7F0-4B8F4 (no caller, jump or table entry; never executed): complete routines: print a nibble / byte / word as hex sprites (horizontal and vertical variants) using 4B75E
+; evidence: decode as complete routines calling 4000:B75E; their only callers are in the dead debug routine 4F01A-4F147; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+sub_B7F0:
+    push ax                                  ; 4B7F0
+    push dx                                  ; 4B7F1
+    and ax,0xf                               ; 4B7F2
+    call sub_B75E                            ; 4B7F5
+    pop dx                                   ; 4B7F8
+    pop ax                                   ; 4B7F9
+    ret                                      ; 4B7FA
+
+; UNREFERENCED CODE 4B7F0-4B8F4 (no caller, jump or table entry; never executed): complete routines: print a nibble / byte / word as hex sprites (horizontal and vertical variants) using 4B75E
+; evidence: decode as complete routines calling 4000:B75E; their only callers are in the dead debug routine 4F01A-4F147; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_B7FB:
+    push ax                                  ; 4B7FB
+    push cx                                  ; 4B7FC
+    push dx                                  ; 4B7FD
+    rr xor, ah, ah                           ; 4B7FE
+    mov cl,0x4                               ; 4B800
+    add dh,0x8                               ; 4B802
+    rr mov, ch, al                           ; 4B805
+    and ax,0xf                               ; 4B807
+    call sub_B75E                            ; 4B80A
+    sub dh,0x8                               ; 4B80D
+    shr ch,cl                                ; 4B810
+    rr mov, al, ch                           ; 4B812
+    and ax,0xf                               ; 4B814
+    call sub_B75E                            ; 4B817
+    pop dx                                   ; 4B81A
+    pop cx                                   ; 4B81B
+    pop ax                                   ; 4B81C
+    ret                                      ; 4B81D
+
+; UNREFERENCED CODE 4B7F0-4B8F4 (no caller, jump or table entry; never executed): complete routines: print a nibble / byte / word as hex sprites (horizontal and vertical variants) using 4B75E
+; evidence: decode as complete routines calling 4000:B75E; their only callers are in the dead debug routine 4F01A-4F147; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_B81E:
+    push ax                                  ; 4B81E
+    push cx                                  ; 4B81F
+    push dx                                  ; 4B820
+    rr xor, ah, ah                           ; 4B821
+    mov cl,0x4                               ; 4B823
+    add dl,0x8                               ; 4B825
+    rr mov, ch, al                           ; 4B828
+    and ax,0xf                               ; 4B82A
+    call sub_B75E                            ; 4B82D
+    sub dl,0x8                               ; 4B830
+    shr ch,cl                                ; 4B833
+    rr mov, al, ch                           ; 4B835
+    and ax,0xf                               ; 4B837
+    call sub_B75E                            ; 4B83A
+    pop dx                                   ; 4B83D
+    pop cx                                   ; 4B83E
+    pop ax                                   ; 4B83F
+    ret                                      ; 4B840
+
+; UNREFERENCED CODE 4B7F0-4B8F4 (no caller, jump or table entry; never executed): complete routines: print a nibble / byte / word as hex sprites (horizontal and vertical variants) using 4B75E
+; evidence: decode as complete routines calling 4000:B75E; their only callers are in the dead debug routine 4F01A-4F147; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_B841:
+    push ax                                  ; 4B841
+    push bx                                  ; 4B842
+    push cx                                  ; 4B843
+    push dx                                  ; 4B844
+    mov cl,0x4                               ; 4B845
+    add dh,0x18                              ; 4B847
+    rr mov, bx, ax                           ; 4B84A
+    and ax,0xf                               ; 4B84C
+    call sub_B75E                            ; 4B84F
+    sub dh,0x8                               ; 4B852
+    shr bx,cl                                ; 4B855
+    rr mov, ax, bx                           ; 4B857
+    and ax,0xf                               ; 4B859
+    call sub_B75E                            ; 4B85C
+    sub dh,0x8                               ; 4B85F
+    shr bx,cl                                ; 4B862
+    rr mov, ax, bx                           ; 4B864
+    and ax,0xf                               ; 4B866
+    call sub_B75E                            ; 4B869
+    sub dh,0x8                               ; 4B86C
+    shr bx,cl                                ; 4B86F
+    rr mov, ax, bx                           ; 4B871
+    and ax,0xf                               ; 4B873
+    call sub_B75E                            ; 4B876
+    pop dx                                   ; 4B879
+    pop cx                                   ; 4B87A
+    pop bx                                   ; 4B87B
+    pop ax                                   ; 4B87C
+    ret                                      ; 4B87D
+
+; UNREFERENCED CODE 4B7F0-4B8F4 (no caller, jump or table entry; never executed): complete routines: print a nibble / byte / word as hex sprites (horizontal and vertical variants) using 4B75E
+; evidence: decode as complete routines calling 4000:B75E; their only callers are in the dead debug routine 4F01A-4F147; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_B87E:
+    push ax                                  ; 4B87E
+    push bx                                  ; 4B87F
+    push cx                                  ; 4B880
+    push dx                                  ; 4B881
+    mov cl,0x4                               ; 4B882
+    add dl,0x18                              ; 4B884
+    rr mov, bx, ax                           ; 4B887
+    and ax,0xf                               ; 4B889
+    call sub_B75E                            ; 4B88C
+    sub dl,0x8                               ; 4B88F
+    shr bx,cl                                ; 4B892
+    rr mov, ax, bx                           ; 4B894
+    and ax,0xf                               ; 4B896
+    call sub_B75E                            ; 4B899
+    sub dl,0x8                               ; 4B89C
+    shr bx,cl                                ; 4B89F
+    rr mov, ax, bx                           ; 4B8A1
+    and ax,0xf                               ; 4B8A3
+    call sub_B75E                            ; 4B8A6
+    sub dl,0x8                               ; 4B8A9
+    shr bx,cl                                ; 4B8AC
+    rr mov, ax, bx                           ; 4B8AE
+    and ax,0xf                               ; 4B8B0
+    call sub_B75E                            ; 4B8B3
+    pop dx                                   ; 4B8B6
+    pop cx                                   ; 4B8B7
+    pop bx                                   ; 4B8B8
+    pop ax                                   ; 4B8B9
+    ret                                      ; 4B8BA
+
+; UNREFERENCED CODE 4B7F0-4B8F4 (no caller, jump or table entry; never executed): complete routines: print a nibble / byte / word as hex sprites (horizontal and vertical variants) using 4B75E
+; evidence: decode as complete routines calling 4000:B75E; their only callers are in the dead debug routine 4F01A-4F147; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_B8BB:
+    push ax                                  ; 4B8BB
+    push bx                                  ; 4B8BC
+    push dx                                  ; 4B8BD
+    cmp ax,0xa                               ; 4B8BE
+    rr sbb, bx, bx                           ; 4B8C1
+    not bx                                   ; 4B8C3
+    and bx,0x7                               ; 4B8C5
+    rr add, ax, bx                           ; 4B8C9
+    add ax,0x15b                             ; 4B8CB
+    or ax,0x2c00                             ; 4B8CE
+    shr dh,byte 0x3                          ; 4B8D1
+    shr dl,byte 0x3                          ; 4B8D4
+    xchg dh,dl                               ; 4B8D7
+    rr mov, bx, dx                           ; 4B8D9
+    and bx,0x1f                              ; 4B8DB
+    shr dx,byte 0x3                          ; 4B8DF
+    and dx,0x3e0                             ; 4B8E2
+    rr add, bx, dx                           ; 4B8E6
+    shl bx,1                                 ; 4B8E8
+    add bx,0x800                             ; 4B8EA
+    mov [bx],ax                              ; 4B8EE
+    pop dx                                   ; 4B8F0
+    pop bx                                   ; 4B8F1
+    pop ax                                   ; 4B8F2
+    ret                                      ; 4B8F3
 
 ; Writes the tile for hex digit AL & 0Fh (font tile 15Bh+digit, +7 for A-F, attribute 1C00h) into the SCR1 map at 0800h for pixel position DH = x, DL = y. [high, reviewed: range_A9A0_FFFF.json]
 ; in:  AL, DH = x px, DL = y px
@@ -23280,6 +24079,9 @@ put_map_tile_at_px:
     pop bx                                   ; 4BB81
     pop ax                                   ; 4BB82
     ret                                      ; 4BB83
+
+; data 4BB84-4BBB4: 24 words: dialogue script pointers (2000:xxxx) and label tile offsets
+; evidence: spawn_dialogue_box 4000:BBE0 mov ax,[cs:bx-447Ch] (=BB84h); obj3d_text_put_label4
     db 0x40,0xC2,0x62,0xC7,0x24,0xCB,0xEA,0xCB,0xBB,0xCD,0xC3,0xCE,0x9F,0xD0,0xFD,0xD0   ; 4BB84
     db 0x6A,0xD2,0x6B,0xD3,0x66,0xD5,0xAA,0xC6,0x4D,0xD8,0xB2,0xD8,0xB0,0x00,0xB4,0x00   ; 4BB94
     db 0xB8,0x00,0xBC,0x00,0xC0,0x00,0xC4,0x00,0xC8,0x00,0xCC,0x00,0xD0,0x00,0xD4,0x00   ; 4BBA4
@@ -23306,7 +24108,7 @@ loc_BBCA:
     loop loc_BBCA                            ; 4BBCF
     popa                                     ; 4BBD1
     ret                                      ; 4BBD2
-    db 0x90   ; 4BBD3
+    nop                                      ; 4BBD3
 
 ; Creates the dialogue/text-window object (type 3Dh, byte+1 = 09h) in a low slot: script pointer [+18h] = word table 4000:BB84[AX], window position DH/DL -> [+1Eh]/[+1Fh] (kept in [+16h]), clears the four line buffers, copies 8 tiles of window graphics from 2000:D95F to 3980h and clears [1399h] bit1 (text finished flag). [high, reviewed: range_A9A0_FFFF.json]
 ; in:  AX = script number, DX = screen position (DH x, DL y)
@@ -23399,7 +24201,7 @@ loc_BC79:
     call fade_out_and_stop_sound             ; 4BC79
     add word [di+0x1a],byte +0x2             ; 4BC7C
     ret                                      ; 4BC80
-    db 0x90   ; 4BC81
+    nop                                      ; 4BC81
 
 ; Text code F5h nn: nn 0-3 starts a palette fade (sub_D6AE, period 10h, mode nn) and enables all display layers (port 00 |= 0Fh); nn 5 masks port 00 with 0Dh; nn 6 blanks the display (00 = 0, palette 20h = 0) and clears both tile maps (0800h, 1800h); other values mask port 00 with 33h. Advances by 2. [high, reviewed: range_A9A0_FFFF.json]
 ; in:  AH = operand
@@ -23488,7 +24290,7 @@ obj3d_text_put_label4:
     mov byte [di+0x13],0x4                   ; 4BD10
     add word [di+0x1a],byte +0x2             ; 4BD14
     ret                                      ; 4BD18
-    db 0x90   ; 4BD19
+    nop                                      ; 4BD19
 
 ; Text code F2h: waits until Start/A/B is newly pressed (BP = [138Ch] & E00h) and no palette fade is running ([1385h] & 3 = 0), then advances by 1. obj3D_draw shows a blinking prompt sprite while on this code. [high, reviewed: range_A9A0_FFFF.json]
 ; in:  BP = new keys, [1385h]
@@ -23525,7 +24327,7 @@ loc_BD45:
     add word [di+0x1a],byte +0x2             ; 4BD4A
 loc_BD4E:
     ret                                      ; 4BD4E
-    db 0x90   ; 4BD4F
+    nop                                      ; 4BD4F
 
 ; Text codes F0h and F7h-FDh: advances by 1, moves to the next line buffer ([+12h] = ([+12h]+1) & 3), column 2, clears the counter and the new line's tiles. [high, reviewed: range_A9A0_FFFF.json]
 ; in:  DI = text object
@@ -23637,6 +24439,9 @@ loc_BE1C:
     call [cs:bx+tbl_BD6C]                    ; 4BE27
     popa                                     ; 4BE2C
     ret                                      ; 4BE2D
+
+; data 4BE2E-4BE36: 8 signed bytes: 0,0,0,0,0,-1,-2,-1 bob offsets
+; evidence: obj3d_draw_text_window (8/8 read)
     db 0x00,0x00,0x00,0x00,0x00,0xFF,0xFE,0xFF   ; 4BE2E
 
 ; Draws the dialogue window as three rows of 24 sprites (tiles 1A0h + line*18h, attribute 0A00h) 10 px apart starting at [+1Eh]/[+1Fh], starting with the top line [+15h]; while waiting for a button (code F2h) also draws an animated prompt sprite (tile 198h+frame) at x = CEh, bobbing via table BE2E. [high, reviewed: range_A9A0_FFFF.json]
@@ -23751,6 +24556,9 @@ text_put_glyph:
     mov ds,ax                                ; 4BF21
     popa                                     ; 4BF23
     ret                                      ; 4BF24
+
+; unread bytes 4BF25-4BF30: FFh fill
+; evidence: FFh bytes between routines; not read
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 4BF25
 
 ; Key-remap case for play_flags & 7 = 0 or 4 (horizontal, A/B not swapped): returns DX unchanged. [high, reviewed: range_A9A0_FFFF.json]
@@ -23880,8 +24688,29 @@ keymap_apply:
     pop bx                                   ; 4BFE9
     pop ax                                   ; 4BFEA
     ret                                      ; 4BFEB
-    db 0xFF,0xFF,0xFF,0xFF,0x60,0x1E,0x06,0x39,0x75,0x1C,0x75,0x0D,0xE8,0x5A,0xF5,0x85   ; 4BFEC
-    db 0xFF,0x74,0x06,0xE8,0xEE,0xF4,0xE8,0x5D,0x00,0x07,0x1F,0x61,0xC3   ; 4BFFC
+
+; unread bytes 4BFEC-4BFF0: FFh fill
+; evidence: FFh bytes; not read
+    db 0xFF,0xFF,0xFF,0xFF   ; 4BFEC
+
+; UNREFERENCED CODE 4BFF0-4C009 (no caller, jump or table entry; never executed): complete routine: older variant of fade_sprite_spawn_record (cmp [di+1Ch],si / alloc B555 / clear B4F0 / init C062)
+; evidence: decodes as pusha/push ds/push es ... pop/popa/ret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_BFF0:
+    pusha                                    ; 4BFF0
+    push ds                                  ; 4BFF1
+    push es                                  ; 4BFF2
+    cmp [di+0x1c],si                         ; 4BFF3
+    jnz short loc_C005                       ; 4BFF6
+    call lvl00_check_alloc_slot_up           ; 4BFF8
+    test di,di                               ; 4BFFB
+    jz short loc_C005                        ; 4BFFD
+    call obj_clear_slot                      ; 4BFFF
+    call init_obj38_fade_sprite              ; 4C002
+loc_C005:
+    pop es                                   ; 4C005
+    pop ds                                   ; 4C006
+    popa                                     ; 4C007
+    ret                                      ; 4C008
 
 ; Checks spawner record BX (16 bytes at 3000:00DC + BX*16): when its start time (word +0) equals the caller object's timer [DI+1Ch], allocates a slot and creates a fading sprite element (sub_C062) with position, kind, palette index and duration from the record. [high, reviewed: range_A9A0_FFFF.json]
 ; in:  BX = record index, DI = spawner object
@@ -23935,7 +24764,7 @@ logo_load_tiles:
     mov ds,ax                                ; 4C05D
     popa                                     ; 4C05F
     ret                                      ; 4C060
-    db 0x90   ; 4C061
+    nop                                      ; 4C061
 
 ; Initialises object type 38h (fading sprite element): position AX,DX (pixels, stored x16), kind [+1Ah] = BX, duration [+0Ch] = BP, palette port [+0Eh], tile base [+16h] and tile slot [+18h] from bank-3 tables 3:0010/3:0000/3:002C indexed by CX. Kinds >= 6 also copy 12 (kind >= 10h) or 24 tiles of graphics from 3:[9D00h+kind*2] into tile RAM 2000h + [+18h]*16. [high, reviewed: range_A9A0_FFFF.json]
 ; in:  DI = slot, AX/DX = position px, BX = kind, CX = table index, BP = duration
@@ -24098,7 +24927,7 @@ loc_C1CA:
 loc_C1CB:
     mov byte [di],0x0                        ; 4C1CB
     ret                                      ; 4C1CE
-    db 0x90   ; 4C1CF
+    nop                                      ; 4C1CF
 
 ; Update for type 38h: increments [+1Ch]; while below the duration [+0Ch] it steps the palette port [+0Eh] one shade per nibble toward 7420h every 8 frames (fade in); afterwards decrements every nibble toward 0 every 8 frames and deletes the object once the palette is all zero (fade out). [high, reviewed: range_A9A0_FFFF.json]
 ; in:  DI = object
@@ -24116,7 +24945,8 @@ obj38_update_palette_fade:
     jmp near loc_C15D                        ; 4C1E2
 loc_C1E5:
     jmp near loc_C0CF                        ; 4C1E5
-    db 0xC3,0x90   ; 4C1E8
+    ret                                      ; 4C1E8
+    nop                                      ; 4C1E9
 
 ; Draw for type 38h: BP = tile word (bank-3 table 3:0020[kind], or [+18h] for kinds >= 6) | [+16h] | 2000h, then jumps to the kind's draw routine from 3:003C[kind] (the b3disp_* routines). [high, reviewed: range_A9A0_FFFF.json]
 ; in:  DI = object, DH/DL = screen position
@@ -24136,7 +24966,7 @@ loc_C201:
     or bp,[di+0x16]                          ; 4C201
     or bp,0x2000                             ; 4C204
     jmp [word es:bx+0x3c]                    ; 4C208
-    db 0x90   ; 4C20D
+    nop                                      ; 4C20D
 
 ; Turns slot DI into object type 39h (byte+1 = 1) with script selector [+18h] = AX*2 (0 = Namco logo elements, 1 = ending/credits elements). [high, reviewed: range_A9A0_FFFF.json]
 ; in:  DI = slot, AX = script 0/1
@@ -24151,7 +24981,7 @@ init_obj39_spawner:
     mov [di],ax                              ; 4C217
     pop ax                                   ; 4C219
     ret                                      ; 4C21A
-    db 0x90   ; 4C21B
+    nop                                      ; 4C21B
 
 ; Spawner script 0: checks spawner records 0-5 against the timer (sub_C009) each frame. [high, reviewed: range_A9A0_FFFF.json]
 ; in:  DI = spawner object
@@ -24172,7 +25002,7 @@ obj39_spawn_logo_elements:
     mov bx,0x5                               ; 4C23A
     call fade_sprite_spawn_record            ; 4C23D
     ret                                      ; 4C240
-    db 0x90   ; 4C241
+    nop                                      ; 4C241
 
 ; Spawner script 1: checks spawner records 6-4Bh against the timer each frame. [medium, reviewed: range_A9A0_FFFF.json]
 ; in:  DI = spawner object
@@ -24192,7 +25022,7 @@ loc_C245:
 tbl_C24F:
     dw obj39_spawn_logo_elements
     dw obj39_spawn_credit_elements
-    db 0x90   ; 4C253
+    nop                                      ; 4C253
 
 ; Update for type 39h: sets the updated flag, increments timer [+1Ch] and runs the script selected by [+18h] (tbl_C24F). [high, reviewed: range_A9A0_FFFF.json]
 ; in:  DI = object
@@ -24223,7 +25053,7 @@ clear_sprite_palettes:
     out 0x3c,ax                              ; 4C275
     out 0x3e,ax                              ; 4C277
     ret                                      ; 4C279
-    db 0xC3   ; 4C27A
+    ret                                      ; 4C27A
 
 ; VBlank handler installed by state08_namco_logo: reads the keypad, stores the current scanline (port 02h) in vblank_line and acknowledges VBlank (B6h <- 40h). [high, reviewed: range_A9A0_FFFF.json]
 ; in:  none
@@ -24331,6 +25161,9 @@ loc_C35A:
     out 0x0,ax                               ; 4C35F
     mov word [game_state],0x0                ; 4C361
     jmp near main_loop                       ; 4C367
+
+; unread bytes 4C36A-4C370: FFh fill
+; evidence: FFh bytes; not read
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 4C36A
 
 ; Fills the HUD strip of the SCR1 map with tile 174Bh: bottom row (0C40h, 32 cells) in horizontal mode or the two left columns of 18 rows in vertical mode; for EX Visions (progress 61xx/62xx) also the top row (horizontal) or columns 1Ah-1Bh (vertical) for the timer. [high, reviewed: range_A9A0_FFFF.json]
@@ -24391,7 +25224,7 @@ loc_C3D1:
 loc_C3DB:
     popa                                     ; 4C3DB
     ret                                      ; 4C3DC
-    db 0x90   ; 4C3DD
+    nop                                      ; 4C3DD
 
 ; For EX Visions only: writes the timer frame tiles (3D67h-3D69h) and the separator characters ':' '.' ',' (font tile = ASCII-20h+114Bh) into the top HUD row (or right columns in vertical mode). [high, reviewed: range_A9A0_FFFF.json]
 ; in:  progress_code, play_flags bit0
@@ -24509,7 +25342,7 @@ loc_C4D8:
     pop bx                                   ; 4C4DA
     pop ax                                   ; 4C4DB
     ret                                      ; 4C4DC
-    db 0x90   ; 4C4DD
+    nop                                      ; 4C4DD
 
 ; Redraws the whole gameplay HUD: hearts (C55E), item flags (C608), item count (C678), lives (C718), EX timer labels (C3DE), the dream-stone icon/separator tiles and the maximum '30', then the displayed stone count [13DFh] (C6BA). Layout differs for vertical mode. [high, reviewed: range_A9A0_FFFF.json]
 ; in:  play_flags bit0, HUD variables
@@ -24566,7 +25399,7 @@ loc_C553:
     call hud_draw_stone_count                ; 4C558
     popa                                     ; 4C55B
     ret                                      ; 4C55C
-    db 0x90   ; 4C55D
+    nop                                      ; 4C55D
 
 ; Draws the heart counter into the SCR1 map: clears six cells with blank tile 114Bh, then draws [13E0h] hearts (two tiles 3DB5h/3DB6h each, horizontal, row 0C40h) or 2x2 tiles from 3DB3h (vertical, left columns). [high, reviewed: range_A9A0_FFFF.json]
 ; in:  [13E0h], play_flags bit0
@@ -24649,7 +25482,7 @@ loc_C5EF:
 loc_C605:
     popa                                     ; 4C605
     ret                                      ; 4C606
-    db 0x90   ; 4C607
+    nop                                      ; 4C607
 
 ; Draws one HUD tile (3982h+i) for each of the four flag bits 0-3 of [13D1h] that is set (x = 38h + 8*i, y = 88h; vertical layout at x = 0, y = 48h + 8*i). Unset bits are left untouched. [high, reviewed: range_A9A0_FFFF.json]
 ; in:  [13D1h], play_flags bit0
@@ -24860,6 +25693,9 @@ loc_C753:
 loc_C759:
     popa                                     ; 4C759
     ret                                      ; 4C75A
+
+; unread bytes 4C75B-4C760: FFh fill
+; evidence: FFh bytes before bpe_expand; not read
     db 0xFF,0xFF,0xFF,0xFF,0xFF   ; 4C75B
 
 ; bpe_expand [high]
@@ -24961,6 +25797,9 @@ loc_C801:
 loc_C809:
     popa                                     ; 4C809
     ret                                      ; 4C80A
+
+; unread bytes 4C80B-4C810: FFh fill
+; evidence: FFh bytes; not read
     db 0xFF,0xFF,0xFF,0xFF,0xFF   ; 4C80B
 
 ; Palette fade step (obj3B mode 3): decrements every non-zero shade nibble of the eight sprite palette ports 30h-3Eh by one. [high, reviewed: range_A9A0_FFFF.json]
@@ -25795,15 +26634,73 @@ loc_CF63:
     sub ah,0x8                               ; 4CF79
     loop loc_CF63                            ; 4CF7C
     ret                                      ; 4CF7E
-    db 0x80,0xEE,0x0C,0x80,0xEA,0x08,0x8B,0x1E,0x82,0x13,0x83,0x06,0x82,0x13,0x18,0x8B   ; 4CF7F
-    db 0xF5,0x8B,0xC2,0xB9,0x02,0x00,0x8A,0xE6,0x89,0x37,0x89,0x47,0x02,0x46,0x83,0xC3   ; 4CF8F
-    db 0x04,0x80,0xC4,0x08,0x89,0x37,0x89,0x47,0x02,0x46,0x83,0xC3,0x04,0x80,0xC4,0x08   ; 4CF9F
-    db 0x89,0x37,0x89,0x47,0x02,0x46,0x83,0xC3,0x04,0x04,0x08,0xE2,0xD9,0xC3,0x80,0xEE   ; 4CFAF
-    db 0x0C,0x80,0xEA,0x08,0x8B,0x1E,0x82,0x13,0x83,0x06,0x82,0x13,0x18,0x33,0xC0,0x8B   ; 4CFBF
-    db 0x45,0x1C,0xB1,0x03,0xD2,0xE8,0x24,0x03,0xB1,0x06,0xF6,0xE1,0x03,0xE8,0x8B,0xC2   ; 4CFCF
-    db 0xB9,0x02,0x00,0x8A,0xE6,0x89,0x2F,0x89,0x47,0x02,0x45,0x83,0xC3,0x04,0x80,0xC4   ; 4CFDF
-    db 0x08,0x89,0x2F,0x89,0x47,0x02,0x45,0x83,0xC3,0x04,0x80,0xC4,0x08,0x89,0x2F,0x89   ; 4CFEF
-    db 0x47,0x02,0x45,0x83,0xC3,0x04,0x04,0x08,0xE2,0xD9,0xC3   ; 4CFFF
+
+; UNREFERENCED CODE 4CF7F-4D00A (no caller, jump or table entry; never executed): two complete draw routines: 3x2 sprite block from BP, and an animated variant (frame = ([+1Ch]>>3)&3 * 6)
+; evidence: each decodes as a complete routine ending in ret, same idiom as the live b3disp_* drawers; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_CF7F:
+    sub dh,0xc                               ; 4CF7F
+    sub dl,0x8                               ; 4CF82
+    mov bx,[0x1382]                          ; 4CF85
+    add word [0x1382],byte +0x18             ; 4CF89
+    rr mov, si, bp                           ; 4CF8E
+    rr mov, ax, dx                           ; 4CF90
+    mov cx,0x2                               ; 4CF92
+loc_CF95:
+    rr mov, ah, dh                           ; 4CF95
+    mov [bx],si                              ; 4CF97
+    mov [bx+0x2],ax                          ; 4CF99
+    inc si                                   ; 4CF9C
+    add bx,byte +0x4                         ; 4CF9D
+    add ah,0x8                               ; 4CFA0
+    mov [bx],si                              ; 4CFA3
+    mov [bx+0x2],ax                          ; 4CFA5
+    inc si                                   ; 4CFA8
+    add bx,byte +0x4                         ; 4CFA9
+    add ah,0x8                               ; 4CFAC
+    mov [bx],si                              ; 4CFAF
+    mov [bx+0x2],ax                          ; 4CFB1
+    inc si                                   ; 4CFB4
+    add bx,byte +0x4                         ; 4CFB5
+    add al,0x8                               ; 4CFB8
+    loop loc_CF95                            ; 4CFBA
+    ret                                      ; 4CFBC
+
+; UNREFERENCED CODE 4CF7F-4D00A (no caller, jump or table entry; never executed): two complete draw routines: 3x2 sprite block from BP, and an animated variant (frame = ([+1Ch]>>3)&3 * 6)
+; evidence: each decodes as a complete routine ending in ret, same idiom as the live b3disp_* drawers; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_CFBD:
+    sub dh,0xc                               ; 4CFBD
+    sub dl,0x8                               ; 4CFC0
+    mov bx,[0x1382]                          ; 4CFC3
+    add word [0x1382],byte +0x18             ; 4CFC7
+    rr xor, ax, ax                           ; 4CFCC
+    mov ax,[di+0x1c]                         ; 4CFCE
+    mov cl,0x3                               ; 4CFD1
+    shr al,cl                                ; 4CFD3
+    and al,0x3                               ; 4CFD5
+    mov cl,0x6                               ; 4CFD7
+    mul cl                                   ; 4CFD9
+    rr add, bp, ax                           ; 4CFDB
+    rr mov, ax, dx                           ; 4CFDD
+    mov cx,0x2                               ; 4CFDF
+loc_CFE2:
+    rr mov, ah, dh                           ; 4CFE2
+    mov [bx],bp                              ; 4CFE4
+    mov [bx+0x2],ax                          ; 4CFE6
+    inc bp                                   ; 4CFE9
+    add bx,byte +0x4                         ; 4CFEA
+    add ah,0x8                               ; 4CFED
+    mov [bx],bp                              ; 4CFF0
+    mov [bx+0x2],ax                          ; 4CFF2
+    inc bp                                   ; 4CFF5
+    add bx,byte +0x4                         ; 4CFF6
+    add ah,0x8                               ; 4CFF9
+    mov [bx],bp                              ; 4CFFC
+    mov [bx+0x2],ax                          ; 4CFFE
+    inc bp                                   ; 4D001
+    add bx,byte +0x4                         ; 4D002
+    add al,0x8                               ; 4D005
+    loop loc_CFE2                            ; 4D007
+    ret                                      ; 4D009
 
 ; Bank-3 draw routine for element kinds 0-4: emits a 4-wide x 3-high block of consecutive tiles starting at BP, centred (x-10h, y-0Ch). [high, reviewed: range_A9A0_FFFF.json]
 ; in:  BP = tile word, DH = x, DL = y
@@ -25847,7 +26744,7 @@ b3disp_05_single_sprite:
     mov [bx],bp                              ; 4D049
     mov [bx+0x2],dx                          ; 4D04B
     ret                                      ; 4D04E
-    db 0x90   ; 4D04F
+    nop                                      ; 4D04F
 
 ; Helper: emits 12 sprites with consecutive tiles from BP at sprite pointer BX, 8 px apart horizontally starting at AH = x, AL = y. [high, reviewed: range_A9A0_FFFF.json]
 ; in:  BX = sprite entry pointer, BP = tile, AX = y/x
@@ -25895,7 +26792,7 @@ b3disp_0f_sprite_row_12:
     add word [0x1382],byte +0x30             ; 4D087
     rr mov, ax, dx                           ; 4D08C
     jmp near emit_sprite_row_12              ; 4D08E
-    db 0x90   ; 4D091
+    nop                                      ; 4D091
 loc_D092:
     pusha                                    ; 4D092
     sub dh,0x8                               ; 4D093
@@ -26195,6 +27092,9 @@ loc_D2F7:
 tbl_D31E:
     dw obj2e_draw_3x3_horizontal
     dw obj2e_draw_3x3_vertical
+
+; data 4D322-4D326: 4 bytes {0,9,12h,1Bh}: 3x3 frame tile offsets
+; evidence: obj2e_draw_3x3_horizontal 4000:D342 (4/4 read)
     db 0x00,0x09,0x12,0x1B   ; 4D322
 
 ; obj2E draw (horizontal mode): 3x3 sprite block, frame = 9-tile offset from table D322 {0,9,12h,1Bh} indexed by ([+14h]>>4)&3; when [+0Ch] bit1 is set the block is mirrored with the H-flip attribute (4000h). [high, reviewed: range_A9A0_FFFF.json]
@@ -26413,7 +27313,7 @@ obj3f_update_count_up_30:
     rr sbb, ax, ax                           ; 4D4CC
     and [di],al                              ; 4D4CE
     ret                                      ; 4D4D0
-    db 0x90   ; 4D4D1
+    nop                                      ; 4D4D1
 
 ; obj3F variant 1: counts [+1Ch] down and deletes the object after 30 frames (when -[+1Ch] reaches 30). [high, reviewed: range_A9A0_FFFF.json]
 ; in:  DI = object
@@ -26429,7 +27329,7 @@ obj3f_update_count_down_30:
     rr sbb, ax, ax                           ; 4D4DE
     and [di],al                              ; 4D4E0
     ret                                      ; 4D4E2
-    db 0x90   ; 4D4E3
+    nop                                      ; 4D4E3
 
 ; obj3F variants 2 and 3: counts [+1Ch] up and deletes the object after 60 frames. [high, reviewed: range_A9A0_FFFF.json]
 ; in:  DI = object
@@ -26452,7 +27352,7 @@ tbl_D4F3:
     dw obj3f_update_count_down_30
     dw obj3f_update_count_up_60
     dw obj3f_update_count_up_60
-    db 0x90   ; 4D4FB
+    nop                                      ; 4D4FB
 
 ; Update for effect type 3Fh: sets the updated flag and dispatches on variant [+0Ch] through tbl_D4F3. [high, reviewed: range_A9A0_FFFF.json]
 ; in:  DI = object
@@ -27195,7 +28095,7 @@ loc_DA2A:
     mov byte [di+0x1e],0x0                   ; 4DA3A
 loc_DA3E:
     ret                                      ; 4DA3E
-    db 0x90   ; 4DA3F
+    nop                                      ; 4DA3F
 
 ; Spawn initialiser for kind 23h: creates object type 31h at x = AX*16 & FFC0h, y = DX*16 - 20h with parameter [+1Eh] = CH. [high, reviewed: range_A9A0_FFFF.json]
 ; in:  DI = slot, AX/DX = position px, CH = parameter
@@ -27248,6 +28148,9 @@ obj31_update_press_up_trigger:
     mov [0x13fd],al                          ; 4DA94
 loc_DA97:
     ret                                      ; 4DA97
+
+; data 4DA98-4DAA0: 8 signed bytes: 0,0,0,0,0,-1,-2,-1 bob offsets
+; evidence: obj31_draw_bobbing_marker (8/8 read)
     db 0x00,0x00,0x00,0x00,0x00,0xFF,0xFE,0xFF   ; 4DA98
 
 ; Draw for type 31h: one sprite (tile word 2D4Ch) at (x-4, y-4) that bobs by the 8-entry offset table DA98 {0,0,0,0,0,-1,-2,-1} indexed by [+14h]>>3 (vertical offset, or horizontal in vertical mode). [high, reviewed: range_A9A0_FFFF.json]
@@ -27279,7 +28182,7 @@ loc_DACE:
     mov word [bx],0x2d4c                     ; 4DAD7
     mov [bx+0x2],dx                          ; 4DADB
     ret                                      ; 4DADE
-    db 0x90   ; 4DADF
+    nop                                      ; 4DADF
 
 ; Spawn initialiser for kinds 29h and 2Ah: does nothing (RET); these kinds only act through their preload hooks. [high, reviewed: range_A9A0_FFFF.json]
 ; in:  none
@@ -27289,7 +28192,7 @@ loc_DACE:
 ; dispatch roles: lvl29_spawn, lvl2A_spawn
 lvl29_spawn_nop:
     ret                                      ; 4DAE0
-    db 0x90   ; 4DAE1
+    nop                                      ; 4DAE1
 
 ; Preload hook for kind 2Ah: creates the EX timer object (lvl29_tick) and sets its [+1Eh] = 1, which stops it from counting. [medium, reviewed: range_A9A0_FFFF.json]
 ; in:  none
@@ -27428,7 +28331,7 @@ obj35_draw_time_and_record:
     call get_ex_time_record                  ; 4DBC7
     mov bp,0xa000                            ; 4DBCA
     jmp near draw_time_and_13c0              ; 4DBCD
-    db 0xC3   ; 4DBD0
+    ret                                      ; 4DBD0
 loc_DBD1:
     mov bp,0xd820                            ; 4DBD1
     call draw_time_and_13c0                  ; 4DBD4
@@ -27640,6 +28543,9 @@ loc_DD25:
     jnz short loc_DD21                       ; 4DD3A
     popa                                     ; 4DD3C
     ret                                      ; 4DD3D
+
+; unread bytes 4DD3E-4DD40: FFh fill
+; evidence: two FFh bytes; not read
     db 0xFF,0xFF   ; 4DD3E
 
 ; sound_init [medium]
@@ -27871,9 +28777,26 @@ loc_DEE7:
     out 0x90,al                              ; 4DEEB
     pop ds                                   ; 4DEED
     ret                                      ; 4DEEE
-    db 0xBE,0x60,0x02,0x26,0x8A,0x64,0x03,0xBA,0x88,0x00,0xF6,0xD4,0x26,0x22,0x67,0x03   ; 4DEEF
-    db 0xD0,0xE4,0x73,0x08,0x26,0xC6,0x47,0x10,0x00,0x32,0xC0,0xEE,0x74,0xCA,0x43,0x42   ; 4DEFF
-    db 0xE9,0xED,0xFF   ; 4DF0F
+
+; UNREFERENCED CODE 4DEEF-4DF12 (no caller, jump or table entry; never executed): sound-driver fragment: key-off of the channels selected by [0263h] (out 88h+ch, clears [+10h])
+; evidence: decodes as instructions jumping back into the live loop at DED7; no entry reaches DEEF; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_DEEF:
+    mov si,0x260                             ; 4DEEF
+    mov ah,[es:si+0x3]                       ; 4DEF2
+    mov dx,0x88                              ; 4DEF6
+    not ah                                   ; 4DEF9
+    and ah,[es:bx+0x3]                       ; 4DEFB
+loc_DEFF:
+    shl ah,1                                 ; 4DEFF
+    jnc short loc_DF0B                       ; 4DF01
+    mov byte [es:bx+0x10],0x0                ; 4DF03
+    rr xor, al, al                           ; 4DF08
+    out dx,al                                ; 4DF0A
+loc_DF0B:
+    jz short loc_DED7                        ; 4DF0B
+    inc bx                                   ; 4DF0D
+    inc dx                                   ; 4DF0E
+    jmp near loc_DEFF                        ; 4DF0F
 loc_DF12:
     mov [es:si],bx                           ; 4DF12
     mov al,[es:si+0x14]                      ; 4DF15
@@ -28172,9 +29095,32 @@ snd_cmd_play_sound:
     inc di                                   ; 4E0CD
     call sound_play                          ; 4E0CE
     jmp near loc_DF4A                        ; 4E0D1
-    db 0x26,0x88,0x47,0x04,0xE9,0x6F,0xFE,0x26,0x88,0x47,0x05,0xE9,0x68,0xFE,0x26,0x89   ; 4E0D4
-    db 0x07,0xE9,0x62,0xFE,0x26,0x8B,0x0F,0x26,0x8C,0x4F,0x0A,0x26,0x89,0x07,0xE9,0x55   ; 4E0E4
-    db 0xFE   ; 4E0F4
+
+; UNREFERENCED CODE 4E0D4-4E0F5 (no caller, jump or table entry; never executed): four sequence-command handlers (store AL to track +4 / +5 / +0, swap +0 with +0Ah) each ending jmp DF4A
+; evidence: same shape as the live snd_cmd_* handlers but absent from tbl_DF5F/tbl_DF8A; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_E0D4:
+    mov [es:bx+0x4],al                       ; 4E0D4
+    jmp near loc_DF4A                        ; 4E0D8
+
+; UNREFERENCED CODE 4E0D4-4E0F5 (no caller, jump or table entry; never executed): four sequence-command handlers (store AL to track +4 / +5 / +0, swap +0 with +0Ah) each ending jmp DF4A
+; evidence: same shape as the live snd_cmd_* handlers but absent from tbl_DF5F/tbl_DF8A; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_E0DB:
+    mov [es:bx+0x5],al                       ; 4E0DB
+    jmp near loc_DF4A                        ; 4E0DF
+
+; UNREFERENCED CODE 4E0D4-4E0F5 (no caller, jump or table entry; never executed): four sequence-command handlers (store AL to track +4 / +5 / +0, swap +0 with +0Ah) each ending jmp DF4A
+; evidence: same shape as the live snd_cmd_* handlers but absent from tbl_DF5F/tbl_DF8A; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_E0E2:
+    mov [es:bx],ax                           ; 4E0E2
+    jmp near loc_DF4A                        ; 4E0E5
+
+; UNREFERENCED CODE 4E0D4-4E0F5 (no caller, jump or table entry; never executed): four sequence-command handlers (store AL to track +4 / +5 / +0, swap +0 with +0Ah) each ending jmp DF4A
+; evidence: same shape as the live snd_cmd_* handlers but absent from tbl_DF5F/tbl_DF8A; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_E0E8:
+    mov cx,[es:bx]                           ; 4E0E8
+    mov [es:bx+0xa],cs                       ; 4E0EB
+    mov [es:bx],ax                           ; 4E0EF
+    jmp near loc_DF4A                        ; 4E0F2
 
 ; For each of the channel bits 7..4 of the command byte (channel 0..3 of the track) consumes one operand byte and stores it in the per-channel byte +10h (volume attenuation added before the volume lookup). [high, reviewed: range_A9A0_FFFF.json]
 ; in:  BX = track work area (0100h/0158h/01B0h/0208h, 58h bytes each), DS:DI = sequence pointer in bank 5, ES = 0, DL = command byte
@@ -29065,7 +30011,13 @@ snd_voice_install_irq:
     pop ax                                   ; 4E7DB
     pop ds                                   ; 4E7DC
     ret                                      ; 4E7DD
+
+; unread bytes 4E7DE-4E7EE: 16 bytes F0h,E1h,...,0Fh (descending by 0Fh)
+; evidence: directly before the note pitch table 4000:E7EE; no instruction reads it and it is never read at runtime
     db 0xF0,0xE1,0xD2,0xC3,0xB4,0xA5,0x96,0x87,0x78,0x69,0x5A,0x4B,0x3C,0x2D,0x1E,0x0F   ; 4E7DE
+
+; data 4E7EE-4E8A2: note pitch table: 90 words (period values)
+; evidence: snd_channel_pitch_volume 4000:E4A6 mov dx,[cs:bp-1812h] (=E7EE)
     db 0x00,0x00,0x60,0x00,0xCD,0x00,0x35,0x01,0x96,0x01,0xF2,0x01,0x49,0x02,0x9B,0x02   ; 4E7EE
     db 0xE9,0x02,0x32,0x03,0x77,0x03,0xB8,0x03,0xF6,0x03,0x30,0x04,0x67,0x04,0x9A,0x04   ; 4E7FE
     db 0xCB,0x04,0xF9,0x04,0x25,0x05,0x4E,0x05,0x74,0x05,0x99,0x05,0xBC,0x05,0xDC,0x05   ; 4E80E
@@ -29077,26 +30029,57 @@ snd_voice_install_irq:
     db 0xCD,0x07,0xD0,0x07,0xD2,0x07,0xD5,0x07,0xD7,0x07,0xDA,0x07,0xDC,0x07,0xDE,0x07   ; 4E86E
     db 0xE0,0x07,0xE1,0x07,0xE3,0x07,0xE5,0x07,0xE6,0x07,0xE8,0x07,0xE9,0x07,0xEA,0x07   ; 4E87E
     db 0xEC,0x07,0xED,0x07,0xEE,0x07,0xEF,0x07,0xF0,0x07,0xF1,0x07,0xF2,0x07,0xF2,0x07   ; 4E88E
-    db 0xF3,0x07,0xF4,0x07,0x00,0x00,0x0F,0x0F,0x0F,0x0E,0x0E,0x0E,0x0E,0x0E,0x0D,0x0D   ; 4E89E
-    db 0x0D,0x0D,0x0D,0x0D,0x0D,0x0D,0x0C,0x0C,0x0C,0x0C,0x0C,0x0C,0x0C,0x0C,0x0C,0x0C   ; 4E8AE
-    db 0x0B,0x0B,0x0B,0x0B,0x0B,0x0B,0x0B,0x0B,0x0B,0x0B,0x0B,0x0B,0x0A,0x0A,0x0A,0x0A   ; 4E8BE
-    db 0x0A,0x0A,0x0A,0x0A,0x0A,0x0A,0x0A,0x0A,0x0A,0x0A,0x09,0x09,0x09,0x09,0x09,0x09   ; 4E8CE
-    db 0x09,0x09,0x09,0x09,0x09,0x09,0x09,0x09,0x09,0x09,0x08,0x08,0x08,0x08,0x08,0x08   ; 4E8DE
-    db 0x08,0x08,0x08,0x08,0x08,0x08,0x08,0x08,0x08,0x08,0x08,0x08,0x07,0x07,0x07,0x07   ; 4E8EE
-    db 0x07,0x07,0x07,0x07,0x07,0x07,0x07,0x07,0x07,0x07,0x07,0x07,0x07,0x07,0x07,0x07   ; 4E8FE
-    db 0x06,0x06,0x06,0x06,0x06,0x06,0x06,0x06,0x06,0x06,0x06,0x06,0x06,0x06,0x06,0x06   ; 4E90E
-    db 0x06,0x06,0x06,0x06,0x06,0x06,0x05,0x05,0x05,0x05,0x05,0x05,0x05,0x05,0x05,0x05   ; 4E91E
-    db 0x05,0x05,0x05,0x05,0x05,0x05,0x05,0x05,0x05,0x05,0x05,0x05,0x05,0x04,0x04,0x04   ; 4E92E
-    db 0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04   ; 4E93E
-    db 0x04,0x04,0x04,0x04,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03   ; 4E94E
-    db 0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03   ; 4E95E
-    db 0x03,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02   ; 4E96E
-    db 0x02,0x02,0x02,0x02,0x02,0x02,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01   ; 4E97E
-    db 0x01,0x01,0x01,0x01,0x01,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00   ; 4E98E
-    db 0x00,0x00,0x00,0x00,0x00,0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 4E99E
-    db 0xFF,0xFF,0x51,0x52,0x53,0x56,0x8B,0xF2,0xBB,0x30,0x00,0xB9,0x08,0x00,0x9A,0x82   ; 4E9AE
-    db 0xEB,0x00,0x40,0x89,0x14,0x83,0xC6,0x02,0x43,0xE2,0xF3,0x33,0xC0,0x5E,0x5B,0x5A   ; 4E9BE
-    db 0x59,0xC3   ; 4E9CE
+    db 0xF3,0x07,0xF4,0x07   ; 4E89E
+
+; unread bytes 4E8A2-4E8A4: word 0000 after the pitch table
+; evidence: not read (would be note 90)
+    db 0x00,0x00   ; 4E8A2
+
+; data 4E8A4-4E9A4: 256-byte volume conversion curve (0Fh down to 00h)
+; evidence: snd_channel_release / volume envelope 4000:E60B, E62E mov cl/al,[cs:bp-175Ch] (=E8A4)
+    db 0x0F,0x0F,0x0F,0x0E,0x0E,0x0E,0x0E,0x0E,0x0D,0x0D,0x0D,0x0D,0x0D,0x0D,0x0D,0x0D   ; 4E8A4
+    db 0x0C,0x0C,0x0C,0x0C,0x0C,0x0C,0x0C,0x0C,0x0C,0x0C,0x0B,0x0B,0x0B,0x0B,0x0B,0x0B   ; 4E8B4
+    db 0x0B,0x0B,0x0B,0x0B,0x0B,0x0B,0x0A,0x0A,0x0A,0x0A,0x0A,0x0A,0x0A,0x0A,0x0A,0x0A   ; 4E8C4
+    db 0x0A,0x0A,0x0A,0x0A,0x09,0x09,0x09,0x09,0x09,0x09,0x09,0x09,0x09,0x09,0x09,0x09   ; 4E8D4
+    db 0x09,0x09,0x09,0x09,0x08,0x08,0x08,0x08,0x08,0x08,0x08,0x08,0x08,0x08,0x08,0x08   ; 4E8E4
+    db 0x08,0x08,0x08,0x08,0x08,0x08,0x07,0x07,0x07,0x07,0x07,0x07,0x07,0x07,0x07,0x07   ; 4E8F4
+    db 0x07,0x07,0x07,0x07,0x07,0x07,0x07,0x07,0x07,0x07,0x06,0x06,0x06,0x06,0x06,0x06   ; 4E904
+    db 0x06,0x06,0x06,0x06,0x06,0x06,0x06,0x06,0x06,0x06,0x06,0x06,0x06,0x06,0x06,0x06   ; 4E914
+    db 0x05,0x05,0x05,0x05,0x05,0x05,0x05,0x05,0x05,0x05,0x05,0x05,0x05,0x05,0x05,0x05   ; 4E924
+    db 0x05,0x05,0x05,0x05,0x05,0x05,0x05,0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04   ; 4E934
+    db 0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x03,0x03   ; 4E944
+    db 0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03   ; 4E954
+    db 0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x03,0x02,0x02,0x02,0x02,0x02   ; 4E964
+    db 0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02,0x02   ; 4E974
+    db 0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01   ; 4E984
+    db 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00   ; 4E994
+
+; unread bytes 4E9A4-4E9B0: FFh fill
+; evidence: FFh bytes; not read
+    db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 4E9A4
+
+; UNREFERENCED CODE 4E9B0-4E9D0 (no caller, jump or table entry; never executed): complete routine: fills 8 words at [DX] from far call 4000:EB82 for BX = 30h..37h, returns AX=0
+; evidence: decodes as push cx/dx/bx/si ... pop / ret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_E9B0:
+    push cx                                  ; 4E9B0
+    push dx                                  ; 4E9B1
+    push bx                                  ; 4E9B2
+    push si                                  ; 4E9B3
+    rr mov, si, dx                           ; 4E9B4
+    mov bx,0x30                              ; 4E9B6
+    mov cx,0x8                               ; 4E9B9
+loc_E9BC:
+    call 0x4000:ieep_read_word               ; 4E9BC
+    mov [si],dx                              ; 4E9C1
+    add si,byte +0x2                         ; 4E9C3
+    inc bx                                   ; 4E9C6
+    loop loc_E9BC                            ; 4E9C7
+    rr xor, ax, ax                           ; 4E9C9
+    pop si                                   ; 4E9CB
+    pop bx                                   ; 4E9CC
+    pop dx                                   ; 4E9CD
+    pop cx                                   ; 4E9CE
+    ret                                      ; 4E9CF
 
 ; Loads this game's record from the console's internal EEPROM: Internal EEPROM directory layout used here: words 0-3 = 7 LRU rank bytes (one per slot, 0 = most recent); slots 1-7 at word slot*6: word +0 = game ID, words +1..+5 = 10 bytes of game data. Finds the slot whose ID word equals BX; if none returns CF=1. Otherwise marks the slot most-recently-used (sub_EA31, which uses the buffer at DX as scratch) and reads the 5 data words into DX (sub_EB31), CF=0. [high, reviewed: range_A9A0_FFFF.json]
 ; in:  BX = game ID, DX = 10-byte RAM buffer
@@ -29483,6 +30466,9 @@ loc_EBEE:
     pop bx                                   ; 4EBEE
     pop dx                                   ; 4EBEF
     retf                                     ; 4EBF0
+
+; unread bytes 4EBF1-4EC00: FFh fill
+; evidence: FFh bytes; not read
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 4EBF1
 
 ; One frame of the museum World/Vision selection screen: up/down move between three rows ([1308h], sound 2Bh); on row 0 left/right change the world (EX world 6 only when [133Eh] bit0), on row 1 change the Vision, limited to reached progress ([148Fh], EX Visions via [1497h]); draws world/Vision numbers, the selected Vision's best stones and lives, a blinking cursor, best EX time for EX Visions 1-2, the world icons (layouts from 9000:FA50) and an animated banner when [133Fh] is set; stores the selected progress code W V 01 in [12D8h]. Returns AX = 1 when the cursor is on row 2. [medium, reviewed: range_A9A0_FFFF.json]
@@ -29815,6 +30801,9 @@ loc_EF22:
     inc ax                                   ; 4EF2D
 loc_EF2E:
     ret                                      ; 4EF2E
+
+; data 4EF2F-4EF35: 3 words {0A0Ch, 0A17h, 0A5Ah}
+; evidence: vision_select_menu_frame (add bx,0EF2Fh at 4000:ED88; 6/6 read)
     db 0x0C,0x0A,0x17,0x0A,0x5A,0x0A   ; 4EF2F
 
 ; Converts menu cursor DH = world index, DL = Vision index (0-based) to a progress byte AL = (DH+1)<<4 | (DL+1), with CH = (DH+1)<<4. [high, reviewed: range_A9A0_FFFF.json]
@@ -29978,25 +30967,134 @@ loc_F006:
 loc_F016:
     mov dx,0x405                             ; 4F016
     ret                                      ; 4F019
-    db 0x8B,0x3E,0x8C,0x13,0xBB,0x08,0x13,0xF7,0xC7,0x40,0x00,0x74,0x0A,0xFE,0x07,0x80   ; 4F01A
-    db 0x3F,0x04,0x75,0x03,0xC6,0x07,0x00,0xF7,0xC7,0x10,0x00,0x74,0x0A,0xFE,0x0F,0x80   ; 4F02A
-    db 0x3F,0xFF,0x75,0x03,0xC6,0x07,0x03,0xB5,0x06,0x80,0x3F,0x02,0x75,0x02,0xD0,0xE5   ; 4F03A
-    db 0x80,0x3F,0x03,0x74,0x2C,0x8B,0x07,0x40,0xD1,0xE0,0x8B,0xF0,0xF7,0xC7,0x20,0x00   ; 4F04A
-    db 0x74,0x09,0xFE,0x00,0x38,0x28,0x75,0x03,0xC6,0x00,0x00,0xF7,0xC7,0x80,0x00,0x74   ; 4F05A
-    db 0x0D,0xFE,0x08,0x80,0x38,0xFF,0x75,0x06,0x8A,0xE5,0xFE,0xCC,0x88,0x20,0xE9,0x14   ; 4F06A
-    db 0x00,0xF7,0xC7,0x20,0x00,0x74,0x04,0xFF,0x06,0x04,0x13,0xF7,0xC7,0x80,0x00,0x74   ; 4F07A
-    db 0x04,0xFF,0x0E,0x04,0x13,0xA1,0x04,0x13,0x3D,0x10,0x00,0x75,0x04,0xFF,0x06,0x06   ; 4F08A
-    db 0x13,0x3D,0xFF,0xFF,0x75,0x04,0xFF,0x0E,0x06,0x13,0x25,0x0F,0x00,0xA3,0x04,0x13   ; 4F09A
-    db 0xA1,0x06,0x13,0x25,0x0F,0x00,0xA3,0x06,0x13,0xA1,0x0A,0x13,0x40,0xBA,0x30,0x70   ; 4F0AA
-    db 0x80,0x3E,0x08,0x13,0x00,0x75,0x04,0x81,0xEA,0x00,0x04,0xE8,0x28,0xC7,0xA1,0x0C   ; 4F0BA
-    db 0x13,0x40,0xBA,0x40,0x70,0x80,0x3E,0x08,0x13,0x01,0x75,0x04,0x81,0xEA,0x00,0x04   ; 4F0CA
-    db 0xE8,0x13,0xC7,0xA1,0x0E,0x13,0x40,0xBA,0x50,0x70,0x80,0x3E,0x08,0x13,0x02,0x75   ; 4F0DA
-    db 0x04,0x81,0xEA,0x00,0x04,0xE8,0xFE,0xC6,0xA1,0x06,0x13,0xBA,0x70,0x70,0x80,0x3E   ; 4F0EA
-    db 0x08,0x13,0x03,0x75,0x04,0x81,0xEA,0x00,0x04,0xE8,0xEA,0xC6,0xA1,0x04,0x13,0x81   ; 4F0FA
-    db 0xC2,0x00,0x08,0xE8,0xE0,0xC6,0xA1,0x0A,0x13,0x40,0xC1,0xE0,0x0C,0x8B,0x16,0x0C   ; 4F10A
-    db 0x13,0x42,0xC1,0xE2,0x08,0x03,0xC2,0x8B,0x16,0x0E,0x13,0x42,0x03,0xC2,0xA3,0xD8   ; 4F11A
-    db 0x12,0xF7,0xC7,0x01,0x00,0x74,0x0D,0xA1,0x06,0x13,0xC1,0xE0,0x04,0x03,0x06,0x04   ; 4F12A
-    db 0x13,0xE8,0x59,0xEC,0xF7,0xC7,0x04,0x00,0x74,0x03,0xE8,0x0A,0xED,0xC3   ; 4F13A
+
+; UNREFERENCED CODE 4F01A-4F148 (no caller, jump or table entry; never executed): complete routine: debug sound test - cursor [1308h] moved by X keys, edits [1304h]/[1306h]/[130Ah-130Eh], prints them in hex (4B7F0), plays sound [1304h]+[1306h] (sound_play) or stops all (DE51)
+; evidence: decodes as one complete routine reading the key word [138Ch]; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
+dead_F01A:
+    mov di,[0x138c]                          ; 4F01A
+    mov bx,0x1308                            ; 4F01E
+    test di,0x40                             ; 4F021
+    jz short loc_F031                        ; 4F025
+    inc byte [bx]                            ; 4F027
+    cmp byte [bx],0x4                        ; 4F029
+    jnz short loc_F031                       ; 4F02C
+    mov byte [bx],0x0                        ; 4F02E
+loc_F031:
+    test di,0x10                             ; 4F031
+    jz short loc_F041                        ; 4F035
+    dec byte [bx]                            ; 4F037
+    cmp byte [bx],0xff                       ; 4F039
+    jnz short loc_F041                       ; 4F03C
+    mov byte [bx],0x3                        ; 4F03E
+loc_F041:
+    mov ch,0x6                               ; 4F041
+    cmp byte [bx],0x2                        ; 4F043
+    jnz short loc_F04A                       ; 4F046
+    shl ch,1                                 ; 4F048
+loc_F04A:
+    cmp byte [bx],0x3                        ; 4F04A
+    jz short loc_F07B                        ; 4F04D
+    mov ax,[bx]                              ; 4F04F
+    inc ax                                   ; 4F051
+    shl ax,1                                 ; 4F052
+    rr mov, si, ax                           ; 4F054
+    test di,0x20                             ; 4F056
+    jz short loc_F065                        ; 4F05A
+    inc byte [bx+si]                         ; 4F05C
+    cmp [bx+si],ch                           ; 4F05E
+    jnz short loc_F065                       ; 4F060
+    mov byte [bx+si],0x0                     ; 4F062
+loc_F065:
+    test di,0x80                             ; 4F065
+    jz short loc_F078                        ; 4F069
+    dec byte [bx+si]                         ; 4F06B
+    cmp byte [bx+si],0xff                    ; 4F06D
+    jnz short loc_F078                       ; 4F070
+    rr mov, ah, ch                           ; 4F072
+    dec ah                                   ; 4F074
+    mov [bx+si],ah                           ; 4F076
+loc_F078:
+    jmp near loc_F08F                        ; 4F078
+loc_F07B:
+    test di,0x20                             ; 4F07B
+    jz short loc_F085                        ; 4F07F
+    inc word [0x1304]                        ; 4F081
+loc_F085:
+    test di,0x80                             ; 4F085
+    jz short loc_F08F                        ; 4F089
+    dec word [0x1304]                        ; 4F08B
+loc_F08F:
+    mov ax,[0x1304]                          ; 4F08F
+    cmp ax,0x10                              ; 4F092
+    jnz short loc_F09B                       ; 4F095
+    inc word [0x1306]                        ; 4F097
+loc_F09B:
+    cmp ax,0xffff                            ; 4F09B
+    jnz short loc_F0A4                       ; 4F09E
+    dec word [0x1306]                        ; 4F0A0
+loc_F0A4:
+    and ax,0xf                               ; 4F0A4
+    mov [0x1304],ax                          ; 4F0A7
+    mov ax,[0x1306]                          ; 4F0AA
+    and ax,0xf                               ; 4F0AD
+    mov [0x1306],ax                          ; 4F0B0
+    mov ax,[0x130a]                          ; 4F0B3
+    inc ax                                   ; 4F0B6
+    mov dx,0x7030                            ; 4F0B7
+    cmp byte [0x1308],0x0                    ; 4F0BA
+    jnz short loc_F0C5                       ; 4F0BF
+    sub dx,0x400                             ; 4F0C1
+loc_F0C5:
+    call sub_B7F0                            ; 4F0C5
+    mov ax,[0x130c]                          ; 4F0C8
+    inc ax                                   ; 4F0CB
+    mov dx,0x7040                            ; 4F0CC
+    cmp byte [0x1308],0x1                    ; 4F0CF
+    jnz short loc_F0DA                       ; 4F0D4
+    sub dx,0x400                             ; 4F0D6
+loc_F0DA:
+    call sub_B7F0                            ; 4F0DA
+    mov ax,[0x130e]                          ; 4F0DD
+    inc ax                                   ; 4F0E0
+    mov dx,0x7050                            ; 4F0E1
+    cmp byte [0x1308],0x2                    ; 4F0E4
+    jnz short loc_F0EF                       ; 4F0E9
+    sub dx,0x400                             ; 4F0EB
+loc_F0EF:
+    call sub_B7F0                            ; 4F0EF
+    mov ax,[0x1306]                          ; 4F0F2
+    mov dx,0x7070                            ; 4F0F5
+    cmp byte [0x1308],0x3                    ; 4F0F8
+    jnz short loc_F103                       ; 4F0FD
+    sub dx,0x400                             ; 4F0FF
+loc_F103:
+    call sub_B7F0                            ; 4F103
+    mov ax,[0x1304]                          ; 4F106
+    add dx,0x800                             ; 4F109
+    call sub_B7F0                            ; 4F10D
+    mov ax,[0x130a]                          ; 4F110
+    inc ax                                   ; 4F113
+    shl ax,byte 0xc                          ; 4F114
+    mov dx,[0x130c]                          ; 4F117
+    inc dx                                   ; 4F11B
+    shl dx,byte 0x8                          ; 4F11C
+    rr add, ax, dx                           ; 4F11F
+    mov dx,[0x130e]                          ; 4F121
+    inc dx                                   ; 4F125
+    rr add, ax, dx                           ; 4F126
+    mov [0x12d8],ax                          ; 4F128
+    test di,0x1                              ; 4F12B
+    jz short loc_F13E                        ; 4F12F
+    mov ax,[0x1306]                          ; 4F131
+    shl ax,byte 0x4                          ; 4F134
+    add ax,[0x1304]                          ; 4F137
+    call sound_play                          ; 4F13B
+loc_F13E:
+    test di,0x4                              ; 4F13E
+    jz short loc_F147                        ; 4F142
+    call sound_stop_all                      ; 4F144
+loc_F147:
+    ret                                      ; 4F147
 
 ; Loads story picture DL (text command F4h): 0 -> screen layout 7101h; > 1Bh -> layout 70EDh+DL with palettes; 1-1Bh -> BPE-expands stream F000:[DL*2] (segment from F000:0000) to tile RAM 2010h, clears tile 0, builds a 20x11 tile area in the SCR2 map at 1848h using the per-tile attribute bytes that follow the tiles (RAM 2DD0h) and loads background palettes from the palette block after them (2EACh). [high, reviewed: range_A9A0_FFFF.json]
 ; in:  DL = picture number

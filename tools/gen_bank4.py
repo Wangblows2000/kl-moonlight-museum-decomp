@@ -17,6 +17,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, '..')
 sys.path.insert(0, HERE)
 import symbols as SYM
+import hints
 
 ROM = open(os.path.join(ROOT, 'baserom', 'baserom.ws'), 'rb').read()
 T = json.load(open(os.path.join(ROOT, 'build', 'trace.json')))
@@ -28,6 +29,13 @@ tables = {int(k): v for k, v in T['tables'].items() if BANK <= int(k) < BANK + 0
 # ---------------------------------------------------------------- labels
 _rd = os.path.join(ROOT, 'tools', 'routine_docs.json')
 RDOCS = json.load(open(_rd)) if os.path.exists(_rd) else {}
+# reviewed classification of bytes the live trace does not reach (data, dead code, unknown)
+NOTE_AT = {int(r['start'], 16): r for r in hints.bank4_notes()}
+DEADDOC = {}
+for _r in hints.bank4_notes():
+    if _r['kind'] == 'dead_code' and not _r['format'].startswith(hints.FILLER_FORMATS):
+        for _i in range(int(_r['start'], 16), int(_r['end'], 16)):
+            DEADDOC[_i] = _r
 ROLES = json.load(open(os.path.join(ROOT, 'build', 'roles.json'))) if os.path.exists(os.path.join(ROOT, 'build', 'roles.json')) else {}
 
 
@@ -260,6 +268,10 @@ def main():
                             rd['side_effects'], rd['evidence'])
                         if r and len(r['roles']) > 1:
                             c += '\ndispatch roles: ' + ', '.join(r['roles'][:8])
+                    if not c and f in DEADDOC:
+                        d = DEADDOC[f]
+                        c = 'UNREFERENCED CODE %s-%s (no caller, jump or table entry; never executed): %s\nevidence: %s' % (
+                            d['start'], d['end'], d['format'], d['evidence'])
                     if not c and r and len(r['roles']) > 1:
                         c = 'dispatch roles: ' + ', '.join(r['roles'][:8]) + (' ...' if len(r['roles']) > 8 else '')
                     if c:
@@ -284,8 +296,14 @@ def main():
             f += 2
         else:
             g = f
-            while g < end and g not in insn and g not in tbl_words and g - f < 16 and (g == f or (g - BANK) not in SYM.NAMES):
+            while g < end and g not in insn and g not in tbl_words and g - f < 16 and (g == f or (g - BANK) not in SYM.NAMES) \
+                    and (g == f or g not in NOTE_AT):
                 g += 1
+            if f in NOTE_AT and NOTE_AT[f]['kind'] != 'dead_code':
+                n = NOTE_AT[f]
+                out.append('')
+                out.append('; %s %s-%s: %s' % ('data' if n['kind'] == 'data' else 'unread bytes', n['start'], n['end'], n['format']))
+                out.append('; evidence: %s' % n['evidence'])
             if f in labels or (f - BANK) in SYM.NAMES:
                 out.append('%s:' % label_name(f))
             blk = ROM[f:g]

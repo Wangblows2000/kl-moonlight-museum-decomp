@@ -95,5 +95,26 @@ DEAD_CODE = [
     '4000:DC11',   # 95 bytes, pusha; push ax ... ret
 ]
 
+
+
+def bank4_notes():
+    """Reviewed classification of bank-4 bytes the live trace does not reach
+    (assets/structures/objects_bank4_notes.json): kind data / dead_code / unknown."""
+    import json, os
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'assets', 'structures',
+                     'objects_bank4_notes.json')
+    return json.load(open(p))['ranges'] if os.path.exists(p) else []
+
+
+FILLER_FORMATS = ('alignment NOP', 'unreachable RET', 'lone RET', 'jmp near')
+
+
+def dead_ranges():
+    """(start, end, is_routine) for every reviewed dead-code range.  Filler (alignment NOPs,
+    stray RET / JMP bytes after an unconditional transfer) is disassembled but not labelled."""
+    return [(int(r['start'], 16), int(r['end'], 16), not r['format'].startswith(FILLER_FORMATS))
+            for r in bank4_notes() if r['kind'] == 'dead_code']
+
+
 NORETURN_INDIRECT = set()
 INDIRECT_NOTES = {}

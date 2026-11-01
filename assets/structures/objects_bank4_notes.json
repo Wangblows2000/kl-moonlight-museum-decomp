@@ -1,0 +1,2136 @@
+{
+ "note": "Classification of the bank-4 code_unreached bytes (docs/address_map.json) by the objects agent; \"structures\" is deliberately empty so tools that glob assets/structures/*.json (validate_fragment.py) treat it as an empty fragment; not a structure fragment. kind: data (a reader exists), dead_code (decodes as instructions/routines no code reaches), unknown (FFh fill or bytes without a reader). Totals: data 994, dead_code 2467, unknown 196",
+ "structures": [],
+ "ranges": [
+  {
+   "start": "40247",
+   "end": "4024A",
+   "kind": "dead_code",
+   "format": "jmp near 4000:0229 (E9 DF FF)",
+   "readers": [],
+   "evidence": "follows the computed jmp ax of the game-state dispatcher; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4024A",
+   "end": "40250",
+   "kind": "unknown",
+   "format": "FFh fill",
+   "readers": [],
+   "evidence": "six FFh bytes (erased-flash fill) before fade_out_and_stop_sound; not read",
+   "confidence": "medium"
+  },
+  {
+   "start": "403B7",
+   "end": "403B8",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "403D0",
+   "end": "403E8",
+   "kind": "dead_code",
+   "format": "complete routine: ports 12h/13h = -([13A0h]>>4), [13A2h]>>4 (SCR scroll from camera), ret + alignment NOP",
+   "readers": [],
+   "evidence": "decodes as one complete routine (mov cl,4 ... out 13h,al / ret / nop); emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4055F",
+   "end": "4056A",
+   "kind": "dead_code",
+   "format": "empty interrupt handler: pusha/push ds/push es/ds=0/pop/pop/popa/iret",
+   "readers": [],
+   "evidence": "decodes as a complete IRQ stub ending in IRET; no vector install (mov word [bx],handler) references it; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "406D1",
+   "end": "406D2",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4084D",
+   "end": "4084E",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4091C",
+   "end": "40DC8",
+   "kind": "dead_code",
+   "format": "complete routine (1196 bytes): saves palette ports 20h-2Eh, zeroes them, then over 60 frames (hlt on [1386h]) steps every nibble toward the saved value (fade in), restores ports, ret + NOP",
+   "readers": [],
+   "evidence": "decodes as one complete routine with balanced stack (sub sp,10h ... add sp,10h / popa / ret); same nibble-step idiom as obj38_update_palette_fade; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "41105",
+   "end": "41106",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "415FD",
+   "end": "41615",
+   "kind": "data",
+   "format": "byte table 4x6: highlighted option index per (option-set, selection), indexed [cs:bx+15FDh] with bx = 6*hi + lo",
+   "readers": [
+    "title_draw_menu_options (first read at 4000:152F): 4 bytes read"
+   ],
+   "evidence": "title_draw_menu_options 4000:152F mov cl,[cs:bx+0x15fd]",
+   "confidence": "high"
+  },
+  {
+   "start": "41615",
+   "end": "41616",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows the table at 15FD; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "medium"
+  },
+  {
+   "start": "41E29",
+   "end": "41E2A",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "41E51",
+   "end": "41E52",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "41F91",
+   "end": "41F92",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "42231",
+   "end": "42232",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "423FB",
+   "end": "42409",
+   "kind": "data",
+   "format": "14-byte table read with mov al,[cs:bx+23FBh]",
+   "readers": [
+    "state16_resume_card (first read at 4000:267E): 1 bytes read",
+    "state03_world_card_story (first read at 4000:243A): 5 bytes read",
+    "state03_world_card_story (first read at 4000:247D): 6 bytes read"
+   ],
+   "evidence": "state03_world_card_story 4000:243A and state16_resume_card 4000:267E: mov al,[cs:bx+0x23fb]; 12 of 14 bytes read at runtime",
+   "confidence": "high"
+  },
+  {
+   "start": "426BB",
+   "end": "426BC",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "43ADF",
+   "end": "43AE0",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "44226",
+   "end": "44230",
+   "kind": "unknown",
+   "format": "FFh fill",
+   "readers": [],
+   "evidence": "ten FFh bytes between routines; not read",
+   "confidence": "medium"
+  },
+  {
+   "start": "44A53",
+   "end": "44A60",
+   "kind": "unknown",
+   "format": "FFh fill",
+   "readers": [],
+   "evidence": "FFh bytes between routines; not read",
+   "confidence": "medium"
+  },
+  {
+   "start": "44DCA",
+   "end": "44DD0",
+   "kind": "unknown",
+   "format": "FFh fill",
+   "readers": [],
+   "evidence": "FFh bytes between routines; not read",
+   "confidence": "medium"
+  },
+  {
+   "start": "44E56",
+   "end": "44E60",
+   "kind": "unknown",
+   "format": "FFh fill",
+   "readers": [],
+   "evidence": "FFh bytes between routines; not read",
+   "confidence": "medium"
+  },
+  {
+   "start": "44EE5",
+   "end": "44EE6",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "44F01",
+   "end": "44F02",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "44F3F",
+   "end": "44F40",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "44FD1",
+   "end": "44FD2",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "44FF5",
+   "end": "44FF6",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4503B",
+   "end": "4503C",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "450F9",
+   "end": "450FA",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "45169",
+   "end": "4516A",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "454A9",
+   "end": "454AA",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "455F5",
+   "end": "455F6",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "45651",
+   "end": "45652",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "45807",
+   "end": "45808",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "45831",
+   "end": "45832",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "45985",
+   "end": "45986",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "45BF2",
+   "end": "45BF6",
+   "kind": "dead_code",
+   "format": "stub routine pusha/popa/ret + NOP",
+   "readers": [],
+   "evidence": "follows jmp near loc_5BC4; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "45CBB",
+   "end": "45CBC",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "45DA5",
+   "end": "45DA6",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "45F0F",
+   "end": "45F10",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "45F42",
+   "end": "45F50",
+   "kind": "unknown",
+   "format": "FFh fill",
+   "readers": [],
+   "evidence": "FFh bytes between routines; not read",
+   "confidence": "medium"
+  },
+  {
+   "start": "46254",
+   "end": "4626F",
+   "kind": "dead_code",
+   "format": "complete routine: copies 60h words from 7000:7B00 to tile RAM 3B30h (static version of anim_tiles_update), ret",
+   "readers": [],
+   "evidence": "decodes as pusha / mov cx,60h / ds=7000h / si=7B00h / es=0 / di=3B30h / rep movsw / popa / ret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4626F",
+   "end": "46273",
+   "kind": "data",
+   "format": "2-word table {7B00h, 8300h}: bank-7 source per orientation",
+   "readers": [
+    "anim_tiles_update (first read at 4000:6298): 4 bytes read"
+   ],
+   "evidence": "anim_tiles_update 4000:6298 mov si,[cs:bx+0x626f]",
+   "confidence": "high"
+  },
+  {
+   "start": "46273",
+   "end": "46274",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "medium"
+  },
+  {
+   "start": "462B1",
+   "end": "462E1",
+   "kind": "data",
+   "format": "6-byte records {type word, tile word, tile word} (8 records; the routine scans 7, the 8th repeats the 7th)",
+   "readers": [
+    "held_enemy_anim_update (first read at 4000:62EF): 14 bytes read",
+    "held_enemy_anim_update (first read at 4000:630A): 16 bytes read"
+   ],
+   "evidence": "held_enemy_anim_update reads the table at 4000:62B1 by grabbed enemy type [3DEh]",
+   "confidence": "high"
+  },
+  {
+   "start": "4637F",
+   "end": "46380",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "463AB",
+   "end": "463AC",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4651B",
+   "end": "4651C",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4666F",
+   "end": "46670",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4668C",
+   "end": "46690",
+   "kind": "dead_code",
+   "format": "unreachable RET/NOP bytes (C390C390)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "medium"
+  },
+  {
+   "start": "46745",
+   "end": "46746",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "46769",
+   "end": "4676A",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "46795",
+   "end": "46796",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "467D9",
+   "end": "467DA",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4684F",
+   "end": "46850",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4689D",
+   "end": "4689E",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "469D1",
+   "end": "469D2",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "46A35",
+   "end": "46A36",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "46D63",
+   "end": "46D64",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "46E83",
+   "end": "46E84",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "46F29",
+   "end": "46F2A",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "46F85",
+   "end": "46F86",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "470D3",
+   "end": "470D4",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "47189",
+   "end": "4718A",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4718D",
+   "end": "4718E",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "47367",
+   "end": "47368",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4746F",
+   "end": "47470",
+   "kind": "dead_code",
+   "format": "unreachable RET/NOP bytes (C3)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "medium"
+  },
+  {
+   "start": "47589",
+   "end": "4758A",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "475DB",
+   "end": "475DC",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "475F3",
+   "end": "475F4",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4760B",
+   "end": "4760C",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "47645",
+   "end": "47646",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "47661",
+   "end": "47662",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "47711",
+   "end": "47712",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "478CB",
+   "end": "478CC",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "47909",
+   "end": "4790A",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "47939",
+   "end": "4793A",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4794F",
+   "end": "47950",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "47964",
+   "end": "47966",
+   "kind": "dead_code",
+   "format": "unreachable RET/NOP bytes (C390)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "medium"
+  },
+  {
+   "start": "47981",
+   "end": "47982",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "479A5",
+   "end": "479A6",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "47A19",
+   "end": "47A1A",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "47B03",
+   "end": "47B04",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "47B5B",
+   "end": "47B5C",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "47B93",
+   "end": "47B94",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "47BC7",
+   "end": "47BC8",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "47C1B",
+   "end": "47C1C",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "47C2F",
+   "end": "47C30",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "47CAD",
+   "end": "47CAE",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "47CBD",
+   "end": "47CBE",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "47CFD",
+   "end": "47CFE",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "47DEF",
+   "end": "47E08",
+   "kind": "dead_code",
+   "format": "routine tail: cmp [di+1Fh] / call 5FB2 / x,y,ch from slot / delete / jmp 812F (spawn_explosion_burst) + NOP",
+   "readers": [],
+   "evidence": "decodes as instructions ending in an unconditional jmp; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "medium"
+  },
+  {
+   "start": "47E7B",
+   "end": "47E7C",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "47EB3",
+   "end": "47EEA",
+   "kind": "dead_code",
+   "format": "NOP + complete routine: an unused captured-enemy update variant (mark updated, timers, 7CE2/622B/6146, delete with burst)",
+   "readers": [],
+   "evidence": "decodes as one routine whose paths all end in ret or jmp; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "medium"
+  },
+  {
+   "start": "47F5F",
+   "end": "47F60",
+   "kind": "dead_code",
+   "format": "unreachable RET/NOP bytes (C3)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "medium"
+  },
+  {
+   "start": "48019",
+   "end": "4801A",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "48041",
+   "end": "48042",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "48063",
+   "end": "48064",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "48092",
+   "end": "4809E",
+   "kind": "data",
+   "format": "6 words: orientation-dependent digit offsets",
+   "readers": [
+    "obj0d_draw_with_timer (first read at 4000:80D6): 4 bytes read"
+   ],
+   "evidence": "obj0d_draw_with_timer 4000:80D6 mov cx,[cs:si-7F6Eh] (=8092h)",
+   "confidence": "high"
+  },
+  {
+   "start": "48151",
+   "end": "48175",
+   "kind": "data",
+   "format": "18 (dx,dy) byte pairs, +/-16 px pattern",
+   "readers": [
+    "obj11_update_burst (first read at 4000:81A6): 36 bytes read"
+   ],
+   "evidence": "obj11_update_burst reads the offset table at 4:8151 (36/36 bytes read)",
+   "confidence": "high"
+  },
+  {
+   "start": "481D1",
+   "end": "481D4",
+   "kind": "dead_code",
+   "format": "unreachable RET/NOP bytes (90C390)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "medium"
+  },
+  {
+   "start": "481E3",
+   "end": "481E4",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "48263",
+   "end": "48264",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "48285",
+   "end": "48286",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "482A7",
+   "end": "482A8",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "482BF",
+   "end": "482C0",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "48367",
+   "end": "48368",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4838F",
+   "end": "48390",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "483A7",
+   "end": "483A8",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "483BF",
+   "end": "483C0",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "483D7",
+   "end": "483D8",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4851B",
+   "end": "4851C",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "485E9",
+   "end": "485EA",
+   "kind": "dead_code",
+   "format": "unreachable RET/NOP bytes (C3)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "medium"
+  },
+  {
+   "start": "48609",
+   "end": "4860A",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "48816",
+   "end": "4882C",
+   "kind": "dead_code",
+   "format": "routine fragment: positions slot SI 18h px above DI, sets contact bits, ret + NOP",
+   "readers": [],
+   "evidence": "ends in ret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "medium"
+  },
+  {
+   "start": "48975",
+   "end": "48976",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "489A3",
+   "end": "489A4",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "48B7D",
+   "end": "48B7E",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "48BD7",
+   "end": "48BD8",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "48C39",
+   "end": "48C3A",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "48C71",
+   "end": "48C72",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "48CA1",
+   "end": "48CA2",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "48CAA",
+   "end": "48CB2",
+   "kind": "data",
+   "format": "8 signed bytes: bob offsets 0,1,2,1,0,-1,-2,-1",
+   "readers": [
+    "obj1a_draw_key_bob (first read at 4000:8CC5): 8 bytes read"
+   ],
+   "evidence": "obj1a_draw_key_bob (table 4:8CAA)",
+   "confidence": "high"
+  },
+  {
+   "start": "48DA1",
+   "end": "48DA2",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "48DA7",
+   "end": "48DA8",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "48EB5",
+   "end": "48EB6",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "48F01",
+   "end": "48F02",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "48F31",
+   "end": "48F32",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "48F49",
+   "end": "48F4A",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "49055",
+   "end": "49056",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "49183",
+   "end": "49184",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "49199",
+   "end": "4919A",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "491D1",
+   "end": "491D2",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "49263",
+   "end": "49264",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "493C7",
+   "end": "493C8",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4968D",
+   "end": "4968E",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "496C1",
+   "end": "496C2",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "497CD",
+   "end": "497CE",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "49841",
+   "end": "49842",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "49881",
+   "end": "49882",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4989D",
+   "end": "4989E",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4997D",
+   "end": "49981",
+   "kind": "unknown",
+   "format": "4 bytes 08 00 00 F8 (looks like +8/0/0/-8 offsets)",
+   "readers": [],
+   "evidence": "follows jmp [cs:bx+tbl_9962]; no instruction reads 4000:997D and it is not read at runtime",
+   "confidence": "low"
+  },
+  {
+   "start": "49AF9",
+   "end": "49AFA",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "49B0F",
+   "end": "49B10",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "49C0D",
+   "end": "49C0E",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "49C21",
+   "end": "49C29",
+   "kind": "data",
+   "format": "8 signed bytes: 0,0,0,0,0,-1,-1,-1 offsets",
+   "readers": [
+    "obj25_draw_solid (first read at 4000:9C3B): 8 bytes read"
+   ],
+   "evidence": "obj25_draw_solid (table 4:9C21)",
+   "confidence": "high"
+  },
+  {
+   "start": "49C8B",
+   "end": "49C8C",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "49D19",
+   "end": "49D1A",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "49D8B",
+   "end": "49D8C",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "49ED2",
+   "end": "49ED4",
+   "kind": "dead_code",
+   "format": "unreachable RET/NOP bytes (C390)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "medium"
+  },
+  {
+   "start": "49FF7",
+   "end": "49FF8",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4A343",
+   "end": "4A372",
+   "kind": "dead_code",
+   "format": "two complete routines: turn slot SI / slot DI into a type-29h fragment (AL -> +1Eh, clear velocity/timers) + NOP",
+   "readers": [],
+   "evidence": "each decodes as push ax ... pop ax / ret, mirroring the live sub_A326 fragment initialiser; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4A387",
+   "end": "4A388",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4A4C9",
+   "end": "4A4CA",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4A66B",
+   "end": "4A66C",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4A713",
+   "end": "4A714",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4A77B",
+   "end": "4A77C",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4A7E5",
+   "end": "4A7E6",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4A823",
+   "end": "4A824",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4A829",
+   "end": "4A82A",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4A89D",
+   "end": "4A89E",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4A8F1",
+   "end": "4A8F2",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4A8FD",
+   "end": "4A8FE",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4A931",
+   "end": "4A932",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4A941",
+   "end": "4A942",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4A9A5",
+   "end": "4A9A6",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4A9B5",
+   "end": "4A9B6",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4A9E5",
+   "end": "4A9E6",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4AA51",
+   "end": "4AA52",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4AA7D",
+   "end": "4AA7E",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4AAC3",
+   "end": "4AAC4",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4ABB5",
+   "end": "4ABB6",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4AC5F",
+   "end": "4AC60",
+   "kind": "unknown",
+   "format": "FFh fill",
+   "readers": [],
+   "evidence": "FFh byte(s) after an unconditional transfer; not read",
+   "confidence": "medium"
+  },
+  {
+   "start": "4ACA8",
+   "end": "4ACB2",
+   "kind": "data",
+   "format": "10-byte record copied with mov cx,0Ah / mov al,[si]",
+   "readers": [
+    "ieep_register_game_record (first read at 4000:AC81): 10 bytes read"
+   ],
+   "evidence": "ieep_register_game_record copies 10 bytes from 4000:ACA8 (10/10 read)",
+   "confidence": "high"
+  },
+  {
+   "start": "4ACB2",
+   "end": "4ACC0",
+   "kind": "unknown",
+   "format": "FFh fill",
+   "readers": [],
+   "evidence": "FFh bytes before the segment table at 4000:ACC0 (index = world 0-7); not read",
+   "confidence": "medium"
+  },
+  {
+   "start": "4AF03",
+   "end": "4AF04",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4B1D2",
+   "end": "4B1D3",
+   "kind": "dead_code",
+   "format": "unreachable RET/NOP bytes (C3)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "medium"
+  },
+  {
+   "start": "4B4E1",
+   "end": "4B4F0",
+   "kind": "unknown",
+   "format": "FFh fill",
+   "readers": [],
+   "evidence": "FFh bytes between routines; not read",
+   "confidence": "medium"
+  },
+  {
+   "start": "4B59D",
+   "end": "4B5A0",
+   "kind": "unknown",
+   "format": "FFh fill",
+   "readers": [],
+   "evidence": "FFh bytes; not read",
+   "confidence": "medium"
+  },
+  {
+   "start": "4B5A0",
+   "end": "4B5A1",
+   "kind": "dead_code",
+   "format": "lone RET (C3)",
+   "readers": [],
+   "evidence": "emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "medium"
+  },
+  {
+   "start": "4B5CA",
+   "end": "4B70A",
+   "kind": "data",
+   "format": "sine table: 160 signed words, amplitude 16, period 128 entries (entries 128-159 repeat 0-31 so a +32 cosine index stays in range)",
+   "readers": [
+    "irq_hblank_scr2_warp (first read at 4000:D957): 2 bytes read",
+    "obj1b_draw_spawn_sparkle (first read at 4000:66EF): 254 bytes read",
+    "obj19_draw_wobble_sprites (first read at 4000:8AF8): 16 bytes read",
+    "obj19_draw_wobble_sprites (first read at 4000:8AD5): 16 bytes read"
+   ],
+   "evidence": "obj1b_draw_spawn_sparkle 4000:66EF, obj08 draw 4000:75AF, 4000:77B3, obj19_draw_wobble_sprites (B5CA/B60A), irq_hblank_scr2_warp",
+   "confidence": "high"
+  },
+  {
+   "start": "4B70A",
+   "end": "4B720",
+   "kind": "unknown",
+   "format": "FFh fill with 4 bytes 00 00 80 00 at 4B710",
+   "readers": [],
+   "evidence": "after the sine table; no reader found statically or at runtime",
+   "confidence": "low"
+  },
+  {
+   "start": "4B75E",
+   "end": "4B78A",
+   "kind": "dead_code",
+   "format": "complete routine: emit one hex-digit sprite (tile 15Bh+digit, A-F +7) at DX",
+   "readers": [],
+   "evidence": "decodes as push/pop-balanced routine; only caller is the dead cluster 4B7F0-4B8F3; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4B7F0",
+   "end": "4B8F4",
+   "kind": "dead_code",
+   "format": "complete routines: print a nibble / byte / word as hex sprites (horizontal and vertical variants) using 4B75E",
+   "readers": [],
+   "evidence": "decode as complete routines calling 4000:B75E; their only callers are in the dead debug routine 4F01A-4F147; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4BB84",
+   "end": "4BBB4",
+   "kind": "data",
+   "format": "24 words: dialogue script pointers (2000:xxxx) and label tile offsets",
+   "readers": [
+    "spawn_dialogue_box (first read at 4000:BBE0): 20 bytes read",
+    "obj3d_text_put_label4 (first read at 4000:BCEC): 18 bytes read"
+   ],
+   "evidence": "spawn_dialogue_box 4000:BBE0 mov ax,[cs:bx-447Ch] (=BB84h); obj3d_text_put_label4",
+   "confidence": "high"
+  },
+  {
+   "start": "4BBD3",
+   "end": "4BBD4",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4BC81",
+   "end": "4BC82",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4BD19",
+   "end": "4BD1A",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4BD4F",
+   "end": "4BD50",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4BE2E",
+   "end": "4BE36",
+   "kind": "data",
+   "format": "8 signed bytes: 0,0,0,0,0,-1,-2,-1 bob offsets",
+   "readers": [
+    "obj3d_draw_text_window (first read at 4000:BE5A): 8 bytes read"
+   ],
+   "evidence": "obj3d_draw_text_window (8/8 read)",
+   "confidence": "high"
+  },
+  {
+   "start": "4BF25",
+   "end": "4BF30",
+   "kind": "unknown",
+   "format": "FFh fill",
+   "readers": [],
+   "evidence": "FFh bytes between routines; not read",
+   "confidence": "medium"
+  },
+  {
+   "start": "4BFEC",
+   "end": "4BFF0",
+   "kind": "unknown",
+   "format": "FFh fill",
+   "readers": [],
+   "evidence": "FFh bytes; not read",
+   "confidence": "medium"
+  },
+  {
+   "start": "4BFF0",
+   "end": "4C009",
+   "kind": "dead_code",
+   "format": "complete routine: older variant of fade_sprite_spawn_record (cmp [di+1Ch],si / alloc B555 / clear B4F0 / init C062)",
+   "readers": [],
+   "evidence": "decodes as pusha/push ds/push es ... pop/popa/ret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4C061",
+   "end": "4C062",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4C1CF",
+   "end": "4C1D0",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4C1E8",
+   "end": "4C1EA",
+   "kind": "dead_code",
+   "format": "unreachable RET/NOP bytes (C390)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "medium"
+  },
+  {
+   "start": "4C20D",
+   "end": "4C20E",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4C21B",
+   "end": "4C21C",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4C241",
+   "end": "4C242",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4C253",
+   "end": "4C254",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4C27A",
+   "end": "4C27B",
+   "kind": "dead_code",
+   "format": "unreachable RET/NOP bytes (C3)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "medium"
+  },
+  {
+   "start": "4C36A",
+   "end": "4C370",
+   "kind": "unknown",
+   "format": "FFh fill",
+   "readers": [],
+   "evidence": "FFh bytes; not read",
+   "confidence": "medium"
+  },
+  {
+   "start": "4C3DD",
+   "end": "4C3DE",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4C4DD",
+   "end": "4C4DE",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4C55D",
+   "end": "4C55E",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4C607",
+   "end": "4C608",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4C75B",
+   "end": "4C760",
+   "kind": "unknown",
+   "format": "FFh fill",
+   "readers": [],
+   "evidence": "FFh bytes before bpe_expand; not read",
+   "confidence": "medium"
+  },
+  {
+   "start": "4C80B",
+   "end": "4C810",
+   "kind": "unknown",
+   "format": "FFh fill",
+   "readers": [],
+   "evidence": "FFh bytes; not read",
+   "confidence": "medium"
+  },
+  {
+   "start": "4CF7F",
+   "end": "4D00A",
+   "kind": "dead_code",
+   "format": "two complete draw routines: 3x2 sprite block from BP, and an animated variant (frame = ([+1Ch]>>3)&3 * 6)",
+   "readers": [],
+   "evidence": "each decodes as a complete routine ending in ret, same idiom as the live b3disp_* drawers; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4D04F",
+   "end": "4D050",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4D091",
+   "end": "4D092",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4D322",
+   "end": "4D326",
+   "kind": "data",
+   "format": "4 bytes {0,9,12h,1Bh}: 3x3 frame tile offsets",
+   "readers": [
+    "obj2e_draw_3x3_horizontal (first read at 4000:D342): 4 bytes read"
+   ],
+   "evidence": "obj2e_draw_3x3_horizontal 4000:D342 (4/4 read)",
+   "confidence": "high"
+  },
+  {
+   "start": "4D4D1",
+   "end": "4D4D2",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4D4E3",
+   "end": "4D4E4",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4D4FB",
+   "end": "4D4FC",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4DA3F",
+   "end": "4DA40",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4DA98",
+   "end": "4DAA0",
+   "kind": "data",
+   "format": "8 signed bytes: 0,0,0,0,0,-1,-2,-1 bob offsets",
+   "readers": [
+    "obj31_draw_bobbing_marker (first read at 4000:DABB): 8 bytes read"
+   ],
+   "evidence": "obj31_draw_bobbing_marker (8/8 read)",
+   "confidence": "high"
+  },
+  {
+   "start": "4DADF",
+   "end": "4DAE0",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4DAE1",
+   "end": "4DAE2",
+   "kind": "dead_code",
+   "format": "alignment NOP (90h)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4DBD0",
+   "end": "4DBD1",
+   "kind": "dead_code",
+   "format": "unreachable RET/NOP bytes (C3)",
+   "readers": [],
+   "evidence": "follows an unconditional ret/jmp/iret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "medium"
+  },
+  {
+   "start": "4DD3E",
+   "end": "4DD40",
+   "kind": "unknown",
+   "format": "FFh fill",
+   "readers": [],
+   "evidence": "two FFh bytes; not read",
+   "confidence": "medium"
+  },
+  {
+   "start": "4DEEF",
+   "end": "4DF12",
+   "kind": "dead_code",
+   "format": "sound-driver fragment: key-off of the channels selected by [0263h] (out 88h+ch, clears [+10h])",
+   "readers": [],
+   "evidence": "decodes as instructions jumping back into the live loop at DED7; no entry reaches DEEF; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "medium"
+  },
+  {
+   "start": "4E0D4",
+   "end": "4E0F5",
+   "kind": "dead_code",
+   "format": "four sequence-command handlers (store AL to track +4 / +5 / +0, swap +0 with +0Ah) each ending jmp DF4A",
+   "readers": [],
+   "evidence": "same shape as the live snd_cmd_* handlers but absent from tbl_DF5F/tbl_DF8A; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "medium"
+  },
+  {
+   "start": "4E7DE",
+   "end": "4E7EE",
+   "kind": "unknown",
+   "format": "16 bytes F0h,E1h,...,0Fh (descending by 0Fh)",
+   "readers": [],
+   "evidence": "directly before the note pitch table 4000:E7EE; no instruction reads it and it is never read at runtime",
+   "confidence": "low"
+  },
+  {
+   "start": "4E7EE",
+   "end": "4E8A2",
+   "kind": "data",
+   "format": "note pitch table: 90 words (period values)",
+   "readers": [
+    "snd_channel_pitch_volume (first read at 4000:E4A6): 138 bytes read"
+   ],
+   "evidence": "snd_channel_pitch_volume 4000:E4A6 mov dx,[cs:bp-1812h] (=E7EE)",
+   "confidence": "high"
+  },
+  {
+   "start": "4E8A2",
+   "end": "4E8A4",
+   "kind": "unknown",
+   "format": "word 0000 after the pitch table",
+   "readers": [],
+   "evidence": "not read (would be note 90)",
+   "confidence": "low"
+  },
+  {
+   "start": "4E8A4",
+   "end": "4E9A4",
+   "kind": "data",
+   "format": "256-byte volume conversion curve (0Fh down to 00h)",
+   "readers": [
+    "snd_channel_release (first read at 4000:E60B): 119 bytes read",
+    "snd_channel_release (first read at 4000:E62E): 98 bytes read"
+   ],
+   "evidence": "snd_channel_release / volume envelope 4000:E60B, E62E mov cl/al,[cs:bp-175Ch] (=E8A4)",
+   "confidence": "high"
+  },
+  {
+   "start": "4E9A4",
+   "end": "4E9B0",
+   "kind": "unknown",
+   "format": "FFh fill",
+   "readers": [],
+   "evidence": "FFh bytes; not read",
+   "confidence": "medium"
+  },
+  {
+   "start": "4E9B0",
+   "end": "4E9D0",
+   "kind": "dead_code",
+   "format": "complete routine: fills 8 words at [DX] from far call 4000:EB82 for BX = 30h..37h, returns AX=0",
+   "readers": [],
+   "evidence": "decodes as push cx/dx/bx/si ... pop / ret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  },
+  {
+   "start": "4EBF1",
+   "end": "4EC00",
+   "kind": "unknown",
+   "format": "FFh fill",
+   "readers": [],
+   "evidence": "FFh bytes; not read",
+   "confidence": "medium"
+  },
+  {
+   "start": "4EF2F",
+   "end": "4EF35",
+   "kind": "data",
+   "format": "3 words {0A0Ch, 0A17h, 0A5Ah}",
+   "readers": [
+    "vision_select_menu_frame (first read at 4000:ED8C): 6 bytes read"
+   ],
+   "evidence": "vision_select_menu_frame (add bx,0EF2Fh at 4000:ED88; 6/6 read)",
+   "confidence": "high"
+  },
+  {
+   "start": "4F01A",
+   "end": "4F148",
+   "kind": "dead_code",
+   "format": "complete routine: debug sound test - cursor [1308h] moved by X keys, edits [1304h]/[1306h]/[130Ah-130Eh], prints them in hex (4B7F0), plays sound [1304h]+[1306h] (sound_play) or stops all (DE51)",
+   "readers": [],
+   "evidence": "decodes as one complete routine reading the key word [138Ch]; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs",
+   "confidence": "high"
+  }
+ ]
+}

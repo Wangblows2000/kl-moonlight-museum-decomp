@@ -20,7 +20,7 @@ bpe = [(int(x['offset'], 16), int(x['offset'], 16) + x['packed'])
        for x in json.load(open(os.path.join(ROOT, 'assets', 'bpe_manifest.json')))['streams']]
 others = []
 for f in glob.glob(os.path.join(ROOT, 'assets', 'structures', '*.json')):
-    if os.path.abspath(f) != path:
+    if os.path.abspath(f) != path and not f.endswith('_notes.json'):
         others += [(int(s['offset'], 16), int(s['offset'], 16) + s['size'], os.path.basename(f)) for s in json.load(open(f))['structures']]
 errors = []
 spans = sorted((int(s['offset'], 16), int(s['offset'], 16) + s['size'], s) for s in frag)

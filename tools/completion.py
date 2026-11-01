@@ -25,14 +25,17 @@ trace = J('build', 'trace.json')
 ROM = 0x100000
 by_class, by_rep, data_by_class, data_by_rep = {}, {}, {}, {}
 code_classified = 0
+code_exceptions = []
 for r in amap:
     a, b = int(r['start'], 16), int(r['end'], 16)
     n = b - a
     by_class[r['class']] = by_class.get(r['class'], 0) + n
     by_rep[r['representation']] = by_rep.get(r['representation'], 0) + n
     if 0x40000 <= a < 0x50000:
-        if r['class'] != 'code_unreached':
+        if r['class'] not in ('code_unreached', 'exception'):
             code_classified += n
+        elif r['class'] == 'exception':
+            code_exceptions.append('%s-%s' % (r['start'], r['end']))
     elif r['class'] != 'footer':
         data_by_class[r['class']] = data_by_class.get(r['class'], 0) + n
         key = 'generated_unexplained' if r['class'] == 'zero_run' else r['representation']
@@ -43,7 +46,8 @@ data_decoded = data_by_rep.get('editable', 0) + data_by_rep.get('generated', 0)
 
 n_ep = len(funcs)
 basis = Counter(f['basis'] for f in funcs)
-documented = basis['hand'] + basis['reviewed']
+dead_described = sum(1 for f in funcs if f['basis'] == 'dead' and f['summary'])
+documented = basis['hand'] + basis['reviewed'] + dead_described
 ran = sum(1 for f in funcs if f['runtime_executed'])
 pct = lambda a, b: round(100.0 * a / b, 2)
 
@@ -51,16 +55,20 @@ metrics = {
     'executable_code_classification': {
         'percent': pct(code_classified, 0x10000), 'numerator': code_classified, 'denominator': 0x10000,
         'definition': 'code-bank bytes classified as traced code, dead code, jump table, code data or padding',
-        'remaining': '%d bytes in code_unreached ranges (docs/address_map.json): neither traced nor executed; '
-                     'each must be shown to be data or dead code' % (0x10000 - code_classified),
+        'remaining': '%d bytes not classified: %d in code_unreached ranges, %d in documented exceptions '
+                     '(unread byte groups of unknown purpose, exact bounds in docs/address_map.json)' % (
+                         0x10000 - code_classified, by_class.get('code_unreached', 0), by_class.get('exception', 0)),
+        'documented_exceptions': code_exceptions,
         'note': 'no instruction executed outside bank 4 in any emulator run'},
     'routine_documentation': {
         'percent': pct(documented, n_ep), 'numerator': documented, 'denominator': n_ep,
-        'definition': 'entry points with a hand-written or reviewed (high/medium confidence) description',
+        'definition': 'entry points with a hand-written or reviewed (high/medium confidence) description; '
+                      'unreferenced (dead) routines count when the reviewed bank-4 classification describes them',
+        'dead_routines_described': dead_described,
         'breakdown': dict(basis),
         'remaining': '%d role-only/low-confidence, %d generic, %d dead-code routines without a behaviour '
                      'description; reviewed entries are spot-checked, not individually re-verified'
-                     % (basis['role'], basis['none'], basis['dead'])},
+                     % (basis['role'], basis['none'], basis['dead'] - dead_described)},
     'data_classification': {
         'percent': pct(data_classified, DATA), 'numerator': data_classified, 'denominator': DATA,
         'definition': 'data bytes whose class (asset, tiles, table, padding) is established by code or decoding',
@@ -77,7 +85,9 @@ metrics = {
         'percent': pct(cov['static_instructions_executed'], cov['static_instructions']),
         'numerator': cov['static_instructions_executed'], 'denominator': cov['static_instructions'],
         'definition': 'statically traced instructions executed in at least one emulator run',
-        'entry_points_executed': '%d / %d (%.1f %%)' % (ran, n_ep, pct(ran, n_ep)),
+        'entry_points_executed': '%d / %d live entry points' % (ran, n_ep - basis['dead']),
+        'dead_instructions': '%d unreferenced instructions excluded from the denominator; executed: %d' % (
+            cov.get('dead_instructions', 0), len(cov.get('dead_instructions_executed', []))),
         'states': '20/20 reached; 13 naturally (0,1,2,3,4,5,6,8,9,12,13,16,19), 7 only with fault injection '
                   '(7,10,11,14,15,17,18) - see docs/game-states.md; all 36 Visions loaded via the museum '
                   'menu with an unlock fixture',

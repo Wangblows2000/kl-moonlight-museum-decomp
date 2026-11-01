@@ -2,43 +2,50 @@
  "rom_sha1": "207a3ceb9a09eabca6e455deeb7035e7e04c9795",
  "complete": false,
  "overall": {
-  "decompiled_bytes": 942856,
+  "decompiled_bytes": 1047226,
   "rom_bytes": 1048576,
-  "percent": 89.92,
+  "percent": 99.87,
   "definition": "bytes that are classified AND represented as source, editable data or explained generated padding; 100 % only when this equals 1,048,576 and every metric is 100 %"
  },
  "metrics": {
   "executable_code_classification": {
-   "percent": 94.42,
-   "numerator": 61879,
+   "percent": 99.96,
+   "numerator": 65510,
    "denominator": 65536,
    "definition": "code-bank bytes classified as traced code, dead code, jump table, code data or padding",
-   "remaining": "3657 bytes in code_unreached ranges (docs/address_map.json): neither traced nor executed; each must be shown to be data or dead code",
+   "remaining": "26 bytes not classified: 0 in code_unreached ranges, 26 in documented exceptions (unread byte groups of unknown purpose, exact bounds in docs/address_map.json)",
+   "documented_exceptions": [
+    "4997D-49981",
+    "4B710-4B714",
+    "4E7DE-4E7EE",
+    "4E8A2-4E8A4"
+   ],
    "note": "no instruction executed outside bank 4 in any emulator run"
   },
   "routine_documentation": {
-   "percent": 97.99,
-   "numerator": 731,
-   "denominator": 746,
-   "definition": "entry points with a hand-written or reviewed (high/medium confidence) description",
+   "percent": 97.82,
+   "numerator": 762,
+   "denominator": 779,
+   "definition": "entry points with a hand-written or reviewed (high/medium confidence) description; unreferenced (dead) routines count when the reviewed bank-4 classification describes them",
+   "dead_routines_described": 31,
    "breakdown": {
     "hand": 36,
     "reviewed": 695,
-    "dead": 5,
-    "none": 1,
+    "dead": 36,
+    "none": 3,
     "role": 9
    },
-   "remaining": "9 role-only/low-confidence, 1 generic, 5 dead-code routines without a behaviour description; reviewed entries are spot-checked, not individually re-verified"
+   "remaining": "9 role-only/low-confidence, 3 generic, 5 dead-code routines without a behaviour description; reviewed entries are spot-checked, not individually re-verified"
   },
   "data_classification": {
-   "percent": 89.69,
-   "numerator": 881677,
+   "percent": 99.87,
+   "numerator": 981700,
    "denominator": 983024,
    "definition": "data bytes whose class (asset, tiles, table, padding) is established by code or decoding",
    "breakdown": {
     "misc_tables": 286,
     "gallery_picture": 23100,
-    "padding": 186442,
+    "padding": 180627,
     "pause_window": 4252,
     "menu_label": 2840,
     "keyconfig_panel": 3368,
@@ -49,17 +56,20 @@
     "dialogue": 5919,
     "text_tiles": 5248,
     "story": 90,
-    "unknown": 96768,
-    "table": 716,
+    "obj_table": 3884,
+    "obj_area": 77456,
     "banner_text": 2153,
-    "zero_run": 4579,
+    "obj_gfx": 20790,
     "sound": 14190,
+    "unknown": 1274,
     "pcm_voice": 48989,
     "obj_tiles": 8192,
     "held_enemy_frames": 24576,
+    "zero_run": 50,
     "anim_tiles": 4096,
     "logo": 976,
     "collision": 16384,
+    "obj_warp": 4424,
     "level_directory": 624,
     "level_bg_maps": 2376,
     "level_screens": 15848,
@@ -73,27 +83,28 @@
     "museum_menu": 194,
     "story_picture": 61423
    },
-   "remaining": "96768 unknown bytes + 4579 zero-run bytes of unestablished meaning"
+   "remaining": "1274 unknown bytes + 50 zero-run bytes of unestablished meaning"
   },
   "data_decoding_editable": {
-   "percent": 89.62,
-   "numerator": 880961,
+   "percent": 99.87,
+   "numerator": 981700,
    "denominator": 983024,
    "definition": "data bytes rebuilt from an editable decoded representation (PNG etc.) or generated FFh padding",
    "breakdown": {
-    "editable": 694441,
-    "generated": 186520,
-    "opaque": 97484,
-    "generated_unexplained": 4579
+    "editable": 800995,
+    "generated": 180705,
+    "opaque": 1274,
+    "generated_unexplained": 50
    },
-   "remaining": "97484 opaque bytes (gamedata/raw) + 4579 generated zero-run bytes not yet explained"
+   "remaining": "1274 opaque bytes (gamedata/raw) + 50 generated zero-run bytes not yet explained"
   },
   "runtime_coverage": {
-   "percent": 79.11,
+   "percent": 79.85,
    "numerator": 18705,
-   "denominator": 23645,
+   "denominator": 23425,
    "definition": "statically traced instructions executed in at least one emulator run",
-   "entry_points_executed": "562 / 746 (75.3 %)",
+   "entry_points_executed": "562 / 743 live entry points",
+   "dead_instructions": "1357 unreferenced instructions excluded from the denominator; executed: 0",
    "states": "20/20 reached; 13 naturally (0,1,2,3,4,5,6,8,9,12,13,16,19), 7 only with fault injection (7,10,11,14,15,17,18) - see docs/game-states.md; all 36 Visions loaded via the museum menu with an unlock fixture",
    "runs": 63,
    "executed_outside_static_trace": 0
@@ -102,16 +113,16 @@
    "percent_rom_free": 100.0,
    "definition": "share of ROM bytes rebuilt without the original ROM (committed source + gamedata/)",
    "by_representation_bytes": {
-    "editable": 694441,
-    "generated": 191099,
-    "opaque": 97484,
-    "source": 65552
+    "editable": 800995,
+    "generated": 180755,
+    "source": 65552,
+    "opaque": 1274
    },
    "by_representation_percent": {
-    "editable": 66.23,
-    "generated": 18.22,
-    "opaque": 9.3,
-    "source": 6.25
+    "editable": 76.39,
+    "generated": 17.24,
+    "source": 6.25,
+    "opaque": 0.12
    },
    "note": "source = committed asm; editable = gamedata PNG etc.; generated = layout metadata; opaque = gamedata/raw copies of undecoded bytes.  Only source, editable and explained generated bytes count as decompiled."
   }
@@ -129,6 +140,6 @@
   "save_system": "PARTIALLY VERIFIED",
   "documentation": "IN PROGRESS"
  },
- "instructions": 23645,
+ "instructions": 24782,
  "definitions": "docs/completion.json - measured progress, computed only from project artifacts.\n\nSix headline metrics (each with an explicit numerator / denominator):\n  1 executable_code_classification   code-bank bytes with an evidence-backed class / 65,536\n  2 routine_documentation            entry points documented (hand or reviewed high/medium) / all\n  3 data_classification              data bytes with an evidence-backed class / data bytes\n  4 data_decoding_editable           data bytes decoded into an editable representation, or\n                                     generated FFh padding / data bytes   (opaque tables do NOT count)\n  5 runtime_coverage                 static instructions executed in the emulator / static instructions\n  6 reproducible_source_build        ROM bytes rebuilt without the ROM, split by representation\n'Data bytes' = the ROM minus the code bank (40000h-4FFFFh) and the 16-byte footer.\n100 % is only claimed for a metric when the numerator equals the denominator."
 }

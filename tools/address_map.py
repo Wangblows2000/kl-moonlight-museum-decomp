@@ -3,7 +3,7 @@
 """Complete address-space inventory -> docs/address_map.json (+ summary in docs/inventory.md).
 
 Every byte of the 1,048,576-byte ROM is assigned exactly one entry:
-    class          code | dead_code | code_table | code_data | code_unreached |
+    class          code | dead_code | code_table | code_data | code_unreached | exception |
                    compressed_asset | tiles | table | padding | zero_run | footer | unknown
     representation source    - produced by committed source (asm) - fully ROM-free
                    editable  - decoded into a documented editable format in gamedata/
@@ -25,6 +25,10 @@ inv = J('build', 'inventory.json')
 layout = J('assets', 'layout.json')['regions']
 ann = J('assets', 'annotations.json')['regions']
 N = 0x100000
+# ROM bytes (only used to tell FFh fill apart inside reviewed bank-4 ranges): the ROM-free build
+# output when present, otherwise the base ROM.
+_rp = [os.path.join(ROOT, 'build', 'klonoa.ws'), os.path.join(ROOT, 'baserom', 'baserom.ws')]
+ROM = open(next(x for x in _rp if os.path.exists(x)), 'rb').read()
 cls = [None] * N
 rep = [None] * N
 ev = [None] * N
@@ -38,19 +42,20 @@ def put(a, b, c, r, e, force=False):
 
 # --- bank 4 (all produced by asm source) -------------------------------------------
 labels = {int(k): set(v) for k, v in trace['labels'].items()}
-dead_starts = {f for f, k in labels.items() if k == {'dead'}}
+
 # dead-code extent: instructions reachable only from dead seeds are those after a dead start
 insn = {int(k): v for k, v in trace['insn'].items()}
 for f, v in insn.items():
     put(f, f + v[2], 'code', 'source', 'static trace (reachable from vectors/tables)')
-for f in sorted(dead_starts):
-    g = f
-    while g in insn:
-        for i in range(g, g + insn[g][2]):
-            cls[i], ev[i] = 'dead_code', 'unreferenced complete routine (hints.DEAD_CODE)'
-        if insn[g][3] in ('ret', 'retf', 'iret', 'jmp'):
-            break
-        g += insn[g][2]
+NOTES = {}
+for r in hints.bank4_notes():
+    for i in range(int(r['start'], 16), int(r['end'], 16)):
+        NOTES[i] = r
+for f in trace.get('dead_insn', []):
+    n = NOTES.get(f)
+    e = ('dead code: ' + n['format'][:120]) if n else 'unreferenced complete routine (hints.DEAD_CODE)'
+    for i in range(f, f + insn[f][2]):
+        cls[i], ev[i] = 'dead_code', e
 for k, v in trace['tables'].items():
     k = int(k)
     first, n = v[1]
@@ -63,7 +68,21 @@ for s, e, c in inv['regions']:
         elif c == 'padding':
             put(s, e, 'padding', 'source', 'FFh run in code bank')
         elif c == 'unref_bank4':
-            put(s, e, 'code_unreached', 'source', 'not reached by trace or runtime; data or dead code (unexplained)')
+            for i in range(s, e):
+                n = NOTES.get(i)
+                if cls[i] is not None:
+                    continue
+                if n is None:
+                    put(i, i + 1, 'code_unreached', 'source', 'not reached by trace or runtime; data or dead code (unexplained)')
+                elif n['kind'] == 'data':
+                    put(i, i + 1, 'code_data', 'source', '%s; %s' % (n['format'][:80], n['evidence'][:120]))
+                elif n['kind'] == 'unknown' and ROM[i] == 0xFF and n['format'].startswith('FFh fill'):
+                    put(i, i + 1, 'padding', 'source', 'FFh fill in code bank, never read')
+                elif n['kind'] == 'unknown':
+                    put(i, i + 1, 'exception', 'source', 'documented exception %s-%s: %s; %s' % (
+                        n['start'], n['end'], n['format'][:80], n['evidence'][:120]))
+                else:
+                    put(i, i + 1, 'code_unreached', 'source', 'classified dead code but not decodable as instructions')
 put(0xFFFF0, N, 'footer', 'source', 'cartridge footer (asm/header.asm)')
 
 # --- data banks ---------------------------------------------------------------------
