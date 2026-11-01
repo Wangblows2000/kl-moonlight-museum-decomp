@@ -1,0 +1,24 @@
+# FORCED lives to 0 (13E1=0), then answer the game-over prompt with the other option
+loadsram build/save_after_play.bin
+reset
+autoshot
+wait 700
+tap start
+wait 30
+tap a
+wait 400
+poke 13E1 00
+poke 13E0 00
+poke 03D9 00
+wait 150
+shot go1
+wait 100
+shot go2
+tap right
+wait 20
+shot go_right
+tap a
+wait 300
+shot after
+wait 600
+shot after2

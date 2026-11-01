@@ -5,6 +5,10 @@
 
 game_state           equ 0x1380
 vblank_line          equ 0x1386
+play_flags           equ 0x1398
+lives_reserve        equ 0x13E0
+lives                equ 0x13E1
+progress_code        equ 0x13FE
 
 
 ; read_keypad [high]
@@ -126,7 +130,7 @@ loc_009B:
     call sub_DE51                            ; 400CA
     call sound_tick                          ; 400CD
     cli                                      ; 400D0
-    or byte [0x1398],0x80                    ; 400D1
+    or byte [play_flags],0x80                ; 400D1
     mov word [game_state],0x0                ; 400D6
     jmp near main_loop                       ; 400DC
 loc_00DF:
@@ -182,7 +186,7 @@ sub_0110:
     mov [game_state],ax                      ; 40114
     mov [0x1382],ax                          ; 40117
     mov [0x1384],al                          ; 4011A
-    mov [0x1398],al                          ; 4011D
+    mov [play_flags],al                      ; 4011D
     mov [0x1385],al                          ; 40120
     mov [vblank_line],al                     ; 40123
     mov [0x1387],al                          ; 40126
@@ -386,9 +390,9 @@ sub_02A3:
     mov bx,0x98                              ; 402A8
     mov word [bx],irq_03F0                   ; 402AB
     mov word [bx+0x2],0x4000                 ; 402AF
-    test byte [0x1398],0x1                   ; 402B4
+    test byte [play_flags],0x1               ; 402B4
     jnz short loc_0311                       ; 402B9
-    mov ax,[0x13fe]                          ; 402BB
+    mov ax,[progress_code]                   ; 402BB
     and ah,0xf0                              ; 402BE
     cmp ah,0x60                              ; 402C1
     jz short loc_0311                        ; 402C4
@@ -439,9 +443,9 @@ sub_031B:
     mov bx,0x98                              ; 40320
     mov word [bx],irq_03F0                   ; 40323
     mov word [bx+0x2],0x4000                 ; 40327
-    test byte [0x1398],0x1                   ; 4032C
+    test byte [play_flags],0x1               ; 4032C
     jnz short loc_0361                       ; 40331
-    mov ax,[0x13fe]                          ; 40333
+    mov ax,[progress_code]                   ; 40333
     and ah,0xf0                              ; 40336
     cmp ah,0x60                              ; 40339
     jz short loc_0361                        ; 4033C
@@ -547,7 +551,7 @@ irq_03F0:
     push es                                  ; 403F2
     rr xor, ax, ax                           ; 403F3
     mov ds,ax                                ; 403F5
-    mov bl,[0x1398]                          ; 403F7
+    mov bl,[play_flags]                      ; 403F7
     and bx,0x1                               ; 403FB
     shl bx,1                                 ; 403FF
     call [cs:bx+tbl_03EC]                    ; 40401
@@ -565,7 +569,7 @@ irq_03F0:
     jmp near loc_0440                        ; 40426
 loc_0429:
     call sub_6274                            ; 40429
-    mov ax,[0x13fe]                          ; 4042C
+    mov ax,[progress_code]                   ; 4042C
     and ax,0xff00                            ; 4042F
     cmp ax,0x3600                            ; 40432
     jnz short loc_0440                       ; 40435
@@ -1306,7 +1310,7 @@ sub_0DC8:
     mov ax,0x2000                            ; 40DD0
     mov es,ax                                ; 40DD3
     rr xor, bx, bx                           ; 40DD5
-    mov bl,[0x1398]                          ; 40DD7
+    mov bl,[play_flags]                      ; 40DD7
     and bx,0x1                               ; 40DDB
     shl bx,1                                 ; 40DDF
     push di                                  ; 40DE1
@@ -1345,7 +1349,7 @@ h_0E27:
     mov ds,ax                                ; 40E35
     mov [0x1388],ax                          ; 40E37
     mov [0x138c],ax                          ; 40E3A
-    mov al,[0x1398]                          ; 40E3D
+    mov al,[play_flags]                      ; 40E3D
     shr al,1                                 ; 40E40
     jnc short loc_0E46                       ; 40E42
     shr al,1                                 ; 40E44
@@ -1374,7 +1378,7 @@ loc_0E54:
     mov ax,0x2b                              ; 40E7E
     call sub_DD97                            ; 40E81
 loc_0E84:
-    test byte [0x1398],0x1                   ; 40E84
+    test byte [play_flags],0x1               ; 40E84
     jnz short loc_0EC5                       ; 40E89
     test di,di                               ; 40E8B
     jnz short loc_0EAA                       ; 40E8D
@@ -1426,7 +1430,7 @@ loc_0EFF:
     shr ax,1                                 ; 40F07
     out 0x6,al                               ; 40F09
     mov word [0x1382],0x1600                 ; 40F0B
-    test byte [0x1398],0x1                   ; 40F11
+    test byte [play_flags],0x1               ; 40F11
     jnz short loc_0F34                       ; 40F16
     test word [0x138c],0x600                 ; 40F18
     jz short loc_0F29                        ; 40F1E
@@ -1458,20 +1462,20 @@ loc_0F58:
 loc_0F61:
     mov ax,0x2f                              ; 40F61
     call sub_DD97                            ; 40F64
-    test byte [0x1398],0x1                   ; 40F67
+    test byte [play_flags],0x1               ; 40F67
     jnz short loc_0F80                       ; 40F6C
     shr di,1                                 ; 40F6E
     rr sbb, al, al                           ; 40F70
     and al,0x2                               ; 40F72
-    and byte [0x1398],0xfd                   ; 40F74
-    or [0x1398],al                           ; 40F79
+    and byte [play_flags],0xfd               ; 40F74
+    or [play_flags],al                       ; 40F79
     jmp near loc_0F8F                        ; 40F7D
 loc_0F80:
     shr di,1                                 ; 40F80
     rr sbb, al, al                           ; 40F82
     and al,0x4                               ; 40F84
-    and byte [0x1398],0xfb                   ; 40F86
-    or [0x1398],al                           ; 40F8B
+    and byte [play_flags],0xfb               ; 40F86
+    or [play_flags],al                       ; 40F8B
 loc_0F8F:
     rr xor, ax, ax                           ; 40F8F
     mov ds,ax                                ; 40F91
@@ -1487,11 +1491,11 @@ loc_0F8F:
     ret                                      ; 40FAE
 h_0FAF:
     pusha                                    ; 40FAF
-    test byte [0x1398],0x1                   ; 40FB0
+    test byte [play_flags],0x1               ; 40FB0
     jnz short loc_0FD6                       ; 40FB5
     mov al,0x2                               ; 40FB7
     out 0x15,al                              ; 40FB9
-    or byte [0x1398],0x1                     ; 40FBB
+    or byte [play_flags],0x1                 ; 40FBB
     cli                                      ; 40FC0
     call sub_1C68                            ; 40FC1
     sti                                      ; 40FC4
@@ -1505,7 +1509,7 @@ h_0FAF:
 loc_0FD6:
     mov al,0x4                               ; 40FD6
     out 0x15,al                              ; 40FD8
-    and byte [0x1398],0xfe                   ; 40FDA
+    and byte [play_flags],0xfe               ; 40FDA
     cli                                      ; 40FDF
     call sub_1C68                            ; 40FE0
     sti                                      ; 40FE3
@@ -1536,7 +1540,7 @@ h_1005:
     mov di,0x1480                            ; 41015
     mov cx,0x1d                              ; 41018
     call sub_F302                            ; 4101B
-    mov al,[0x1398]                          ; 4101E
+    mov al,[play_flags]                      ; 4101E
     and al,0x7                               ; 41021
     and byte [0x14b8],0xf8                   ; 41023
     or [0x14b8],al                           ; 41028
@@ -1544,7 +1548,7 @@ h_1005:
     jmp near main_loop                       ; 41032
 h_1035:
     call sub_DE51                            ; 41035
-    or byte [0x1398],0x40                    ; 41038
+    or byte [play_flags],0x40                ; 41038
     mov ax,0x1                               ; 4103D
     ret                                      ; 41040
 h_1041:
@@ -1569,7 +1573,7 @@ sub_1051:
     inc ax                                   ; 4105B
     cmp ax,0x2                               ; 4105C
     jnc short loc_106A                       ; 4105F
-    mov dl,[0x1398]                          ; 41061
+    mov dl,[play_flags]                      ; 41061
     shr dl,1                                 ; 41065
     sbb ax,0x0                               ; 41067
 loc_106A:
@@ -1599,7 +1603,7 @@ loc_106A:
     mov es,ax                                ; 410A0
     cmp bx,byte +0x4                         ; 410A2
     jnc short loc_10C4                       ; 410A5
-    mov ax,[0x13fe]                          ; 410A7
+    mov ax,[progress_code]                   ; 410A7
     cmp ah,[0x148f]                          ; 410AA
     jnc short loc_10D1                       ; 410AE
     rr mov, al, ah                           ; 410B0
@@ -1627,7 +1631,7 @@ loc_10DB:
     jz short loc_10FF                        ; 410E9
     rr xor, ax, ax                           ; 410EB
     mov ds,ax                                ; 410ED
-    mov al,[0x1398]                          ; 410EF
+    mov al,[play_flags]                      ; 410EF
     shr al,1                                 ; 410F2
     jnc short loc_10FF                       ; 410F4
     mov bx,0x14c                             ; 410F6
@@ -1649,7 +1653,7 @@ sub_1106:
     mov al,0xf1                              ; 4110C
     out 0xc2,al                              ; 4110E
     shl di,1                                 ; 41110
-    mov al,[0x1398]                          ; 41112
+    mov al,[play_flags]                      ; 41112
     shr al,1                                 ; 41115
     rr sbb, ax, ax                           ; 41117
     and ax,0xa                               ; 41119
@@ -1671,7 +1675,7 @@ sub_1138:
     mov bx,[0x1382]                          ; 41138
     add word [0x1382],0x1f8                  ; 4113C
     pusha                                    ; 41142
-    test byte [0x1398],0x1                   ; 41143
+    test byte [play_flags],0x1               ; 41143
     jnz short loc_1180                       ; 41148
     mov si,0x3ca0                            ; 4114A
     mov ax,0x14c                             ; 4114D
@@ -1810,7 +1814,7 @@ loc_1273:
     mov ax,0x2b                              ; 41276
     call sub_DD97                            ; 41279
 loc_127C:
-    test byte [0x1398],0x1                   ; 4127C
+    test byte [play_flags],0x1               ; 4127C
     jnz short loc_12A8                       ; 41281
     rr mov, ax, di                           ; 41283
     mov ah,0xc                               ; 41285
@@ -1853,7 +1857,7 @@ loc_12D1:
     mov word [0x1382],0x1600                 ; 412DD
     cmp byte [0x13fd],0x0                    ; 412E3
     jnz short loc_133D                       ; 412E8
-    test byte [0x1398],0x1                   ; 412EA
+    test byte [play_flags],0x1               ; 412EA
     jnz short loc_1317                       ; 412EF
     test word [0x138c],0x600                 ; 412F1
     jz short loc_130C                        ; 412F7
@@ -1904,11 +1908,11 @@ loc_1364:
     mov word [0x1382],0x1600                 ; 41369
     call sub_031B                            ; 4136F
     mov byte [0x13fd],0x0                    ; 41372
-    and byte [0x1398],0xf7                   ; 41377
+    and byte [play_flags],0xf7               ; 41377
     call sub_1426                            ; 4137C
     call sub_13BA                            ; 4137F
     call sub_C370                            ; 41382
-    test byte [0x1398],0x40                  ; 41385
+    test byte [play_flags],0x40              ; 41385
     jnz short loc_138F                       ; 4138A
     call sub_C4DE                            ; 4138C
 loc_138F:
@@ -2005,7 +2009,7 @@ sub_1426:
     call sub_9882                            ; 4143B
     call sub_895A                            ; 4143E
     call sub_4EB4                            ; 41441
-    mov al,[0x1398]                          ; 41444
+    mov al,[play_flags]                      ; 41444
     shr al,1                                 ; 41447
     jnc short loc_1456                       ; 41449
     mov bx,0x14b                             ; 4144B
@@ -2207,12 +2211,13 @@ loc_15E3:
     ret                                      ; 415FC
     db 0x00,0x00,0x00,0x00,0x00,0x00,0x02,0x00,0x02,0x00,0x02,0x00,0x01,0x00,0x01,0x00   ; 415FD
     db 0x01,0x00,0x02,0x00,0x01,0x02,0x00,0x01,0x90   ; 4160D
-h_1616:
+
+state00_title:
     call sub_1480                            ; 41616
     call sub_AD25                            ; 41619
     mov al,0x4                               ; 4161C
     out 0x15,al                              ; 4161E
-    and byte [0x1398],0xfe                   ; 41620
+    and byte [play_flags],0xfe               ; 41620
     call sub_F28E                            ; 41625
     mov ax,0x0                               ; 41628
     out 0x30,ax                              ; 4162B
@@ -2258,7 +2263,7 @@ loc_1680:
     mov ds,ax                                ; 41682
     mov [vblank_line],al                     ; 41684
     call objects_update                      ; 41687
-    mov bl,[0x1398]                          ; 4168A
+    mov bl,[play_flags]                      ; 4168A
     and bx,0x1                               ; 4168E
     shl bx,1                                 ; 41692
     call [cs:bx+tbl_06D2]                    ; 41694
@@ -2370,7 +2375,7 @@ loc_176A:
     cmp al,0x2                               ; 417A2
     jz short loc_17D0                        ; 417A4
     rr xor, ax, ax                           ; 417A6
-    mov [0x13fe],ax                          ; 417A8
+    mov [progress_code],ax                   ; 417A8
     out 0x0,ax                               ; 417AB
     mov word [game_state],0x9                ; 417AD
     call sub_AD25                            ; 417B3
@@ -2385,15 +2390,16 @@ loc_17BE:
 loc_17D0:
     and byte [0x1399],0xfb                   ; 417D0
     rr xor, ax, ax                           ; 417D5
-    mov [0x13fe],ax                          ; 417D7
+    mov [progress_code],ax                   ; 417D7
     mov word [game_state],0x10               ; 417DA
     out 0x0,ax                               ; 417E0
     jmp near main_loop                       ; 417E2
-h_17E5:
+
+state02_museum_menu:
     call sub_1480                            ; 417E5
     mov al,0x4                               ; 417E8
     out 0x15,al                              ; 417EA
-    and byte [0x1398],0xfe                   ; 417EC
+    and byte [play_flags],0xfe               ; 417EC
     call sub_F1C0                            ; 417F1
     mov ax,0x5                               ; 417F4
     out 0x0,ax                               ; 417F7
@@ -2433,7 +2439,7 @@ loc_1835:
     test ax,ax                               ; 41844
     jnz short loc_1874                       ; 41846
     mov ax,[0x12d8]                          ; 41848
-    mov [0x13fe],ax                          ; 4184B
+    mov [progress_code],ax                   ; 4184B
     rr mov, dx, ax                           ; 4184E
     and dx,0xf000                            ; 41850
     cmp dx,0x6000                            ; 41854
@@ -2449,11 +2455,12 @@ loc_186B:
 loc_1874:
     mov word [game_state],0x13               ; 41874
     jmp near main_loop                       ; 4187A
-h_187D:
+
+state11_scene_save_prompt:
     call sub_1480                            ; 4187D
     mov al,0x4                               ; 41880
     out 0x15,al                              ; 41882
-    and byte [0x1398],0xfe                   ; 41884
+    and byte [play_flags],0xfe               ; 41884
     call sub_F434                            ; 41889
     sti                                      ; 4188C
 loc_188D:
@@ -2465,7 +2472,7 @@ loc_188D:
     jnz short loc_18D6                       ; 4189B
     mov ax,[0x138c]                          ; 4189D
     call objects_update                      ; 418A0
-    mov bl,[0x1398]                          ; 418A3
+    mov bl,[play_flags]                      ; 418A3
     and bx,0x1                               ; 418A7
     shl bx,1                                 ; 418AB
     call [cs:bx+tbl_06D2]                    ; 418AD
@@ -2494,11 +2501,12 @@ loc_18DB:
     mov ds,ax                                ; 418E3
     mov word [game_state],0x2                ; 418E5
     jmp near main_loop                       ; 418EB
-h_18EE:
+
+state12_new_game_intro:
     call sub_1480                            ; 418EE
     mov al,0x4                               ; 418F1
     out 0x15,al                              ; 418F3
-    and byte [0x1398],0xfe                   ; 418F5
+    and byte [play_flags],0xfe               ; 418F5
     rr xor, ax, ax                           ; 418FA
     test byte [0x1399],0x4                   ; 418FC
     jz short loc_1904                        ; 41901
@@ -2514,7 +2522,7 @@ loc_1908:
     test ax,ax                               ; 41914
     jnz short loc_194B                       ; 41916
     call objects_update                      ; 41918
-    mov bl,[0x1398]                          ; 4191B
+    mov bl,[play_flags]                      ; 4191B
     and bx,0x1                               ; 4191F
     shl bx,1                                 ; 41923
     call [cs:bx+tbl_06D2]                    ; 41925
@@ -2559,11 +2567,12 @@ loc_197D:
     mov ds,ax                                ; 4198A
     mov word [game_state],0xa                ; 4198C
     jmp near main_loop                       ; 41992
-h_1995:
+
+state18_ending:
     call sub_1480                            ; 41995
     mov al,0x4                               ; 41998
     out 0x15,al                              ; 4199A
-    and byte [0x1398],0xfe                   ; 4199C
+    and byte [play_flags],0xfe               ; 4199C
     call sub_C046                            ; 419A1
     call sub_C267                            ; 419A4
     mov ax,0x6307                            ; 419A7
@@ -2659,14 +2668,15 @@ loc_1AA7:
     cli                                      ; 41AAA
     rr xor, ax, ax                           ; 41AAB
     mov ds,ax                                ; 41AAD
-    mov word [0x13fe],0xffff                 ; 41AAF
+    mov word [progress_code],0xffff          ; 41AAF
     mov word [game_state],0x9                ; 41AB5
     jmp near main_loop                       ; 41ABB
-h_1ABE:
-    mov ax,[0x13fe]                          ; 41ABE
+
+state14_unused_to_save:
+    mov ax,[progress_code]                   ; 41ABE
     and ax,0xf000                            ; 41AC1
     add ax,0x1101                            ; 41AC4
-    mov [0x13fe],ax                          ; 41AC7
+    mov [progress_code],ax                   ; 41AC7
     mov [0x12d8],ax                          ; 41ACA
     cmp ax,0x1101                            ; 41ACD
     jz short loc_1ADB                        ; 41AD0
@@ -2675,13 +2685,14 @@ h_1ABE:
 loc_1ADB:
     mov word [game_state],0x9                ; 41ADB
     jmp near main_loop                       ; 41AE1
-h_1AE4:
+
+state09_story_sequencer:
     cli                                      ; 41AE4
     rr xor, ax, ax                           ; 41AE5
     mov ds,ax                                ; 41AE7
     mov ax,0x2000                            ; 41AE9
     mov es,ax                                ; 41AEC
-    mov dx,[0x13fe]                          ; 41AEE
+    mov dx,[progress_code]                   ; 41AEE
     rr mov, ax, dx                           ; 41AF2
     and ax,0xf000                            ; 41AF4
     cmp ax,0x6000                            ; 41AF7
@@ -2775,7 +2786,7 @@ loc_1BD5:
     mov ds,ax                                ; 41BD7
     mov byte [vblank_line],0x0               ; 41BD9
     call objects_update                      ; 41BDE
-    mov bl,[0x1398]                          ; 41BE1
+    mov bl,[play_flags]                      ; 41BE1
     and bx,0x1                               ; 41BE5
     shl bx,1                                 ; 41BE9
     call [cs:bx+tbl_06D2]                    ; 41BEB
@@ -2813,13 +2824,13 @@ loc_1C3E:
     hlt                                      ; 41C3E
     loop loc_1C3E                            ; 41C3F
     cli                                      ; 41C41
-    mov ax,[0x13fe]                          ; 41C42
+    mov ax,[progress_code]                   ; 41C42
     mov [0x12d8],ax                          ; 41C45
     jmp near main_loop                       ; 41C48
 
 sub_1C4B:
     pusha                                    ; 41C4B
-    mov bx,[0x13fe]                          ; 41C4C
+    mov bx,[progress_code]                   ; 41C4C
     shr bx,byte 0x4                          ; 41C50
     rr mov, bl, bh                           ; 41C53
     rr xor, bh, bh                           ; 41C55
@@ -2874,7 +2885,7 @@ sub_1C68:
     mov bx,0x6                               ; 41CCE
     call [cs:bx+tbl_03E8]                    ; 41CD1
     rr xor, ax, ax                           ; 41CD6
-    test byte [0x1398],0x1                   ; 41CD8
+    test byte [play_flags],0x1               ; 41CD8
     jnz short loc_1CFA                       ; 41CDD
     out 0x8,al                               ; 41CDF
     out 0x9,al                               ; 41CE1
@@ -2921,7 +2932,7 @@ sub_1D1C:
     mov di,0x21c0                            ; 41D26
     mov ax,0x2000                            ; 41D29
     mov es,ax                                ; 41D2C
-    mov ax,[0x13fe]                          ; 41D2E
+    mov ax,[progress_code]                   ; 41D2E
     rr mov, al, ah                           ; 41D31
     shr al,byte 0x4                          ; 41D33
     and ax,0xf                               ; 41D36
@@ -2931,7 +2942,7 @@ sub_1D1C:
     mov bp,[word es:bx+0x0]                  ; 41D3E
     mov si,0x1000                            ; 41D43
     call bpe_expand                          ; 41D46
-    mov ax,[0x13fe]                          ; 41D49
+    mov ax,[progress_code]                   ; 41D49
     rr mov, al, ah                           ; 41D4C
     shr ax,byte 0x4                          ; 41D4E
     and ax,0x7                               ; 41D51
@@ -2964,7 +2975,7 @@ sub_1D82:
 
 sub_1D8E:
     pusha                                    ; 41D8E
-    mov cl,[0x1398]                          ; 41D8F
+    mov cl,[play_flags]                      ; 41D8F
     shr cl,1                                 ; 41D93
     rr sbb, bp, bp                           ; 41D95
     and bp,0x14                              ; 41D97
@@ -3085,7 +3096,7 @@ loc_1EAA:
     mov dx,0xbc30                            ; 41EAD
     mov si,0xfea                             ; 41EB0
     call sub_B78A                            ; 41EB3
-    mov ax,[0x13fe]                          ; 41EB6
+    mov ax,[progress_code]                   ; 41EB6
     shr ax,byte 0xc                          ; 41EB9
     cmp ax,0x6                               ; 41EBC
     jz short loc_1ECD                        ; 41EBF
@@ -3175,7 +3186,8 @@ loc_1F8F:
     pop ax                                   ; 41F8F
     ret                                      ; 41F90
     db 0x90   ; 41F91
-h_1F92:
+
+state19_world_record:
     call sub_1480                            ; 41F92
     mov al,0x40                              ; 41F95
     out 0xb6,al                              ; 41F97
@@ -3183,15 +3195,15 @@ h_1F92:
     out 0xb2,al                              ; 41F9B
     mov al,0x4                               ; 41F9D
     out 0x15,al                              ; 41F9F
-    and byte [0x1398],0xfe                   ; 41FA1
-    mov ax,[0x13fe]                          ; 41FA6
+    and byte [play_flags],0xfe               ; 41FA1
+    mov ax,[progress_code]                   ; 41FA6
     push ax                                  ; 41FA9
     mov al,[0x130a]                          ; 41FAA
     inc al                                   ; 41FAD
     rr mov, ah, al                           ; 41FAF
     shl ax,byte 0x4                          ; 41FB1
     and ax,0xf000                            ; 41FB4
-    mov [0x13fe],ax                          ; 41FB7
+    mov [progress_code],ax                   ; 41FB7
     call sub_1F78                            ; 41FBA
     mov ax,0x7                               ; 41FBD
     out 0x0,ax                               ; 41FC0
@@ -3201,7 +3213,7 @@ loc_1FC3:
     mov ds,ax                                ; 41FC5
     mov [vblank_line],al                     ; 41FC7
     call objects_update                      ; 41FCA
-    mov bl,[0x1398]                          ; 41FCD
+    mov bl,[play_flags]                      ; 41FCD
     and bx,0x1                               ; 41FD1
     shl bx,1                                 ; 41FD5
     call [cs:bx+tbl_06D2]                    ; 41FD7
@@ -3214,7 +3226,7 @@ loc_1FC3:
     mov word [0x1382],0x1600                 ; 41FEB
     test word [0x138c],0x20                  ; 41FF1
     jz short loc_202B                        ; 41FF7
-    mov ax,[0x13fe]                          ; 41FF9
+    mov ax,[progress_code]                   ; 41FF9
     and ax,0xf000                            ; 41FFC
     mov dl,[0x148f]                          ; 41FFF
     and dl,0xf0                              ; 42003
@@ -3231,17 +3243,17 @@ loc_1FC3:
     cmp byte [0x1497],0x0                    ; 4201E
     jz short loc_202B                        ; 42023
 loc_2025:
-    mov [0x13fe],ax                          ; 42025
+    mov [progress_code],ax                   ; 42025
     jmp near loc_2044                        ; 42028
 loc_202B:
     test word [0x138c],0x80                  ; 4202B
     jz short loc_2050                        ; 42031
-    mov ax,[0x13fe]                          ; 42033
+    mov ax,[progress_code]                   ; 42033
     and ax,0xf000                            ; 42036
     cmp ax,0x1000                            ; 42039
     jz short loc_2050                        ; 4203C
     sub ax,0x1000                            ; 4203E
-    mov [0x13fe],ax                          ; 42041
+    mov [progress_code],ax                   ; 42041
 loc_2044:
     mov ax,0x2c                              ; 42044
     call sub_DD97                            ; 42047
@@ -3263,7 +3275,7 @@ loc_2058:
     jmp near loc_1FC3                        ; 42071
 loc_2074:
     pop ax                                   ; 42074
-    mov [0x13fe],ax                          ; 42075
+    mov [progress_code],ax                   ; 42075
     mov ax,0x30                              ; 42078
     call sub_DD97                            ; 4207B
     call sub_0250                            ; 4207E
@@ -3271,7 +3283,8 @@ loc_2074:
     mov ds,ax                                ; 42083
     mov word [game_state],0x2                ; 42085
     jmp near main_loop                       ; 4208B
-h_208E:
+
+state07_vision_clear:
     call sub_1480                            ; 4208E
     mov al,0x40                              ; 42091
     out 0xb6,al                              ; 42093
@@ -3279,7 +3292,7 @@ h_208E:
     out 0xb2,al                              ; 42097
     mov al,0x4                               ; 42099
     out 0x15,al                              ; 4209B
-    and byte [0x1398],0xfe                   ; 4209D
+    and byte [play_flags],0xfe               ; 4209D
     call sub_1E2A                            ; 420A2
     mov di,0x39b0                            ; 420A5
     mov bp,0x7300                            ; 420A8
@@ -3313,7 +3326,7 @@ loc_20F2:
     mov ds,ax                                ; 420F4
     mov byte [vblank_line],0x0               ; 420F6
     call objects_update                      ; 420FB
-    mov bl,[0x1398]                          ; 420FE
+    mov bl,[play_flags]                      ; 420FE
     and bx,0x1                               ; 42102
     shl bx,1                                 ; 42106
     call [cs:bx+tbl_06D2]                    ; 42108
@@ -3390,10 +3403,11 @@ loc_21BD:
     mov ds,ax                                ; 421C3
     mov word [game_state],0x9                ; 421C5
     jmp near main_loop                       ; 421CB
-h_21CE:
+
+state10_world_complete_scene:
     rr xor, ax, ax                           ; 421CE
     mov ds,ax                                ; 421D0
-    mov ax,[0x13fe]                          ; 421D2
+    mov ax,[progress_code]                   ; 421D2
     test byte [0x1399],0x8                   ; 421D5
     jnz short loc_2217                       ; 421DA
     test ax,ax                               ; 421DC
@@ -3402,19 +3416,19 @@ h_21CE:
     cmp ah,0x6                               ; 421E3
     jz short loc_21FE                        ; 421E6
     mov word [game_state],0xb                ; 421E8
-    mov ax,[0x13fe]                          ; 421EE
+    mov ax,[progress_code]                   ; 421EE
     inc ah                                   ; 421F1
     mov al,0x1                               ; 421F3
-    mov [0x13fe],ax                          ; 421F5
+    mov [progress_code],ax                   ; 421F5
     mov [0x12d8],ax                          ; 421F8
     jmp near main_loop                       ; 421FB
 loc_21FE:
     or byte [0x1399],0x80                    ; 421FE
 loc_2203:
-    mov ax,[0x13fe]                          ; 42203
+    mov ax,[progress_code]                   ; 42203
     and ax,0xf000                            ; 42206
     add ax,0x1101                            ; 42209
-    mov [0x13fe],ax                          ; 4220C
+    mov [progress_code],ax                   ; 4220C
     mov [0x12d8],ax                          ; 4220F
     cmp ax,0x1101                            ; 42212
     jz short loc_2224                        ; 42215
@@ -3448,7 +3462,7 @@ sub_2232:
     call sub_DC70                            ; 42258
     pop dx                                   ; 4225B
     push dx                                  ; 4225C
-    mov ax,[0x13fe]                          ; 4225D
+    mov ax,[progress_code]                   ; 4225D
     rr mov, al, ah                           ; 42260
     and ax,0xf                               ; 42262
     shl ax,1                                 ; 42265
@@ -3467,7 +3481,7 @@ sub_2232:
     mov di,0xc00                             ; 42289
     call sub_DC70                            ; 4228C
     pop dx                                   ; 4228F
-    mov ax,[0x13fe]                          ; 42290
+    mov ax,[progress_code]                   ; 42290
     rr mov, al, ah                           ; 42293
     shr ax,byte 0x4                          ; 42295
     and ax,0xf                               ; 42298
@@ -3537,7 +3551,7 @@ sub_2319:
     out 0x2c,ax                              ; 4233B
     mov ax,0x6300                            ; 4233D
     out 0x2e,ax                              ; 42340
-    test byte [0x1398],0x1                   ; 42342
+    test byte [play_flags],0x1               ; 42342
     jz short loc_236C                        ; 42347
     mov ax,0x3000                            ; 42349
     mov es,ax                                ; 4234C
@@ -3592,7 +3606,7 @@ loc_23C4:
     call sub_1C4B                            ; 423C9
 loc_23CC:
     rr xor, dx, dx                           ; 423CC
-    mov dl,[0x1398]                          ; 423CE
+    mov dl,[play_flags]                      ; 423CE
     shr dx,1                                 ; 423D2
     rr sbb, dx, dx                           ; 423D4
     and dx,0x177                             ; 423D6
@@ -3611,19 +3625,20 @@ loc_23E5:
     popa                                     ; 423F9
     ret                                      ; 423FA
     db 0x00,0x08,0x28,0x04,0x40,0x1C,0x0C,0x00,0x00,0x20,0x00,0x42,0x00,0x04   ; 423FB
-h_2409:
+
+state03_world_card_story:
     call sub_DE51                            ; 42409
     call sub_1480                            ; 4240C
     rr xor, ax, ax                           ; 4240F
     mov ds,ax                                ; 42411
     mov ax,[0x12d8]                          ; 42413
-    mov [0x13fe],ax                          ; 42416
-    and byte [0x1398],0xfe                   ; 42419
+    mov [progress_code],ax                   ; 42416
+    and byte [play_flags],0xfe               ; 42419
     and byte [0x1399],0xfe                   ; 4241E
     and byte [0x13e3],0xfe                   ; 42423
     mov cl,0x4                               ; 42428
     rr xor, bx, bx                           ; 4242A
-    mov ax,[0x13fe]                          ; 4242C
+    mov ax,[progress_code]                   ; 4242C
     rr mov, bl, ah                           ; 4242F
     shr bx,cl                                ; 42431
     rr mov, cl, ah                           ; 42433
@@ -3632,7 +3647,7 @@ h_2409:
     mov al,[cs:bx+0x23fb]                    ; 4243A
     shr al,cl                                ; 4243F
     jnc short loc_2452                       ; 42441
-    or byte [0x1398],0x1                     ; 42443
+    or byte [play_flags],0x1                 ; 42443
     or byte [0x1399],0x1                     ; 42448
     or byte [0x13e3],0x1                     ; 4244D
 loc_2452:
@@ -3646,7 +3661,7 @@ loc_2452:
     and byte [0x13e3],0x7f                   ; 42466
     mov cl,0x4                               ; 4246B
     rr xor, bx, bx                           ; 4246D
-    mov ax,[0x13fe]                          ; 4246F
+    mov ax,[progress_code]                   ; 4246F
     rr mov, bl, ah                           ; 42472
     shr bx,cl                                ; 42474
     rr mov, cl, ah                           ; 42476
@@ -3673,7 +3688,8 @@ loc_248B:
     mov ds,ax                                ; 424AF
     mov word [game_state],0x4                ; 424B1
     jmp near main_loop                       ; 424B7
-h_24BA:
+
+state04_vision_load:
     rr xor, ax, ax                           ; 424BA
     out 0x0,ax                               ; 424BC
     out 0x6,al                               ; 424BE
@@ -3727,7 +3743,7 @@ loc_2534:
     call sub_B053                            ; 4254C
     call sub_1C68                            ; 4254F
     call sub_42F9                            ; 42552
-    mov al,[0x1398]                          ; 42555
+    mov al,[play_flags]                      ; 42555
     shr al,1                                 ; 42558
     jnc short loc_2566                       ; 4255A
     rr xor, bx, bx                           ; 4255C
@@ -3744,8 +3760,8 @@ loc_2566:
     mov ds,ax                                ; 42573
     mov [0x1388],ax                          ; 42575
     mov [0x138c],ax                          ; 42578
-    and byte [0x1398],0x7                    ; 4257B
-    test byte [0x1398],0x1                   ; 42580
+    and byte [play_flags],0x7                ; 4257B
+    test byte [play_flags],0x1               ; 42580
     jz short loc_258B                        ; 42585
     mov al,0x2                               ; 42587
     out 0x15,al                              ; 42589
@@ -3763,7 +3779,8 @@ tbl_259E:
     dw h_33A9
     dw h_3011
     dw h_2C37
-h_25A6:
+
+state05_vision_restart_wipe:
     rr xor, ax, ax                           ; 425A6
     mov ds,ax                                ; 425A8
     call sub_E7AB                            ; 425AA
@@ -3797,7 +3814,7 @@ h_25A6:
     rr xor, ax, ax                           ; 425F4
     out 0x0,ax                               ; 425F6
     call sub_B0BB                            ; 425F8
-    mov ax,[0x13fe]                          ; 425FB
+    mov ax,[progress_code]                   ; 425FB
     cmp ah,0x61                              ; 425FE
     jz short loc_2613                        ; 42601
     cmp ah,0x62                              ; 42603
@@ -3807,11 +3824,12 @@ h_25A6:
     mov cx,0x10                              ; 4260D
     call sub_F332                            ; 42610
 loc_2613:
-    mov ax,[0x13fe]                          ; 42613
+    mov ax,[progress_code]                   ; 42613
     mov [0x12d8],ax                          ; 42616
     mov word [game_state],0x4                ; 42619
     jmp near main_loop                       ; 4261F
-h_2622:
+
+state06_miss_retry:
     push ax                                  ; 42622
     rr xor, ax, ax                           ; 42623
     mov ds,ax                                ; 42625
@@ -3823,7 +3841,8 @@ h_2622:
     call sub_1C4B                            ; 4263A
     pop ax                                   ; 4263D
     jmp near main_loop                       ; 4263E
-h_2641:
+
+state16_resume_card:
     call sub_DE51                            ; 42641
     call sub_1480                            ; 42644
     rr xor, ax, ax                           ; 42647
@@ -3834,13 +3853,13 @@ h_2641:
     mov di,0x1480                            ; 42655
     mov cx,0x1d                              ; 42658
     call sub_F302                            ; 4265B
-    mov ax,[0x13fe]                          ; 4265E
+    mov ax,[progress_code]                   ; 4265E
     mov [0x12d8],ax                          ; 42661
     call sub_B11A                            ; 42664
-    and byte [0x1398],0xfe                   ; 42667
+    and byte [play_flags],0xfe               ; 42667
     mov cl,0x4                               ; 4266C
     rr xor, bx, bx                           ; 4266E
-    mov ax,[0x13fe]                          ; 42670
+    mov ax,[progress_code]                   ; 42670
     rr mov, bl, ah                           ; 42673
     shr bx,cl                                ; 42675
     rr mov, cl, ah                           ; 42677
@@ -3849,7 +3868,7 @@ h_2641:
     mov al,[cs:bx+0x23fb]                    ; 4267E
     shr al,cl                                ; 42683
     jnc short loc_2691                       ; 42685
-    or byte [0x1398],0x1                     ; 42687
+    or byte [play_flags],0x1                 ; 42687
     or byte [0x1399],0x1                     ; 4268C
 loc_2691:
     call sub_B06C                            ; 42691
@@ -3938,20 +3957,20 @@ loc_2760:
 
 sub_2762:
     pusha                                    ; 42762
-    dec byte [0x13e1]                        ; 42763
-    mov byte [0x13e0],0x3                    ; 42767
+    dec byte [lives]                         ; 42763
+    mov byte [lives_reserve],0x3             ; 42767
     mov al,[0x13e9]                          ; 4276C
     mov [0x13f5],al                          ; 4276F
-    mov al,[0x13e0]                          ; 42772
+    mov al,[lives_reserve]                   ; 42772
     mov [0x13f6],al                          ; 42775
-    mov al,[0x13e1]                          ; 42778
+    mov al,[lives]                           ; 42778
     mov [0x13f7],al                          ; 4277B
-    mov ax,[0x13fe]                          ; 4277E
+    mov ax,[progress_code]                   ; 4277E
     cmp ah,0x61                              ; 42781
     jz short loc_279D                        ; 42784
     cmp ah,0x62                              ; 42786
     jz short loc_279D                        ; 42789
-    cmp byte [0x13e1],0x0                    ; 4278B
+    cmp byte [lives],0x0                     ; 4278B
     jl short loc_279F                        ; 42790
     rr xor, ax, ax                           ; 42792
     mov si,0x13e0                            ; 42794
@@ -3964,9 +3983,10 @@ loc_279F:
     call sub_F3FC                            ; 4279F
     popa                                     ; 427A2
     ret                                      ; 427A3
-h_27A4:
+
+state13_lives_vision_over:
     call sub_1480                            ; 427A4
-    cmp byte [0x13e1],0x0                    ; 427A7
+    cmp byte [lives],0x0                     ; 427A7
     jnl short loc_27F0                       ; 427AC
     mov di,0x39b0                            ; 427AE
     mov bp,0x7300                            ; 427B1
@@ -3988,10 +4008,10 @@ h_27A4:
     call sub_DC70                            ; 427E1
     mov al,0x4                               ; 427E4
     out 0x15,al                              ; 427E6
-    and byte [0x1398],0xfe                   ; 427E8
+    and byte [play_flags],0xfe               ; 427E8
     jmp near loc_2840                        ; 427ED
 loc_27F0:
-    test byte [0x1398],0x1                   ; 427F0
+    test byte [play_flags],0x1               ; 427F0
     jnz short loc_281D                       ; 427F5
     mov ax,0x3000                            ; 427F7
     mov es,ax                                ; 427FA
@@ -4055,18 +4075,18 @@ loc_288E:
     mov ds,ax                                ; 42890
     mov byte [vblank_line],0x0               ; 42892
     call objects_update                      ; 42897
-    mov bl,[0x1398]                          ; 4289A
+    mov bl,[play_flags]                      ; 4289A
     and bx,0x1                               ; 4289E
     shl bx,1                                 ; 428A2
     call [cs:bx+tbl_06D2]                    ; 428A4
-    cmp byte [0x13e1],0x0                    ; 428A9
+    cmp byte [lives],0x0                     ; 428A9
     jnl short loc_28BE                       ; 428AE
     call sub_270A                            ; 428B0
     test word [0x138c],0xe00                 ; 428B3
     jnz short loc_2921                       ; 428B9
     jmp near loc_28FD                        ; 428BB
 loc_28BE:
-    mov al,[0x1398]                          ; 428BE
+    mov al,[play_flags]                      ; 428BE
     shr al,1                                 ; 428C1
     rr sbb, ax, ax                           ; 428C3
     mov dx,0xf                               ; 428C5
@@ -4074,7 +4094,7 @@ loc_28BE:
     not ax                                   ; 428CA
     and ax,0x180f                            ; 428CC
     rr or, dx, ax                            ; 428CF
-    mov al,[0x13e1]                          ; 428D1
+    mov al,[lives]                           ; 428D1
     cmp word [0x138e],0x96                   ; 428D4
     adc al,0x0                               ; 428DA
     call sub_1D8E                            ; 428DC
@@ -4108,7 +4128,7 @@ loc_2921:
     rr xor, ax, ax                           ; 42925
     out 0x0,ax                               ; 42927
     mov ds,ax                                ; 42929
-    cmp byte [0x13e1],0x0                    ; 4292B
+    cmp byte [lives],0x0                     ; 4292B
     jl short loc_293B                        ; 42930
     mov word [game_state],0x6                ; 42932
     jmp near main_loop                       ; 42938
@@ -4124,7 +4144,8 @@ loc_293B:
 loc_2957:
     mov word [game_state],0x11               ; 42957
     jmp near main_loop                       ; 4295D
-h_2960:
+
+state17_good_night_quit:
     call sub_1480                            ; 42960
     mov al,0x40                              ; 42963
     out 0xb6,al                              ; 42965
@@ -4168,7 +4189,7 @@ loc_29C2:
     mov ds,ax                                ; 429C4
     mov byte [vblank_line],0x0               ; 429C6
     call objects_update                      ; 429CB
-    mov bl,[0x1398]                          ; 429CE
+    mov bl,[play_flags]                      ; 429CE
     and bx,0x1                               ; 429D2
     shl bx,1                                 ; 429D6
     call [cs:bx+tbl_06D2]                    ; 429D8
@@ -4212,12 +4233,13 @@ loc_2A36:
     mov ds,ax                                ; 42A40
     mov word [game_state],0x0                ; 42A42
     jmp near main_loop                       ; 42A48
-h_2A4B:
+
+state01_gameplay:
     mov byte [0x1385],0x0                    ; 42A4B
     mov ax,0x4                               ; 42A50
     rr xor, dx, dx                           ; 42A53
     call sub_D6AE                            ; 42A55
-    mov ax,[0x13fe]                          ; 42A58
+    mov ax,[progress_code]                   ; 42A58
     and ah,0xf0                              ; 42A5B
     cmp ah,0x50                              ; 42A5E
     jnz short loc_2A68                       ; 42A61
@@ -4243,14 +4265,14 @@ loc_2A7C:
     call sub_BFD6                            ; 42A95
     mov [0x1392],dx                          ; 42A98
     call sub_C6F6                            ; 42A9C
-    test byte [0x1398],0x8                   ; 42A9F
+    test byte [play_flags],0x8               ; 42A9F
     jnz short loc_2AB3                       ; 42AA4
     test word [0x138c],0x200                 ; 42AA6
     jz short loc_2ABD                        ; 42AAC
-    or byte [0x1398],0x8                     ; 42AAE
+    or byte [play_flags],0x8                 ; 42AAE
 loc_2AB3:
     call sub_11B6                            ; 42AB3
-    test byte [0x1398],0x70                  ; 42AB6
+    test byte [play_flags],0x70              ; 42AB6
     jnz short loc_2ADD                       ; 42ABB
 loc_2ABD:
     call sub_C49C                            ; 42ABD
@@ -4265,7 +4287,7 @@ loc_2ABD:
     rr mov, bp, ax                           ; 42AD8
     call sub_4C84                            ; 42ADA
 loc_2ADD:
-    mov bl,[0x1398]                          ; 42ADD
+    mov bl,[play_flags]                      ; 42ADD
     and bx,0x1                               ; 42AE1
     shl bx,1                                 ; 42AE5
     call [cs:bx+tbl_06D2]                    ; 42AE7
@@ -4282,9 +4304,9 @@ loc_2ADD:
     shr ax,1                                 ; 42B0D
     out 0x6,al                               ; 42B0F
     mov word [0x1382],0x1600                 ; 42B11
-    test byte [0x1398],0x70                  ; 42B17
+    test byte [play_flags],0x70              ; 42B17
     jnz short loc_2B41                       ; 42B1C
-    cmp byte [0x13e0],0x0                    ; 42B1E
+    cmp byte [lives_reserve],0x0             ; 42B1E
     jnz short loc_2B2C                       ; 42B23
     mov al,[0x3d9]                           ; 42B25
     cmp al,0x3c                              ; 42B28
@@ -4300,7 +4322,7 @@ loc_2B31:
     jmp near loc_2A7C                        ; 42B3E
 loc_2B41:
     rr xor, ax, ax                           ; 42B41
-    mov al,[0x1398]                          ; 42B43
+    mov al,[play_flags]                      ; 42B43
     test al,0x10                             ; 42B46
     jnz short loc_2B52                       ; 42B48
     test al,0x20                             ; 42B4A
@@ -6087,7 +6109,7 @@ sub_3B5E:
     mov bx,0x98                              ; 43B63
     mov word [bx],irq_3A54                   ; 43B66
     mov word [bx+0x2],0x4000                 ; 43B6A
-    test byte [0x1398],0x1                   ; 43B6F
+    test byte [play_flags],0x1               ; 43B6F
     jnz short loc_3B89                       ; 43B74
     rr xor, ax, ax                           ; 43B76
     mov ds,ax                                ; 43B78
@@ -6986,12 +7008,12 @@ loc_4343:
     shl dl,cl                                ; 4434E
     rr xor, dh, dh                           ; 44350
     add dx,[0x1316]                          ; 44352
-    mov ch,[0x1398]                          ; 44356
-    mov byte [0x1398],0x0                    ; 4435A
+    mov ch,[play_flags]                      ; 44356
+    mov byte [play_flags],0x0                ; 4435A
     push bp                                  ; 4435F
     call sub_484D                            ; 44360
     pop bp                                   ; 44363
-    mov [0x1398],ch                          ; 44364
+    mov [play_flags],ch                      ; 44364
     popa                                     ; 44368
     mov bx,0x1280                            ; 44369
     mov bp,0x8                               ; 4436C
@@ -7427,7 +7449,7 @@ loc_46E8:
     pop ds                                   ; 4471C
 loc_471D:
     rr xor, si, si                           ; 4471D
-    test byte [0x1398],0x1                   ; 4471F
+    test byte [play_flags],0x1               ; 4471F
     jnz short loc_474B                       ; 44724
 loc_4726:
     call sub_47CB                            ; 44726
@@ -7547,7 +7569,7 @@ loc_4813:
     mov cx,0x4                               ; 4481E
 loc_4821:
     mov ax,[es:si]                           ; 44821
-    test byte [0x1398],0x1                   ; 44824
+    test byte [play_flags],0x1               ; 44824
     jz short loc_482E                        ; 44829
     call sub_4A28                            ; 4482B
 loc_482E:
@@ -7568,7 +7590,7 @@ loc_483C:
     ret                                      ; 4484C
 
 sub_484D:
-    test byte [0x1398],0x1                   ; 4484D
+    test byte [play_flags],0x1               ; 4484D
     jz short loc_4867                        ; 44852
     mov bh,[0x12f7]                          ; 44854
     rr xor, bl, bl                           ; 44858
@@ -7633,7 +7655,7 @@ loc_48C7:
     rr add, si, bp                           ; 448E3
 loc_48E5:
     mov ax,[es:si]                           ; 448E5
-    test byte [0x1398],0x1                   ; 448E8
+    test byte [play_flags],0x1               ; 448E8
     jz short loc_48F2                        ; 448ED
     call sub_4A28                            ; 448EF
 loc_48F2:
@@ -7657,7 +7679,7 @@ loc_492A:
     ret                                      ; 4492A
 
 sub_492B:
-    test byte [0x1398],0x1                   ; 4492B
+    test byte [play_flags],0x1               ; 4492B
     jz short loc_4943                        ; 44930
     mov bh,[0x12f7]                          ; 44932
     rr xor, bl, bl                           ; 44936
@@ -7706,7 +7728,7 @@ loc_4943:
     shl ax,cl                                ; 4499D
     rr add, bx, ax                           ; 4499F
     mov di,0x1280                            ; 449A1
-    test byte [0x1398],0x1                   ; 449A4
+    test byte [play_flags],0x1               ; 449A4
     jz short loc_49AE                        ; 449A9
     add di,byte +0x3e                        ; 449AB
 loc_49AE:
@@ -7727,12 +7749,12 @@ loc_49AE:
     rr add, si, bp                           ; 449CE
 loc_49D0:
     mov ax,[es:si]                           ; 449D0
-    test byte [0x1398],0x1                   ; 449D3
+    test byte [play_flags],0x1               ; 449D3
     jz short loc_49DD                        ; 449D8
     call sub_4A28                            ; 449DA
 loc_49DD:
     mov [di],ax                              ; 449DD
-    test byte [0x1398],0x1                   ; 449DF
+    test byte [play_flags],0x1               ; 449DF
     jnz short loc_49EC                       ; 449E4
     add di,byte +0x2                         ; 449E6
     jmp near loc_49EF                        ; 449E9
@@ -8029,7 +8051,7 @@ tbl_4C80:
 
 sub_4C84:
     push bx                                  ; 44C84
-    mov bl,[0x1398]                          ; 44C85
+    mov bl,[play_flags]                      ; 44C85
     and bx,0x1                               ; 44C89
     shl bx,1                                 ; 44C8D
     call [cs:bx+tbl_4C80]                    ; 44C8F
@@ -8040,7 +8062,7 @@ sub_4C96:
     pusha                                    ; 44C96
     rr xor, ax, ax                           ; 44C97
     mov ds,ax                                ; 44C99
-    mov al,[0x1398]                          ; 44C9B
+    mov al,[play_flags]                      ; 44C9B
     xor al,[0x1399]                          ; 44C9E
     shr al,1                                 ; 44CA2
     jc short loc_4CEE                        ; 44CA4
@@ -8236,12 +8258,12 @@ sub_4E60:
     jnz short loc_4EB1                       ; 44E6A
     or bp,0x1000                             ; 44E6C
     mov byte [0x3d9],0x64                    ; 44E70
-    mov al,[0x13e0]                          ; 44E75
+    mov al,[lives_reserve]                   ; 44E75
     dec al                                   ; 44E78
     cmp cl,0x3                               ; 44E7A
     rr sbb, ah, ah                           ; 44E7D
     rr and, al, ah                           ; 44E7F
-    mov [0x13e0],al                          ; 44E81
+    mov [lives_reserve],al                   ; 44E81
     call sub_C55E                            ; 44E84
     test bp,0x4000                           ; 44E87
     jnz short loc_4EB1                       ; 44E8B
@@ -9052,7 +9074,7 @@ sub_55F6:
 loc_560B:
     or bp,0x1000                             ; 4560B
     mov byte [0x3d9],0x64                    ; 4560F
-    dec byte [0x13e0]                        ; 45614
+    dec byte [lives_reserve]                 ; 45614
     call sub_C55E                            ; 45618
     test bp,0x4000                           ; 4561B
     jnz short loc_564C                       ; 4561F
@@ -9750,7 +9772,7 @@ loc_5C9E:
     rr mov, ah, al                           ; 45C9E
     rr xor, al, al                           ; 45CA0
     mov [0x139c],ax                          ; 45CA2
-    mov al,[0x1398]                          ; 45CA5
+    mov al,[play_flags]                      ; 45CA5
     shr al,1                                 ; 45CA8
     rr sbb, ax, ax                           ; 45CAA
     and ax,0x20                              ; 45CAC
@@ -9848,7 +9870,7 @@ loc_5D88:
     rr mov, ah, al                           ; 45D88
     rr xor, al, al                           ; 45D8A
     mov [0x139c],ax                          ; 45D8C
-    mov al,[0x1398]                          ; 45D8F
+    mov al,[play_flags]                      ; 45D8F
     shr al,1                                 ; 45D92
     rr sbb, ax, ax                           ; 45D94
     and ax,0x20                              ; 45D96
@@ -10038,7 +10060,7 @@ h_5F10:
     jnz short loc_5F26                       ; 45F23
     ret                                      ; 45F25
 loc_5F26:
-    mov bl,[0x1398]                          ; 45F26
+    mov bl,[play_flags]                      ; 45F26
     and bx,0x1                               ; 45F2A
     shl bx,1                                 ; 45F2E
     call [cs:bx+tbl_5F0B]                    ; 45F30
@@ -10409,7 +10431,7 @@ sub_6274:
     rr xor, ax, ax                           ; 46275
     mov ds,ax                                ; 46277
     mov dx,[0x138e]                          ; 46279
-    mov bl,[0x1398]                          ; 4627D
+    mov bl,[play_flags]                      ; 4627D
     and bx,0x1                               ; 46281
     shl bx,1                                 ; 46285
     mov cl,0x4                               ; 46287
@@ -10449,7 +10471,7 @@ loc_62EF:
     loop loc_62EF                            ; 462FB
 loc_62FD:
     add bx,byte +0x2                         ; 462FD
-    mov al,[0x1398]                          ; 46300
+    mov al,[play_flags]                      ; 46300
     and ax,0x1                               ; 46303
     shl ax,1                                 ; 46306
     rr add, bx, ax                           ; 46308
@@ -10480,7 +10502,7 @@ sub_6338:
     mov ax,[0x138e]                          ; 4633D
     and ax,0x30                              ; 46340
     rr mov, si, ax                           ; 46343
-    mov al,[0x1398]                          ; 46345
+    mov al,[play_flags]                      ; 46345
     and ax,0x1                               ; 46348
     shl ax,byte 0x6                          ; 4634B
     rr add, si, ax                           ; 4634E
@@ -10987,7 +11009,7 @@ h_67BA:
 loc_67C3:
     mov bp,0x186                             ; 467C3
     or bp,0x2800                             ; 467C6
-    mov bl,[0x1398]                          ; 467CA
+    mov bl,[play_flags]                      ; 467CA
     and bx,0x1                               ; 467CE
     shl bx,1                                 ; 467D2
     jmp [cs:bx+tbl_D31E]                     ; 467D4
@@ -11093,7 +11115,7 @@ h_689E:
 loc_68A7:
     mov bp,[0x1410]                          ; 468A7
     or bp,0x2800                             ; 468AB
-    mov bl,[0x1398]                          ; 468AF
+    mov bl,[play_flags]                      ; 468AF
     and bx,0x1                               ; 468B3
     shl bx,1                                 ; 468B7
     jmp [cs:bx+tbl_D31E]                     ; 468B9
@@ -11364,7 +11386,7 @@ h_6B00:
 loc_6B09:
     mov bp,[0x1416]                          ; 46B09
     or bp,0x2800                             ; 46B0D
-    mov bl,[0x1398]                          ; 46B11
+    mov bl,[play_flags]                      ; 46B11
     and bx,0x1                               ; 46B15
     shl bx,1                                 ; 46B19
     jmp [cs:bx+tbl_D31E]                     ; 46B1B
@@ -12513,7 +12535,7 @@ loc_7527:
     rr sbb, cx, cx                           ; 47547
     and cx,0x9                               ; 47549
     rr add, bp, cx                           ; 4754D
-    test byte [0x1398],0x1                   ; 4754F
+    test byte [play_flags],0x1               ; 4754F
     jnz short loc_7570                       ; 47554
     sub dh,0xc                               ; 47556
     sub dl,0x12                              ; 47559
@@ -12558,7 +12580,7 @@ loc_7593:
     mov ax,[cs:bx-0x4a36]                    ; 475AF
     sar al,1                                 ; 475B4
     sar al,1                                 ; 475B6
-    test byte [0x1398],0x1                   ; 475B8
+    test byte [play_flags],0x1               ; 475B8
     jnz short loc_75C4                       ; 475BD
     rr add, dl, al                           ; 475BF
     jmp near loc_75C6                        ; 475C1
@@ -13283,7 +13305,7 @@ loc_7BFB:
     mov bp,[0x1414]                          ; 47C04
 loc_7C08:
     or bp,0x2800                             ; 47C08
-    mov bl,[0x1398]                          ; 47C0C
+    mov bl,[play_flags]                      ; 47C0C
     and bx,0x1                               ; 47C10
     shl bx,1                                 ; 47C14
     jmp [cs:bx+tbl_D31E]                     ; 47C16
@@ -13780,7 +13802,7 @@ loc_80A7:
 loc_80C4:
     mov bx,[0x1382]                          ; 480C4
     rr xor, cx, cx                           ; 480C8
-    mov cl,[0x1398]                          ; 480CA
+    mov cl,[play_flags]                      ; 480CA
     rr mov, si, cx                           ; 480CE
     and si,0x1                               ; 480D0
     shl si,1                                 ; 480D4
@@ -14825,7 +14847,7 @@ loc_89E4:
     rr mov, ax, bx                           ; 489EF
     sub ax,0x4                               ; 489F1
     rr sub, ax, dx                           ; 489F4
-    mov bl,[0x1398]                          ; 489F6
+    mov bl,[play_flags]                      ; 489F6
     shr bl,1                                 ; 489FA
     rr sbb, bp, bp                           ; 489FC
     and bp,0x600                             ; 489FE
@@ -14955,7 +14977,7 @@ loc_8AA7:
     mov [si],ax                              ; 48B30
     mov [si+0x4],ax                          ; 48B32
     mov [si+0x8],ax                          ; 48B35
-    test byte [0x1398],0x1                   ; 48B38
+    test byte [play_flags],0x1               ; 48B38
     jnz short loc_8B5E                       ; 48B3D
     rr mov, ax, dx                           ; 48B3F
     pop cx                                   ; 48B41
@@ -15155,7 +15177,7 @@ loc_8CBB:
     shr bx,byte 0x3                          ; 48CBE
     and bx,0x7                               ; 48CC1
     mov al,[cs:bx-0x7356]                    ; 48CC5
-    test byte [0x1398],0x1                   ; 48CCA
+    test byte [play_flags],0x1               ; 48CCA
     jnz short loc_8CD6                       ; 48CCF
     rr add, dl, al                           ; 48CD1
     jmp near loc_8CD8                        ; 48CD3
@@ -15260,7 +15282,7 @@ h_8DA2:
     db 0x90   ; 48DA7
 
 sub_8DA8:
-    test byte [0x1398],0x1                   ; 48DA8
+    test byte [play_flags],0x1               ; 48DA8
     jnz short loc_8E10                       ; 48DAD
     sub dh,0x10                              ; 48DAF
     sub dl,0x10                              ; 48DB2
@@ -15603,7 +15625,7 @@ h_90A0:
     add word [0x1382],byte +0x8              ; 490A5
     mov bp,0x2dde                            ; 490AA
     rr mov, ax, dx                           ; 490AD
-    test byte [0x1398],0x1                   ; 490AF
+    test byte [play_flags],0x1               ; 490AF
     jnz short loc_90CD                       ; 490B4
     sub ah,0x3                               ; 490B6
     sub al,0xc                               ; 490B9
@@ -15637,7 +15659,7 @@ h_90EB:
     shr cl,1                                 ; 490F8
     mov bp,0x2dde                            ; 490FA
     rr mov, ax, dx                           ; 490FD
-    test byte [0x1398],0x1                   ; 490FF
+    test byte [play_flags],0x1               ; 490FF
     jnz short loc_9124                       ; 49104
     sub al,0x4                               ; 49106
     push ax                                  ; 49108
@@ -15837,7 +15859,7 @@ h_9274:
     sar cx,1                                 ; 49299
     rr mov, ch, al                           ; 4929B
     mov bp,0x2dde                            ; 4929D
-    test byte [0x1398],0x1                   ; 492A0
+    test byte [play_flags],0x1               ; 492A0
     jnz short loc_92C3                       ; 492A5
     rr mov, ax, dx                           ; 492A7
     rr add, ah, ch                           ; 492A9
@@ -15880,7 +15902,7 @@ h_92F5:
     add word [0x1382],byte +0x8              ; 492FA
     mov bp,0x2dde                            ; 492FF
     rr mov, ax, dx                           ; 49302
-    test byte [0x1398],0x1                   ; 49304
+    test byte [play_flags],0x1               ; 49304
     jnz short loc_9323                       ; 49309
     sub al,0x4                               ; 4930B
     sub ah,0xb                               ; 4930D
@@ -15919,7 +15941,7 @@ h_933E:
     sar cx,1                                 ; 49363
     rr mov, ch, al                           ; 49365
     mov bp,0x2dde                            ; 49367
-    test byte [0x1398],0x1                   ; 4936A
+    test byte [play_flags],0x1               ; 4936A
     jnz short loc_938D                       ; 4936F
     rr mov, ax, dx                           ; 49371
     rr add, ah, ch                           ; 49373
@@ -15974,7 +15996,7 @@ loc_93D1:
     add word [0x1382],byte +0x8              ; 493D6
     mov bp,0x2dde                            ; 493DB
     rr mov, ax, dx                           ; 493DE
-    test byte [0x1398],0x1                   ; 493E0
+    test byte [play_flags],0x1               ; 493E0
     jnz short loc_93FF                       ; 493E5
     sub al,0x4                               ; 493E7
     sub ah,0xb                               ; 493E9
@@ -16118,7 +16140,7 @@ h_9520:
     mov bx,[0x1382]                          ; 49521
     add word [0x1382],byte +0x4              ; 49525
     mov bp,0x2dde                            ; 4952A
-    test byte [0x1398],0x1                   ; 4952D
+    test byte [play_flags],0x1               ; 4952D
     jnz short loc_9542                       ; 49532
     sub dh,0x3                               ; 49534
     sub dl,0xc                               ; 49537
@@ -16144,7 +16166,7 @@ h_9554:
     and si,0x7f                              ; 49567
     shl si,1                                 ; 4956B
     shl si,1                                 ; 4956D
-    test byte [0x1398],0x1                   ; 4956F
+    test byte [play_flags],0x1               ; 4956F
     jnz short loc_958B                       ; 49574
     mov ax,[cs:si-0x4a36]                    ; 49576
     sar ax,1                                 ; 4957B
@@ -16179,7 +16201,7 @@ h_95BE:
     mov bx,[0x1382]                          ; 495BF
     add word [0x1382],byte +0x4              ; 495C3
     mov bp,0x2dde                            ; 495C8
-    test byte [0x1398],0x1                   ; 495CB
+    test byte [play_flags],0x1               ; 495CB
     jnz short loc_95E0                       ; 495D0
     sub dh,0x3                               ; 495D2
     add dl,0x4                               ; 495D5
@@ -16205,7 +16227,7 @@ h_95F2:
     and si,0x7f                              ; 49605
     shl si,1                                 ; 49609
     shl si,1                                 ; 4960B
-    test byte [0x1398],0x1                   ; 4960D
+    test byte [play_flags],0x1               ; 4960D
     jnz short loc_9629                       ; 49612
     mov ax,[cs:si-0x4a36]                    ; 49614
     sar ax,1                                 ; 49619
@@ -16357,7 +16379,7 @@ h_9724:
     mov ax,[cs:si-0x49f6]                    ; 49748
     sar ax,1                                 ; 4974D
     rr mov, cl, al                           ; 4974F
-    test byte [0x1398],0x1                   ; 49751
+    test byte [play_flags],0x1               ; 49751
     jnz short loc_9779                       ; 49756
     rr mov, ax, dx                           ; 49758
     rr add, ah, ch                           ; 4975A
@@ -16610,7 +16632,7 @@ h_9981:
     mov bx,[0x1382]                          ; 49981
     add word [0x1382],byte +0x20             ; 49985
     mov bp,0x25d6                            ; 4998A
-    test byte [0x1398],0x1                   ; 4998D
+    test byte [play_flags],0x1               ; 4998D
     jnz short loc_99B6                       ; 49992
     sub dl,0x10                              ; 49994
     rr mov, ax, dx                           ; 49997
@@ -16652,7 +16674,7 @@ h_99DB:
     shr cx,1                                 ; 499E9
     rr mov, ch, cl                           ; 499EB
     mov bp,0x25d6                            ; 499ED
-    test byte [0x1398],0x1                   ; 499F0
+    test byte [play_flags],0x1               ; 499F0
     jnz short loc_9A20                       ; 499F5
     sub dl,0x10                              ; 499F7
     rr mov, ax, dx                           ; 499FA
@@ -16698,7 +16720,7 @@ h_9A4C:
     mov bx,[0x1382]                          ; 49A4C
     add word [0x1382],byte +0x8              ; 49A50
     mov bp,0x25d6                            ; 49A55
-    test byte [0x1398],0x1                   ; 49A58
+    test byte [play_flags],0x1               ; 49A58
     jnz short loc_9A78                       ; 49A5D
     sub dl,0x10                              ; 49A5F
     rr mov, ax, dx                           ; 49A62
@@ -16728,7 +16750,7 @@ h_9A8E:
     shr cx,1                                 ; 49A9C
     rr mov, ch, cl                           ; 49A9E
     mov bp,0x25d6                            ; 49AA0
-    test byte [0x1398],0x1                   ; 49AA3
+    test byte [play_flags],0x1               ; 49AA3
     jnz short loc_9ACF                       ; 49AA8
     sub dl,0x10                              ; 49AAA
     rr mov, ax, dx                           ; 49AAD
@@ -16911,7 +16933,7 @@ h_9C29:
     shr bx,byte 0x3                          ; 49C34
     and bx,0x7                               ; 49C37
     mov al,[cs:bx-0x63df]                    ; 49C3B
-    test byte [0x1398],0x1                   ; 49C40
+    test byte [play_flags],0x1               ; 49C40
     jnz short loc_9C4C                       ; 49C45
     rr add, dl, al                           ; 49C47
     jmp near loc_9C4E                        ; 49C49
@@ -18175,7 +18197,7 @@ h_A79E:
 loc_A7A7:
     mov bp,[0x1418]                          ; 4A7A7
     or bp,0x2800                             ; 4A7AB
-    mov bl,[0x1398]                          ; 4A7AF
+    mov bl,[play_flags]                      ; 4A7AF
     and bx,0x1                               ; 4A7B3
     shl bx,1                                 ; 4A7B7
     jmp [cs:bx+tbl_D31E]                     ; 4A7B9
@@ -18255,7 +18277,7 @@ loc_A851:
 loc_A85A:
     mov bx,[0x1382]                          ; 4A85A
     add word [0x1382],byte +0x8              ; 4A85E
-    test byte [0x1398],0x1                   ; 4A863
+    test byte [play_flags],0x1               ; 4A863
     jnz short loc_A885                       ; 4A868
     mov ax,0x2fbb                            ; 4A86A
     sub dh,0x3                               ; 4A86D
@@ -18318,7 +18340,7 @@ loc_A8F0:
     ret                                      ; 4A8F0
     db 0x90   ; 4A8F1
 h_A8F2:
-    cmp byte [0x13e1],0x3                    ; 4A8F2
+    cmp byte [lives],0x3                     ; 4A8F2
     jnc short loc_A8FC                       ; 4A8F7
     call sub_A8FE                            ; 4A8F9
 loc_A8FC:
@@ -18364,8 +18386,8 @@ h_A942:
     mov cl,[si+0x14]                         ; 4A944
     shl al,cl                                ; 4A947
     or [0x13e9],al                           ; 4A949
-    cmp byte [0x13e1],0x63                   ; 4A94D
-    adc byte [0x13e1],0x0                    ; 4A952
+    cmp byte [lives],0x63                    ; 4A94D
+    adc byte [lives],0x0                     ; 4A952
     mov byte [si],0x0                        ; 4A957
     mov ax,0x19                              ; 4A95A
     call sub_DD97                            ; 4A95D
@@ -18414,10 +18436,10 @@ h_A9B6:
     mov cl,[si+0x14]                         ; 4A9B8
     shl al,cl                                ; 4A9BB
     or [0x13e8],al                           ; 4A9BD
-    mov al,[0x13e0]                          ; 4A9C1
+    mov al,[lives_reserve]                   ; 4A9C1
     cmp al,0x3                               ; 4A9C4
     adc al,0x0                               ; 4A9C6
-    mov [0x13e0],al                          ; 4A9C8
+    mov [lives_reserve],al                   ; 4A9C8
     mov ax,0x10                              ; 4A9CB
     call sub_DD97                            ; 4A9CE
     push ax                                  ; 4A9D1
@@ -18599,7 +18621,7 @@ h_AB4E:
 loc_AB57:
     mov bp,[0x141c]                          ; 4AB57
     or bp,0x2800                             ; 4AB5B
-    mov bl,[0x1398]                          ; 4AB5F
+    mov bl,[play_flags]                      ; 4AB5F
     and bx,0x1                               ; 4AB63
     shl bx,1                                 ; 4AB67
     jmp [cs:bx+tbl_D31E]                     ; 4AB69
@@ -18759,7 +18781,7 @@ loc_AC9D:
     db 0x00,0x80,0x00,0x30,0x00,0x30,0x00,0x30   ; 4ACC8
 
 sub_ACD0:
-    mov bx,[0x13fe]                          ; 4ACD0
+    mov bx,[progress_code]                   ; 4ACD0
     push bx                                  ; 4ACD4
     mov cl,0xc                               ; 4ACD5
     shr bx,cl                                ; 4ACD7
@@ -18772,7 +18794,7 @@ sub_ACD0:
     push es                                  ; 4ACEA
     mov ax,0x8000                            ; 4ACEB
     mov es,ax                                ; 4ACEE
-    mov ax,[0x13fe]                          ; 4ACF0
+    mov ax,[progress_code]                   ; 4ACF0
     mov cl,0x4                               ; 4ACF3
     shl al,cl                                ; 4ACF5
     shr ax,cl                                ; 4ACF7
@@ -18826,7 +18848,7 @@ sub_AD5F:
     mov al,[0x148f]                          ; 4AD6A
     cmp al,0xff                              ; 4AD6D
     jnz short loc_AD8E                       ; 4AD6F
-    mov ax,[0x13fe]                          ; 4AD71
+    mov ax,[progress_code]                   ; 4AD71
     rr mov, cl, ah                           ; 4AD74
     and ah,0xf0                              ; 4AD76
     cmp ah,0x60                              ; 4AD79
@@ -18838,7 +18860,7 @@ sub_AD5F:
     or [0x14a7],al                           ; 4AD87
     jmp near loc_ADBA                        ; 4AD8B
 loc_AD8E:
-    mov ax,[0x13fe]                          ; 4AD8E
+    mov ax,[progress_code]                   ; 4AD8E
     rr mov, al, ah                           ; 4AD91
     inc al                                   ; 4AD93
     and ah,0xf                               ; 4AD95
@@ -18857,10 +18879,10 @@ loc_ADAC:
     mov [0x148f],al                          ; 4ADB2
     and byte [0x1399],0xf7                   ; 4ADB5
 loc_ADBA:
-    mov al,[0x13e1]                          ; 4ADBA
+    mov al,[lives]                           ; 4ADBA
     mov [0x149f],al                          ; 4ADBD
     mov di,0x1480                            ; 4ADC0
-    mov ax,[0x13fe]                          ; 4ADC3
+    mov ax,[progress_code]                   ; 4ADC3
     rr mov, dx, ax                           ; 4ADC6
     rr mov, al, ah                           ; 4ADC8
     and ax,0xf0                              ; 4ADCA
@@ -18930,7 +18952,7 @@ loc_AE51:
     or byte [0x1497],0x20                    ; 4AE5F
     or byte [0x1399],0xc0                    ; 4AE64
 loc_AE69:
-    mov ax,[0x13fe]                          ; 4AE69
+    mov ax,[progress_code]                   ; 4AE69
     rr mov, cl, ah                           ; 4AE6C
     mov ax,[0x1442]                          ; 4AE6E
     mov dx,[0x1440]                          ; 4AE71
@@ -18968,11 +18990,11 @@ loc_AEB9:
     or byte [0x1399],0x80                    ; 4AEC0
     jmp near loc_AEC8                        ; 4AEC5
 loc_AEC8:
-    mov al,[0x1398]                          ; 4AEC8
+    mov al,[play_flags]                      ; 4AEC8
     and al,0x7                               ; 4AECB
     and byte [0x14b8],0xf8                   ; 4AECD
     or [0x14b8],al                           ; 4AED2
-    mov ax,[0x13fe]                          ; 4AED6
+    mov ax,[progress_code]                   ; 4AED6
     mov [0x14af],ah                          ; 4AED9
     popa                                     ; 4AEDD
     ret                                      ; 4AEDE
@@ -18987,7 +19009,7 @@ sub_AEDF:
 sub_AEE9:
     push di                                  ; 4AEE9
     mov di,0x1480                            ; 4AEEA
-    mov ax,[0x13fe]                          ; 4AEED
+    mov ax,[progress_code]                   ; 4AEED
     rr mov, al, ah                           ; 4AEF0
     and ax,0xf0                              ; 4AEF2
     sub ax,0x10                              ; 4AEF5
@@ -19087,20 +19109,20 @@ sub_AF67:
     mov [0x13fc],al                          ; 4AFCA
     mov [0x13f4],al                          ; 4AFCD
     mov [0x13f5],al                          ; 4AFD0
-    mov byte [0x13e0],0x3                    ; 4AFD3
+    mov byte [lives_reserve],0x3             ; 4AFD3
     mov byte [0x13f6],0x3                    ; 4AFD8
     mov al,[0x149f]                          ; 4AFDD
-    mov [0x13e1],al                          ; 4AFE0
+    mov [lives],al                           ; 4AFE0
     mov [0x13f7],al                          ; 4AFE3
     test byte [0x1399],0x4                   ; 4AFE6
     jz short loc_AFF7                        ; 4AFEB
-    mov byte [0x13e1],0x3                    ; 4AFED
+    mov byte [lives],0x3                     ; 4AFED
     mov byte [0x13f7],0x3                    ; 4AFF2
 loc_AFF7:
     mov al,[0x14b8]                          ; 4AFF7
     and al,0x6                               ; 4AFFA
-    and byte [0x1398],0xf9                   ; 4AFFC
-    or [0x1398],al                           ; 4B001
+    and byte [play_flags],0xf9               ; 4AFFC
+    or [play_flags],al                       ; 4B001
     and byte [0x13e3],0xf9                   ; 4B005
     or [0x13e3],al                           ; 4B00A
     call sub_ACD0                            ; 4B00E
@@ -19115,7 +19137,7 @@ loc_AFF7:
     mov [0x13e6],ax                          ; 4B028
     mov ax,0x8000                            ; 4B02B
     mov es,ax                                ; 4B02E
-    mov bx,[0x13fe]                          ; 4B030
+    mov bx,[progress_code]                   ; 4B030
     rr mov, bl, bh                           ; 4B034
     and bl,0xf                               ; 4B036
     sub bh,0x10                              ; 4B039
@@ -19158,7 +19180,7 @@ sub_B06C:
     call sub_ACD0                            ; 4B082
     mov ax,0x8000                            ; 4B085
     mov es,ax                                ; 4B088
-    mov bx,[0x13fe]                          ; 4B08A
+    mov bx,[progress_code]                   ; 4B08A
     rr mov, bl, bh                           ; 4B08E
     and bl,0xf                               ; 4B090
     sub bh,0x10                              ; 4B093
@@ -19171,8 +19193,8 @@ sub_B06C:
     mov [0x13c2],ax                          ; 4B0A6
     mov al,[0x13e3]                          ; 4B0A9
     and al,0x7                               ; 4B0AC
-    and byte [0x1398],0xf8                   ; 4B0AE
-    or [0x1398],al                           ; 4B0B3
+    and byte [play_flags],0xf8               ; 4B0AE
+    or [play_flags],al                       ; 4B0B3
     pop es                                   ; 4B0B7
     pop ds                                   ; 4B0B8
     popa                                     ; 4B0B9
@@ -19202,11 +19224,11 @@ sub_B0BB:
     mov [0x13fa],ax                          ; 4B0F5
     mov al,[0x13de]                          ; 4B0F8
     mov [0x13fc],al                          ; 4B0FB
-    mov al,[0x13e0]                          ; 4B0FE
+    mov al,[lives_reserve]                   ; 4B0FE
     mov [0x13f6],al                          ; 4B101
-    mov al,[0x13e1]                          ; 4B104
+    mov al,[lives]                           ; 4B104
     mov [0x13f7],al                          ; 4B107
-    mov al,[0x1398]                          ; 4B10A
+    mov al,[play_flags]                      ; 4B10A
     and al,0x87                              ; 4B10D
     and byte [0x13e3],0xf8                   ; 4B10F
     or [0x13e3],al                           ; 4B114
@@ -19239,9 +19261,9 @@ sub_B11A:
     mov [0x13de],al                          ; 4B15A
     mov [0x13df],al                          ; 4B15D
     mov al,[0x13f6]                          ; 4B160
-    mov [0x13e0],al                          ; 4B163
+    mov [lives_reserve],al                   ; 4B163
     mov al,[0x13f7]                          ; 4B166
-    mov [0x13e1],al                          ; 4B169
+    mov [lives],al                           ; 4B169
     pop ax                                   ; 4B16C
     ret                                      ; 4B16D
 h_B16E:
@@ -19251,7 +19273,7 @@ h_B16E:
     ret                                      ; 4B178
 loc_B179:
     mov al,0x20                              ; 4B179
-    or [0x1398],al                           ; 4B17B
+    or [play_flags],al                       ; 4B17B
     ret                                      ; 4B17F
 h_B180:
     rr xor, ax, ax                           ; 4B180
@@ -19264,9 +19286,9 @@ loc_B18B:
     rr mov, bl, ah                           ; 4B190
     shl bx,byte 0x3                          ; 4B192
     add bx,[0x13c2]                          ; 4B195
-    mov ax,[0x13fe]                          ; 4B199
+    mov ax,[progress_code]                   ; 4B199
     mov al,[es:bx]                           ; 4B19C
-    mov [0x13fe],ax                          ; 4B19F
+    mov [progress_code],ax                   ; 4B19F
     mov cl,0x4                               ; 4B1A2
     mov ax,[es:bx+0x2]                       ; 4B1A4
     shl ax,cl                                ; 4B1A8
@@ -19281,7 +19303,7 @@ loc_B18B:
     or byte [0x13e3],0x80                    ; 4B1C6
 loc_B1CB:
     mov al,0x10                              ; 4B1CB
-    or [0x1398],al                           ; 4B1CD
+    or [play_flags],al                       ; 4B1CD
     ret                                      ; 4B1D1
     db 0xC3   ; 4B1D2
 h_B1D3:
@@ -19295,9 +19317,9 @@ loc_B1DE:
     rr mov, bl, ah                           ; 4B1E3
     shl bx,byte 0x3                          ; 4B1E5
     add bx,[0x13c2]                          ; 4B1E8
-    mov ax,[0x13fe]                          ; 4B1EC
+    mov ax,[progress_code]                   ; 4B1EC
     mov al,[es:bx]                           ; 4B1EF
-    mov [0x13fe],ax                          ; 4B1F2
+    mov [progress_code],ax                   ; 4B1F2
     mov cl,0x4                               ; 4B1F5
     mov ax,[es:bx+0x2]                       ; 4B1F7
     shl ax,cl                                ; 4B1FB
@@ -19312,7 +19334,7 @@ loc_B1DE:
     or byte [0x13e3],0x80                    ; 4B219
 loc_B21E:
     mov al,0x10                              ; 4B21E
-    or [0x1398],al                           ; 4B220
+    or [play_flags],al                       ; 4B220
     ret                                      ; 4B224
 h_B225:
     rr xor, ax, ax                           ; 4B225
@@ -19325,9 +19347,9 @@ loc_B230:
     rr mov, bl, ah                           ; 4B235
     shl bx,byte 0x3                          ; 4B237
     add bx,[0x13c2]                          ; 4B23A
-    mov ax,[0x13fe]                          ; 4B23E
+    mov ax,[progress_code]                   ; 4B23E
     mov al,[es:bx]                           ; 4B241
-    mov [0x13fe],ax                          ; 4B244
+    mov [progress_code],ax                   ; 4B244
     mov cl,0x4                               ; 4B247
     mov ax,[es:bx+0x2]                       ; 4B249
     shl ax,cl                                ; 4B24D
@@ -19342,7 +19364,7 @@ loc_B230:
     or byte [0x13e3],0x80                    ; 4B26B
 loc_B270:
     mov al,0x10                              ; 4B270
-    or [0x1398],al                           ; 4B272
+    or [play_flags],al                       ; 4B272
     or byte [0x13e3],0x40                    ; 4B276
     ret                                      ; 4B27B
 h_B27C:
@@ -19356,9 +19378,9 @@ loc_B287:
     rr mov, bl, ah                           ; 4B28C
     shl bx,byte 0x3                          ; 4B28E
     add bx,[0x13c2]                          ; 4B291
-    mov ax,[0x13fe]                          ; 4B295
+    mov ax,[progress_code]                   ; 4B295
     mov al,[es:bx]                           ; 4B298
-    mov [0x13fe],ax                          ; 4B29B
+    mov [progress_code],ax                   ; 4B29B
     mov cl,0x4                               ; 4B29E
     mov ax,[es:bx+0x2]                       ; 4B2A0
     shl ax,cl                                ; 4B2A4
@@ -19373,7 +19395,7 @@ loc_B287:
     or byte [0x13e3],0x80                    ; 4B2C2
 loc_B2C7:
     mov al,0x10                              ; 4B2C7
-    or [0x1398],al                           ; 4B2C9
+    or [play_flags],al                       ; 4B2C9
     ret                                      ; 4B2CD
 h_B2CE:
     rr xor, ax, ax                           ; 4B2CE
@@ -19388,9 +19410,9 @@ loc_B2D9:
     rr mov, bl, ah                           ; 4B2E4
     shl bx,byte 0x3                          ; 4B2E6
     add bx,[0x13c2]                          ; 4B2E9
-    mov ax,[0x13fe]                          ; 4B2ED
+    mov ax,[progress_code]                   ; 4B2ED
     mov al,[es:bx]                           ; 4B2F0
-    mov [0x13fe],ax                          ; 4B2F3
+    mov [progress_code],ax                   ; 4B2F3
     mov cl,0x4                               ; 4B2F6
     mov ax,[es:bx+0x2]                       ; 4B2F8
     shl ax,cl                                ; 4B2FC
@@ -19405,7 +19427,7 @@ loc_B2D9:
     or byte [0x13e3],0x80                    ; 4B31A
 loc_B31F:
     mov al,0x10                              ; 4B31F
-    or [0x1398],al                           ; 4B321
+    or [play_flags],al                       ; 4B321
     ret                                      ; 4B325
 
 ; jump table tbl_B326: 6 words, bound: adjacent (first use at 4B392)
@@ -19431,7 +19453,7 @@ sub_B332:
     mov bp,[0x3c4]                           ; 4B346
     shr bp,cl                                ; 4B34A
     mov di,[0x13c2]                          ; 4B34C
-    mov cx,[0x13fe]                          ; 4B350
+    mov cx,[progress_code]                   ; 4B350
     sub di,byte +0x8                         ; 4B354
     mov ch,0x24                              ; 4B357
     nop                                      ; 4B359
@@ -19736,26 +19758,26 @@ nullsub:
 
 ; jump table game_state_table: 20 words, bound: hint (first use at 40245)
 game_state_table:
-    dw h_1616
-    dw h_2A4B
-    dw h_17E5
-    dw h_2409
-    dw h_24BA
-    dw h_25A6
-    dw h_2622
-    dw h_208E
-    dw h_C294
-    dw h_1AE4
-    dw h_21CE
-    dw h_187D
-    dw h_18EE
-    dw h_27A4
-    dw h_1ABE
-    dw h_17E5
-    dw h_2641
-    dw h_2960
-    dw h_1995
-    dw h_1F92
+    dw state00_title
+    dw state01_gameplay
+    dw state02_museum_menu
+    dw state03_world_card_story
+    dw state04_vision_load
+    dw state05_vision_restart_wipe
+    dw state06_miss_retry
+    dw state07_vision_clear
+    dw state08_namco_logo
+    dw state09_story_sequencer
+    dw state10_world_complete_scene
+    dw state11_scene_save_prompt
+    dw state12_new_game_intro
+    dw state13_lives_vision_over
+    dw state14_unused_to_save
+    dw state02_museum_menu
+    dw state16_resume_card
+    dw state17_good_night_quit
+    dw state18_ending
+    dw state19_world_record
     db 0x00,0x00,0x00,0x00,0x01,0x00,0x02,0x00,0x03,0x00,0x03,0x00,0x04,0x00,0x05,0x00   ; 4B5CA
     db 0x06,0x00,0x06,0x00,0x07,0x00,0x08,0x00,0x08,0x00,0x09,0x00,0x0A,0x00,0x0A,0x00   ; 4B5DA
     db 0x0B,0x00,0x0B,0x00,0x0C,0x00,0x0C,0x00,0x0D,0x00,0x0D,0x00,0x0E,0x00,0x0E,0x00   ; 4B5EA
@@ -20546,7 +20568,7 @@ sub_BFD6:
     push ax                                  ; 4BFD6
     push bx                                  ; 4BFD7
     push cx                                  ; 4BFD8
-    mov bl,[0x1398]                          ; 4BFD9
+    mov bl,[play_flags]                      ; 4BFD9
     and bx,0x7                               ; 4BFDD
     shl bx,1                                 ; 4BFE1
     call [cs:bx+tbl_BFC6]                    ; 4BFE3
@@ -20860,7 +20882,8 @@ irq_C27B:
     pop ds                                   ; 4C291
     popa                                     ; 4C292
     iret                                     ; 4C293
-h_C294:
+
+state08_namco_logo:
     cli                                      ; 4C294
     mov al,0x0                               ; 4C295
     out 0x6,al                               ; 4C297
@@ -20899,7 +20922,7 @@ h_C294:
     mov [0x138e],ax                          ; 4C2E8
     mov [0x1388],ax                          ; 4C2EB
     mov [0x138c],ax                          ; 4C2EE
-    and byte [0x1398],0xf8                   ; 4C2F1
+    and byte [play_flags],0xf8               ; 4C2F1
     mov [0x1384],al                          ; 4C2F6
     call sub_B53D                            ; 4C2F9
     rr xor, ax, ax                           ; 4C2FC
@@ -20948,7 +20971,7 @@ loc_C35A:
 
 sub_C370:
     pusha                                    ; 4C370
-    mov al,[0x1398]                          ; 4C371
+    mov al,[play_flags]                      ; 4C371
     shr al,1                                 ; 4C374
     jc short loc_C38B                        ; 4C376
     mov ax,0x174b                            ; 4C378
@@ -20969,14 +20992,14 @@ loc_C394:
     add bx,byte +0x40                        ; 4C399
     loop loc_C394                            ; 4C39C
 loc_C39E:
-    mov ax,[0x13fe]                          ; 4C39E
+    mov ax,[progress_code]                   ; 4C39E
     cmp ah,0x61                              ; 4C3A1
     jz short loc_C3AE                        ; 4C3A4
     cmp ah,0x62                              ; 4C3A6
     jz short loc_C3AE                        ; 4C3A9
     jmp near loc_C3DB                        ; 4C3AB
 loc_C3AE:
-    mov al,[0x1398]                          ; 4C3AE
+    mov al,[play_flags]                      ; 4C3AE
     shr al,1                                 ; 4C3B1
     jc short loc_C3C8                        ; 4C3B3
     mov ax,0x174b                            ; 4C3B5
@@ -21003,14 +21026,14 @@ loc_C3DB:
 
 sub_C3DE:
     pusha                                    ; 4C3DE
-    mov ax,[0x13fe]                          ; 4C3DF
+    mov ax,[progress_code]                   ; 4C3DF
     cmp ah,0x61                              ; 4C3E2
     jz short loc_C3EF                        ; 4C3E5
     cmp ah,0x62                              ; 4C3E7
     jz short loc_C3EF                        ; 4C3EA
     jmp near loc_C49A                        ; 4C3EC
 loc_C3EF:
-    mov al,[0x1398]                          ; 4C3EF
+    mov al,[play_flags]                      ; 4C3EF
     shr al,1                                 ; 4C3F2
     jc short loc_C445                        ; 4C3F4
     mov ax,0x3d67                            ; 4C3F6
@@ -21079,12 +21102,12 @@ sub_C49C:
     push bx                                  ; 4C49D
     push cx                                  ; 4C49E
     push si                                  ; 4C49F
-    mov al,[0x1398]                          ; 4C4A0
+    mov al,[play_flags]                      ; 4C4A0
     shr al,1                                 ; 4C4A3
     jc short loc_C4D8                        ; 4C4A5
     mov bx,[0x1382]                          ; 4C4A7
     rr xor, cx, cx                           ; 4C4AB
-    mov cl,[0x13e0]                          ; 4C4AD
+    mov cl,[lives_reserve]                   ; 4C4AD
     jcxz loc_C4D8                            ; 4C4B1
     mov si,0x2db3                            ; 4C4B3
     mov ax,0x80                              ; 4C4B6
@@ -21116,7 +21139,7 @@ sub_C4DE:
     call sub_C678                            ; 4C4E5
     call sub_C718                            ; 4C4E8
     call sub_C3DE                            ; 4C4EB
-    mov al,[0x1398]                          ; 4C4EE
+    mov al,[play_flags]                      ; 4C4EE
     shr al,1                                 ; 4C4F1
     mov ax,0x3fbd                            ; 4C4F3
     jc short loc_C523                        ; 4C4F6
@@ -21163,7 +21186,7 @@ loc_C553:
 
 sub_C55E:
     pusha                                    ; 4C55E
-    mov al,[0x1398]                          ; 4C55F
+    mov al,[play_flags]                      ; 4C55F
     shr al,1                                 ; 4C562
     jc short loc_C5A9                        ; 4C564
     mov ax,0x114b                            ; 4C566
@@ -21184,7 +21207,7 @@ sub_C55E:
     rr mov, dx, ax                           ; 4C58D
     mov bx,0xc40                             ; 4C58F
     rr xor, cx, cx                           ; 4C592
-    mov cl,[0x13e0]                          ; 4C594
+    mov cl,[lives_reserve]                   ; 4C594
     jcxz loc_C5A7                            ; 4C598
 loc_C59A:
     rr mov, ax, dx                           ; 4C59A
@@ -21221,7 +21244,7 @@ loc_C5A9:
     rr mov, dx, ax                           ; 4C5E2
     mov bx,0x800                             ; 4C5E4
     rr xor, cx, cx                           ; 4C5E7
-    mov cl,[0x13e0]                          ; 4C5E9
+    mov cl,[lives_reserve]                   ; 4C5E9
     jcxz loc_C605                            ; 4C5ED
 loc_C5EF:
     rr mov, ax, dx                           ; 4C5EF
@@ -21241,7 +21264,7 @@ loc_C605:
 
 sub_C608:
     pusha                                    ; 4C608
-    mov al,[0x1398]                          ; 4C609
+    mov al,[play_flags]                      ; 4C609
     shr al,1                                 ; 4C60C
     jc short loc_C644                        ; 4C60E
     mov ax,0x3982                            ; 4C610
@@ -21311,7 +21334,7 @@ sub_C678:
     shr al,1                                 ; 4C688
     adc cx,byte +0x0                         ; 4C68A
     jcxz loc_C6A6                            ; 4C68D
-    mov al,[0x1398]                          ; 4C68F
+    mov al,[play_flags]                      ; 4C68F
     shr al,1                                 ; 4C692
     jc short loc_C6A8                        ; 4C694
     mov ax,0x3dbe                            ; 4C696
@@ -21337,7 +21360,7 @@ loc_C6B8:
     ret                                      ; 4C6B9
 
 sub_C6BA:
-    mov dl,[0x1398]                          ; 4C6BA
+    mov dl,[play_flags]                      ; 4C6BA
     shr dl,1                                 ; 4C6BE
     jc short loc_C6DD                        ; 4C6C0
     mov cl,0xa                               ; 4C6C2
@@ -21390,8 +21413,8 @@ loc_C716:
 sub_C718:
     pusha                                    ; 4C718
     rr xor, ax, ax                           ; 4C719
-    mov al,[0x13e1]                          ; 4C71B
-    mov dl,[0x1398]                          ; 4C71E
+    mov al,[lives]                           ; 4C71B
+    mov dl,[play_flags]                      ; 4C71E
     shr dl,1                                 ; 4C722
     jc short loc_C741                        ; 4C724
     mov cl,0xa                               ; 4C726
@@ -22213,7 +22236,7 @@ loc_CE33:
     mov cl,0x6                               ; 4CE49
     mul cl                                   ; 4CE4B
     rr add, bp, ax                           ; 4CE4D
-    test byte [0x1398],0x1                   ; 4CE4F
+    test byte [play_flags],0x1               ; 4CE4F
     jnz short loc_CE89                       ; 4CE54
     sub dh,0xc                               ; 4CE56
     sub dl,0x8                               ; 4CE59
@@ -22264,7 +22287,7 @@ loc_CE91:
 loc_CEB8:
     mov bx,[0x1382]                          ; 4CEB8
     add word [0x1382],byte +0x20             ; 4CEBC
-    test byte [0x1398],0x1                   ; 4CEC1
+    test byte [play_flags],0x1               ; 4CEC1
     jnz short loc_CEEF                       ; 4CEC6
     sub dh,0x8                               ; 4CEC8
     sub dl,0x10                              ; 4CECB
@@ -22306,7 +22329,7 @@ loc_CEFA:
 loc_CF16:
     mov bx,[0x1382]                          ; 4CF16
     add word [0x1382],byte +0x20             ; 4CF1A
-    test byte [0x1398],0x1                   ; 4CF1F
+    test byte [play_flags],0x1               ; 4CF1F
     jnz short loc_CF54                       ; 4CF24
     sub dh,0x8                               ; 4CF26
     sub dl,0x10                              ; 4CF29
@@ -22423,7 +22446,7 @@ loc_D092:
     sub dl,0x8                               ; 4D096
     mov bx,[0x1382]                          ; 4D099
     add word [0x1382],byte +0x10             ; 4D09D
-    test byte [0x1398],0x1                   ; 4D0A2
+    test byte [play_flags],0x1               ; 4D0A2
     jnz short loc_D0DF                       ; 4D0A7
     rr mov, ax, dx                           ; 4D0A9
     rr mov, ah, dh                           ; 4D0AB
@@ -22482,7 +22505,7 @@ loc_D118:
     sub dl,0x10                              ; 4D11B
     mov bx,[0x1382]                          ; 4D11E
     add word [0x1382],byte +0x40             ; 4D122
-    test byte [0x1398],0x1                   ; 4D127
+    test byte [play_flags],0x1               ; 4D127
     jnz short loc_D167                       ; 4D12C
     rr mov, ax, dx                           ; 4D12E
     mov cx,0x4                               ; 4D130
@@ -22544,7 +22567,7 @@ sub_D1A1:
     sub dl,0xc                               ; 4D1A4
     mov bx,[0x1382]                          ; 4D1A7
     add word [0x1382],byte +0x24             ; 4D1AB
-    test byte [0x1398],0x1                   ; 4D1B0
+    test byte [play_flags],0x1               ; 4D1B0
     jnz short loc_D229                       ; 4D1B5
     rr mov, ax, dx                           ; 4D1B7
     rr mov, ah, dh                           ; 4D1B9
@@ -22660,7 +22683,7 @@ loc_D29B:
     and cx,0x9                               ; 4D2B3
     rr mov, si, bp                           ; 4D2B7
     rr add, si, cx                           ; 4D2B9
-    test byte [0x1398],0x1                   ; 4D2BB
+    test byte [play_flags],0x1               ; 4D2BB
     jnz short loc_D2EF                       ; 4D2C0
     rr mov, ax, dx                           ; 4D2C2
     mov cx,0x3                               ; 4D2C4
@@ -22842,7 +22865,7 @@ loc_D425:
     ret                                      ; 4D44B
 loc_D44C:
     mov bx,[0x1382]                          ; 4D44C
-    test byte [0x1398],0x1                   ; 4D450
+    test byte [play_flags],0x1               ; 4D450
     jnz short loc_D47D                       ; 4D455
     sub dl,0x8                               ; 4D457
     sub dh,0x10                              ; 4D45A
@@ -23374,7 +23397,7 @@ loc_D8B7:
 h_D9D8:
     or byte [di+0x1],0x2                     ; 4D9D8
     inc word [di+0x1c]                       ; 4D9DC
-    mov al,[0x1398]                          ; 4D9DF
+    mov al,[play_flags]                      ; 4D9DF
     shr al,1                                 ; 4D9E2
     jc short loc_DA2A                        ; 4D9E4
     cmp word [di+0x1a],byte +0x1             ; 4D9E6
@@ -23452,7 +23475,7 @@ h_DA5E:
     ja short loc_DA97                        ; 4DA82
     test word [0x1392],0x10                  ; 4DA84
     jz short loc_DA97                        ; 4DA8A
-    or byte [0x1398],0x8                     ; 4DA8C
+    or byte [play_flags],0x8                 ; 4DA8C
     mov al,[di+0x1e]                         ; 4DA91
     mov [0x13fd],al                          ; 4DA94
 loc_DA97:
@@ -23470,7 +23493,7 @@ loc_DAA9:
     shr bx,byte 0x3                          ; 4DAB4
     and bx,0x7                               ; 4DAB7
     mov al,[cs:bx-0x2568]                    ; 4DABB
-    test byte [0x1398],0x1                   ; 4DAC0
+    test byte [play_flags],0x1               ; 4DAC0
     jnz short loc_DACC                       ; 4DAC5
     rr add, dl, al                           ; 4DAC7
     jmp near loc_DACE                        ; 4DAC9
@@ -23505,7 +23528,7 @@ loc_DAFB:
     ret                                      ; 4DAFB
 h_DAFC:
     or byte [di+0x1],0x2                     ; 4DAFC
-    test byte [0x1398],0x1                   ; 4DB00
+    test byte [play_flags],0x1               ; 4DB00
     jnz short loc_DB10                       ; 4DB05
     mov al,0x8                               ; 4DB07
     out 0xd,al                               ; 4DB09
@@ -23538,7 +23561,7 @@ loc_DB43:
 
 sub_DB44:
     call sub_AF04                            ; 4DB44
-    test byte [0x1398],0x1                   ; 4DB47
+    test byte [play_flags],0x1               ; 4DB47
     jnz short loc_DB7F                       ; 4DB4C
     rr mov, dx, bp                           ; 4DB4E
     call sub_B937                            ; 4DB50
@@ -23588,11 +23611,11 @@ loc_DBA9:
 h_DBB0:
     mov ax,[0x1442]                          ; 4DBB0
     mov dx,[0x1440]                          ; 4DBB3
-    test byte [0x1398],0x1                   ; 4DBB7
+    test byte [play_flags],0x1               ; 4DBB7
     jnz short loc_DBD1                       ; 4DBBC
     mov bp,0x2000                            ; 4DBBE
     call sub_DB44                            ; 4DBC1
-    mov ax,[0x13fe]                          ; 4DBC4
+    mov ax,[progress_code]                   ; 4DBC4
     call sub_AF46                            ; 4DBC7
     mov bp,0xa000                            ; 4DBCA
     jmp near sub_DB44                        ; 4DBCD
@@ -23600,7 +23623,7 @@ h_DBB0:
 loc_DBD1:
     mov bp,0xd820                            ; 4DBD1
     call sub_DB44                            ; 4DBD4
-    mov ax,[0x13fe]                          ; 4DBD7
+    mov ax,[progress_code]                   ; 4DBD7
     call sub_AF46                            ; 4DBDA
     mov bp,0xd050                            ; 4DBDD
     jmp near sub_DB44                        ; 4DBE0

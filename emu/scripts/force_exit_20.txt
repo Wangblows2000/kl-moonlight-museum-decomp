@@ -1,0 +1,27 @@
+# FORCED (fault injection): set gameplay exit flag [1398h] |= 20h during Vision 1-1.
+# Starts from a save made by an earlier run (build/save_after_play.bin, ROM-derived, not committed).
+loadsram build/save_after_play.bin
+reset
+autoshot
+wait 700
+tap start
+wait 30
+tap a
+wait 400
+shot before
+orpoke 1398 20
+wait 2
+shot f2
+wait 120
+shot f120
+wait 400
+shot f520
+tap a
+wait 300
+shot f820
+tap a
+wait 300
+shot f1120
+tap start
+wait 300
+shot f1420

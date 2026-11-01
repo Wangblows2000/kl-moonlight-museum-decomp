@@ -1,0 +1,48 @@
+# FORCED: gameover
+loadsram build/save_after_play.bin
+reset
+autoshot
+wait 700
+tap start
+wait 30
+tap a
+wait 400
+poke 13E0 00
+poke 03D9 00
+wait 300
+shot t1
+tap a
+wait 300
+shot t2
+tap a
+wait 300
+shot t3
+tap a
+wait 300
+shot t4
+tap a
+wait 300
+shot t5
+tap a
+wait 300
+shot t6
+tap a
+wait 300
+shot t7
+tap a
+wait 300
+shot t8
+tap a
+hold start 2
+wait 400
+shot t9
+tap a
+wait 400
+shot t10
+tap a
+wait 400
+shot t11
+tap a
+wait 400
+shot t12
+tap a

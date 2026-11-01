@@ -7,6 +7,8 @@
 #include <string.h>
 
 extern uint8_t WSwan_readmem20(uint32_t);
+extern void WSwan_writemem20(uint32_t, uint8_t);
+int kt_force_state = -1;   /* frontend 'forcestate': applied when main_loop reads game_state */
 
 uint8_t  kt_exec[0x100000];         /* 1 = an instruction started at this linear address */
 uint32_t kt_edge_from[1 << 20];
@@ -34,9 +36,23 @@ static void kt_add_edge(uint32_t from, uint32_t to)
    kt_hash[h] = ++kt_edge_n;
 }
 
+uint32_t kt_frame;                 /* set by the frontend each frame */
+uint32_t kt_dispatch[1 << 16][2];  /* (frame, game_state) at every main_loop dispatch */
+uint32_t kt_dispatch_n;
+
 void kt_hook(uint32_t lin)
 {
    kt_insn_count++;
+   if (lin == 0x4023A && kt_force_state >= 0) {       /* main_loop: mov bx,[game_state] */
+      WSwan_writemem20(0x1380, kt_force_state & 0xFF);
+      WSwan_writemem20(0x1381, kt_force_state >> 8);
+      kt_force_state = -1;
+   }
+   if (lin == 0x40245 && kt_dispatch_n < (1u << 16)) {   /* main_loop: jmp ax (state dispatch) */
+      kt_dispatch[kt_dispatch_n][0] = kt_frame;
+      kt_dispatch[kt_dispatch_n][1] = WSwan_readmem20(0x1380) | WSwan_readmem20(0x1381) << 8;
+      kt_dispatch_n++;
+   }
    kt_exec[lin] = 1;
    /* record where an indirect CALL/JMP went; also records IRQ entries taken right after one */
    if (kt_prev_indirect)

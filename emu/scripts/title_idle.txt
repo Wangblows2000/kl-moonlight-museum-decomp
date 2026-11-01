@@ -1,0 +1,6 @@
+# T5: leave the title screen idle (attract/demo mode?)
+autoshot
+wait 6000
+shot idle_6000
+wait 6000
+shot idle_12000

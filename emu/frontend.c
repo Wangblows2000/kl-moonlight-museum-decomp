@@ -26,6 +26,8 @@ extern uint8_t kt_exec[0x100000];
 extern uint32_t kt_edge_from[], kt_edge_to[], kt_edge_n;
 extern uint32_t kt_port_hist[256][256];
 extern uint64_t kt_insn_count;
+extern uint32_t kt_frame, kt_dispatch[][2], kt_dispatch_n;
+extern int kt_force_state;
 
 static const char *outdir;
 static uint16_t held;
@@ -108,6 +110,7 @@ static void shot(const char *name);
 static void run_frame(void)
 {
    audio_peak = 0;
+   kt_frame = (uint32_t)frame_no + 1;
    retro_run();
    frame_no++;
    const uint8_t *ram = retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
@@ -174,6 +177,22 @@ int main(int argc, char **argv)
       }
       else if (!strcmp(cmd, "reset")) retro_reset();
       else if (!strcmp(cmd, "autoshot")) autoshot = 1;
+      else if (!strcmp(cmd, "forcestate")) {   /* FORCED: next main_loop dispatch uses state N */
+         kt_force_state = atoi(a1);
+         fprintf(flog, "# %ld forcestate %d\n", frame_no, kt_force_state);
+      }
+      else if (!strcmp(cmd, "poke")) {   /* poke HEXADDR HEXVAL : fault injection into RAM, logged */
+         uint8_t *ram = retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
+         unsigned ad = strtoul(a1, 0, 16), v = strtoul(a2, 0, 16);
+         ram[ad & 0xFFFF] = (uint8_t)v;
+         fprintf(flog, "# %ld poke %04X=%02X\n", frame_no, ad, v);
+      }
+      else if (!strcmp(cmd, "orpoke")) {
+         uint8_t *ram = retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
+         unsigned ad = strtoul(a1, 0, 16), v = strtoul(a2, 0, 16);
+         ram[ad & 0xFFFF] |= (uint8_t)v;
+         fprintf(flog, "# %ld orpoke %04X|=%02X\n", frame_no, ad, v);
+      }
       else if (!strcmp(cmd, "monkey")) {
          /* monkey FRAMES SEED: random button presses, 6-20 frame holds */
          rng = (unsigned)atoi(a2) * 2654435761u + 1;
@@ -197,6 +216,9 @@ int main(int argc, char **argv)
    path(p, "exec", ".bin"); FILE *f = fopen(p, "wb"); fwrite(kt_exec, 1, sizeof kt_exec, f); fclose(f);
    path(p, "edges", ".txt"); f = fopen(p, "w");
    for (uint32_t i = 0; i < kt_edge_n; i++) fprintf(f, "%05X %05X\n", kt_edge_from[i], kt_edge_to[i]);
+   fclose(f);
+   path(p, "dispatch", ".txt"); f = fopen(p, "w");
+   for (uint32_t i = 0; i < kt_dispatch_n; i++) fprintf(f, "%u %u\n", kt_dispatch[i][0], kt_dispatch[i][1]);
    fclose(f);
    path(p, "ports", ".txt"); f = fopen(p, "w");
    for (int pt = 0; pt < 256; pt++) for (int v = 0; v < 256; v++)

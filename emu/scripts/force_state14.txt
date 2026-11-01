@@ -1,0 +1,29 @@
+# FORCED: state14
+loadsram build/save_after_play.bin
+reset
+autoshot
+wait 700
+tap start
+wait 30
+tap a
+wait 400
+orpoke 1398 20
+forcestate 14
+wait 300
+shot t1
+tap a
+wait 300
+shot t2
+tap a
+wait 300
+shot t3
+tap a
+wait 300
+shot t4
+tap a
+wait 300
+shot t5
+tap a
+wait 300
+shot t6
+tap a

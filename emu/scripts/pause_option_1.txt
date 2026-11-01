@@ -1,0 +1,21 @@
+# pause menu option 1 (natural input, no pokes)
+loadsram build/save_after_play.bin
+reset
+autoshot
+wait 700
+tap start
+wait 30
+tap a
+wait 400
+tap start
+wait 90
+tap down
+shot menu_sel
+tap a
+wait 60
+shot after1
+wait 300
+shot after2
+tap a
+wait 200
+shot after3

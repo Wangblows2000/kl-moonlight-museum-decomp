@@ -7,6 +7,26 @@ Unnamed routines keep generated names (sub_XXXX / loc_XXXX / h_XXXX = table targ
 """
 
 NAMES = {
+    # game states (index -> handler via game_state_table); see docs/game-states.md
+    0x1616: 'state00_title',
+    0x17E5: 'state02_museum_menu',
+    0x187D: 'state11_scene_save_prompt',
+    0x18EE: 'state12_new_game_intro',
+    0x1995: 'state18_ending',
+    0x1ABE: 'state14_unused_to_save',
+    0x1AE4: 'state09_story_sequencer',
+    0x1F92: 'state19_world_record',
+    0x208E: 'state07_vision_clear',
+    0x21CE: 'state10_world_complete_scene',
+    0x2409: 'state03_world_card_story',
+    0x24BA: 'state04_vision_load',
+    0x25A6: 'state05_vision_restart_wipe',
+    0x2622: 'state06_miss_retry',
+    0x2641: 'state16_resume_card',
+    0x27A4: 'state13_lives_vision_over',
+    0x2960: 'state17_good_night_quit',
+    0x2A4B: 'state01_gameplay',
+    0xC294: 'state08_namco_logo',
     0x0000: 'read_keypad',
     0x00E2: 'irq_vblank_boot',
     0x00FC: 'irq_hblank_timer_ack',
@@ -102,4 +122,8 @@ port C1h around the access.""",
 RAM = {
     0x1380: 'game_state',      # [high] index into game_state_table (main_loop)
     0x1386: 'vblank_line',     # [high] set to scanline by irq_vblank_game; HLT loops wait for != 0
+    0x1398: 'play_flags',      # [high] bit3 pause menu, bit4 -> state 5, bit5 -> state 7 (clear), bit6 -> state 6 (miss)
+    0x13E0: 'lives_reserve',   # [medium] set to 3 on new game; decremented on a miss (4000:5614)
+    0x13E1: 'lives',           # [high] signed; negative in state 13 -> VISION OVER prompt (runtime-verified)
+    0x13FE: 'progress_code',   # [high] story key WVxx (world, vision); looked up by state09_story_sequencer
 }

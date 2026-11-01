@@ -36,7 +36,12 @@ def run(script, outdir=None, rom=None):
             t = int(t)
             if t:
                 types.setdefault(t, int(r_['frame']))
-    summary = {'script': os.path.basename(script), 'frames': len(rows), 'state_transitions': trans,
+    disp = [tuple(map(int, l.split())) for l in open(os.path.join(outdir, 'dispatch.txt'))]
+    seq = []
+    for fr, st in disp:
+        if not seq or seq[-1][1] != st:
+            seq.append((fr, st))
+    summary = {'dispatch_sequence': seq, 'states_dispatched': sorted({s_ for _, s_ in disp}),'script': os.path.basename(script), 'frames': len(rows), 'state_transitions': trans,
                'object_types_seen': sorted(types), 'max_audio_peak': max(int(r_['audio_peak']) for r_ in rows),
                'marks': marks, 'harness': r.stderr.strip().splitlines()[-1]}
     json.dump(summary, open(os.path.join(outdir, 'summary.json'), 'w'), indent=1)
