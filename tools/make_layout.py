@@ -56,7 +56,13 @@ for off in sorted(streams) + [FOOTER]:
     pos = off + used
 emit_raw_or_fill(pos, FOOTER)
 # refine with decoded structures (assets/structures.json): cut them out of raw/fill regions
-S = json.load(open(os.path.join(ROOT, 'assets', 'structures.json')))['structures']
+import glob
+S = []
+for _f in sorted(glob.glob(os.path.join(ROOT, 'assets', 'structures', '*.json'))):
+    S += json.load(open(_f))['structures']
+S.sort(key=lambda st: int(st['offset'], 16))
+for x, y in zip(S, S[1:]):
+    assert int(x['offset'], 16) + x['size'] <= int(y['offset'], 16), ('overlapping structures', x['offset'], y['offset'])
 for st in S:
     a = int(st['offset'], 16); b = a + st['size']
     new = []

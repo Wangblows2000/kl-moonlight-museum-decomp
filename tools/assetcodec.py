@@ -171,6 +171,16 @@ class Pcm:
 
 CODECS = {'fill': Fill(), 'raw': Raw(), 'tiles': Tiles(), 'bpe': Bpe(), 'pcm': Pcm()}
 
+# format plug-ins: every tools/fmt_*.py may define CODECS = {type: codec_instance}
+import glob as _glob
+import importlib as _il
+for _f in sorted(_glob.glob(os.path.join(HERE, 'fmt_*.py'))):
+    _m = _il.import_module(os.path.splitext(os.path.basename(_f))[0])
+    for _k, _v in getattr(_m, 'CODECS', {}).items():
+        if _k in CODECS:
+            raise SystemExit('codec type %r defined twice (%s)' % (_k, _f))
+        CODECS[_k] = _v
+
 
 def codec(region):
     return CODECS[region['type']]
