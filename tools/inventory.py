@@ -21,7 +21,8 @@ import hints
 
 d = open(os.path.join(ROOT, 'baserom', 'baserom.ws'), 'rb').read()
 T = json.load(open(os.path.join(ROOT, 'build', 'trace.json')))
-BPE = json.load(open(os.path.join(ROOT, 'build', 'bpe_streams.json')))
+BPE = [(int(x['offset'], 16), x['packed'], x['unpacked'])
+       for x in json.load(open(os.path.join(ROOT, 'assets', 'bpe_manifest.json')))['streams']]
 cls = [None] * len(d)
 
 def mark(a, b, c, force=False):

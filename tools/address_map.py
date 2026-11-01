@@ -1,0 +1,107 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Complete address-space inventory -> docs/address_map.json (+ summary in docs/inventory.md).
+
+Every byte of the 1,048,576-byte ROM is assigned exactly one entry:
+    class          code | dead_code | code_table | code_data | code_unreached |
+                   compressed_asset | tiles | table | padding | zero_run | footer | unknown
+    representation source    - produced by committed source (asm) - fully ROM-free
+                   editable  - decoded into a documented editable format in gamedata/
+                   generated - produced from layout metadata (fill runs)
+                   opaque    - copied bytes from gamedata/raw (not decoded)
+    evidence       what establishes the class
+
+Inputs: build/trace.json, build/inventory.json (bank 4), assets/layout.json (data banks),
+assets/annotations.json, tools/hints.py (external pointer tables)."""
+import json, os, sys
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.abspath(os.path.join(HERE, '..'))
+sys.path.insert(0, HERE)
+import hints
+
+J = lambda *p: json.load(open(os.path.join(ROOT, *p)))
+trace = J('build', 'trace.json')
+inv = J('build', 'inventory.json')
+layout = J('assets', 'layout.json')['regions']
+ann = J('assets', 'annotations.json')['regions']
+N = 0x100000
+cls = [None] * N
+rep = [None] * N
+ev = [None] * N
+
+
+def put(a, b, c, r, e, force=False):
+    for i in range(a, b):
+        if cls[i] is None or force:
+            cls[i], rep[i], ev[i] = c, r, e
+
+
+# --- bank 4 (all produced by asm source) -------------------------------------------
+labels = {int(k): set(v) for k, v in trace['labels'].items()}
+dead_starts = {f for f, k in labels.items() if k == {'dead'}}
+# dead-code extent: instructions reachable only from dead seeds are those after a dead start
+insn = {int(k): v for k, v in trace['insn'].items()}
+for f, v in insn.items():
+    put(f, f + v[2], 'code', 'source', 'static trace (reachable from vectors/tables)')
+for f in sorted(dead_starts):
+    g = f
+    while g in insn:
+        for i in range(g, g + insn[g][2]):
+            cls[i], ev[i] = 'dead_code', 'unreferenced complete routine (hints.DEAD_CODE)'
+        if insn[g][3] in ('ret', 'retf', 'iret', 'jmp'):
+            break
+        g += insn[g][2]
+for k, v in trace['tables'].items():
+    k = int(k)
+    first, n = v[1]
+    if 0x40000 <= k < 0x50000:
+        put(k, k + 2 * (first + n), 'code_table', 'source', 'jump table (%s)' % v[2])
+for s, e, c in inv['regions']:
+    if 0x40000 <= s < 0x50000:
+        if c == 'data_table':
+            put(s, e, 'code_data', 'source', 'table read by code (inventory)')
+        elif c == 'padding':
+            put(s, e, 'padding', 'source', 'FFh run in code bank')
+        elif c == 'unref_bank4':
+            put(s, e, 'code_unreached', 'source', 'not reached by trace or runtime; data or dead code (unexplained)')
+put(0xFFFF0, N, 'footer', 'source', 'cartridge footer (asm/header.asm)')
+
+# --- data banks ---------------------------------------------------------------------
+REP = {'bpe': 'editable', 'tiles': 'editable', 'fill': 'generated', 'raw': 'opaque'}
+for r in layout:
+    a, b = int(r['offset'], 16), int(r['offset'], 16) + r['size']
+    if r['type'] == 'bpe':
+        put(a, b, 'compressed_asset', 'editable', 'BPE stream, exact re-encode; family %s' % r.get('family'))
+    elif r['type'] == 'tiles':
+        put(a, b, 'tiles', 'editable', r.get('evidence', 'uncompressed 2bpp tiles'))
+    elif r['type'] == 'fill':
+        if r['value'] == 'FF':
+            put(a, b, 'padding', 'generated', 'FFh run (erased-flash padding)')
+        else:
+            put(a, b, 'zero_run', 'generated', '00h run: generated, meaning not established (may be table data)')
+    else:
+        put(a, b, 'unknown', 'opaque', 'raw bytes, not decoded')
+# annotations / proven pointer tables refine 'unknown' raw bytes (still opaque representation)
+extra = [(int(x['start'], 16), int(x['end'], 16), x['family'] + ': ' + x['evidence']) for x in ann]
+extra += [(v[0], v[0] + 2 * (v[1] + v[2]), 'pointer table used at %s' % s) for s, v in hints.EXT_TABLES.items()]
+for a, b, e in extra:
+    for i in range(a, b):
+        if cls[i] in ('unknown', 'zero_run'):
+            cls[i], ev[i] = 'table', e
+
+assert all(c is not None for c in cls), 'unassigned bytes: %d' % sum(c is None for c in cls)
+# run-length encode
+runs = []
+s = 0
+for i in range(1, N + 1):
+    if i == N or (cls[i], rep[i], ev[i]) != (cls[s], rep[s], ev[s]):
+        runs.append({'start': '%05X' % s, 'end': '%05X' % i, 'size': i - s, 'class': cls[s], 'representation': rep[s],
+                     'evidence': ev[s]})
+        s = i
+json.dump({'rom_size': N, 'note': __doc__.strip(), 'ranges': runs},
+          open(os.path.join(ROOT, 'docs', 'address_map.json'), 'w'), indent=0)
+from collections import Counter
+cc, rc = Counter(cls), Counter(rep)
+print('ranges', len(runs))
+print('classes', dict(cc))
+print('representation', dict(rc))

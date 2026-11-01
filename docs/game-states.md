@@ -43,6 +43,6 @@ writes to `game_state` finds 38 constant writes (values 0-13, 16, 17, 19), one z
 | W101 (W = 1..5) | W*2-1 | 3 | world W intro card |
 | W600 (W = 1..4) | W*2 | 10 | world W complete scene |
 | 5600 | 10 | 18 | ending |
-| FFFF | 11 | 11 | (scene + save) |
+| FFFF | 11 | 11 | (scene + save) - forcing progress_code=FFFFh then a clear crashed the game in our harness (invalid injection; scenario removed) |
 | 6101 / 6000 | 12 | 3 | EX world intro |
 | 6600 | 13 | 11 | EX world complete ("Perfect" save) |

@@ -1,111 +1,103 @@
 {
  "rom_sha1": "207a3ceb9a09eabca6e455deeb7035e7e04c9795",
- "categories": {
-  "build_fidelity": {
-   "status": "VERIFIED",
-   "requirement": "exact byte-for-byte ROM match",
-   "metric": "1048576/1048576 bytes; bank 4 + footer also verified from source without the ROM (CI)",
-   "evidence": [
-    "tests/test_rom.py::test_full_rebuild_matches",
-    "tests/test_source.py"
-   ]
+ "complete": false,
+ "overall": {
+  "decompiled_bytes": 456071,
+  "rom_bytes": 1048576,
+  "percent": 43.49,
+  "definition": "bytes that are classified AND represented as source, editable data or explained generated padding; 100 % only when this equals 1,048,576 and every metric is 100 %"
+ },
+ "metrics": {
+  "executable_code_classification": {
+   "percent": 94.42,
+   "numerator": 61879,
+   "denominator": 65536,
+   "definition": "code-bank bytes classified as traced code, dead code, jump table, code data or padding",
+   "remaining": "3657 bytes in code_unreached ranges (docs/address_map.json): neither traced nor executed; each must be shown to be data or dead code",
+   "note": "no instruction executed outside bank 4 in any emulator run"
   },
-  "code_discovery": {
-   "status": "PARTIALLY VERIFIED",
-   "requirement": "every executable entry point identified",
-   "metric": "746 entry points, 23645 instructions, 0 unresolved indirect transfers; runtime found 0 executed addresses outside the static trace across 51 runs; 3657 bank-4 bytes still unreached (data or dead code)",
-   "evidence": [
-    "tools/trace.py",
-    "tools/runtime_coverage.py",
-    "tests/test_runtime.py::test_runtime_execution_is_covered_by_static_trace"
-   ]
-  },
-  "code_understanding": {
-   "status": "PARTIALLY VERIFIED",
-   "requirement": "every function documented and understood",
-   "metric": "36 hand-documented + 695 reviewed (summary/inputs/outputs/side effects/evidence from a full read, high or medium confidence) = 731/746; 9 role-only, 1 generic, 5 dead code; all 20 game states identified.  Reviewed docs were produced by three parallel code-review passes and spot-checked (8 concrete claims re-verified against code/runtime, all correct); not every entry individually re-verified",
-   "evidence": [
-    "docs/functions.md",
-    "docs/game-states.md",
-    "tools/symbols.py"
-   ]
+  "routine_documentation": {
+   "percent": 97.99,
+   "numerator": 731,
+   "denominator": 746,
+   "definition": "entry points with a hand-written or reviewed (high/medium confidence) description",
+   "breakdown": {
+    "hand": 36,
+    "reviewed": 695,
+    "dead": 5,
+    "none": 1,
+    "role": 9
+   },
+   "remaining": "9 role-only/low-confidence, 1 generic, 5 dead-code routines without a behaviour description; reviewed entries are spot-checked, not individually re-verified"
   },
   "data_classification": {
-   "status": "IN PROGRESS",
-   "requirement": "every ROM byte classified with evidence",
-   "metric": "code bank 65536 + footer 16 + BPE assets 194269 + FFh padding 186944 + annotated tables 5875 = 452640 bytes (43.2%) classified with evidence; zero runs 42844 (generated, may be table data); raw unannotated 553092 bytes",
-   "evidence": [
-    "assets/layout.json",
-    "docs/inventory.md"
-   ]
+   "percent": 40.7,
+   "numerator": 400051,
+   "denominator": 983024,
+   "definition": "data bytes whose class (asset, tiles, table, padding) is established by code or decoding",
+   "breakdown": {
+    "unknown": 553092,
+    "compressed_asset": 194269,
+    "padding": 186944,
+    "zero_run": 29881,
+    "table": 18838
+   },
+   "remaining": "553092 unknown bytes + 29881 zero-run bytes of unestablished meaning"
   },
-  "asset_understanding": {
-   "status": "IN PROGRESS",
-   "requirement": "every data structure and asset format identified",
-   "metric": "BPE container format fully understood; 129/129 streams assigned to a family (92 visually checked); level data, sound data, object/collision tables only partly decoded",
-   "evidence": [
-    "docs/assets.md",
-    "assets/catalog.json"
-   ]
+  "data_decoding_editable": {
+   "percent": 40.1,
+   "numerator": 394176,
+   "denominator": 983024,
+   "definition": "data bytes rebuilt from an editable decoded representation (PNG etc.) or generated FFh padding",
+   "breakdown": {
+    "opaque": 558967,
+    "editable": 194269,
+    "generated": 199907,
+    "generated_unexplained": 29881
+   },
+   "remaining": "558967 opaque bytes (gamedata/raw) + 29881 generated zero-run bytes not yet explained"
   },
-  "compression": {
-   "status": "VERIFIED",
-   "requirement": "all streams decoded and verified",
-   "metric": "129/129 streams decode to declared sizes and re-encode byte-identically",
-   "evidence": [
-    "tests/test_bpe.py::test_all_catalogued_streams",
-    "tests/test_bpe.py::test_exact_recompression_of_every_stream"
-   ]
+  "runtime_coverage": {
+   "percent": 65.98,
+   "numerator": 15602,
+   "denominator": 23645,
+   "definition": "statically traced instructions executed in at least one emulator run",
+   "entry_points_executed": "446 / 746 (59.8 %)",
+   "states": "20/20 reached; 12 naturally (0,1,2,3,4,6,8,9,12,13,16,19), 8 only with fault injection (5,7,10,11,14,15,17,18) - see docs/game-states.md",
+   "runs": 28,
+   "executed_outside_static_trace": 0
   },
-  "runtime_validation": {
-   "status": "PARTIALLY VERIFIED",
-   "requirement": "all reachable game systems tested",
-   "metric": "464/746 entry points executed in 51 emulator runs; all 20 states reached (some only with fault injection); Worlds 2-6 gameplay not yet played",
-   "evidence": [
-    "tests/test_runtime.py",
-    "emu/scripts/",
-    "docs/game-states.md"
-   ]
-  },
-  "save_system": {
-   "status": "PARTIALLY VERIFIED",
-   "requirement": "save/load/overwrite verified",
-   "metric": "creation, reset-with-save -> Continue -> resume, and overwrite via the save screen pass in the emulator; SRAM record format not yet documented",
-   "evidence": [
-    "tests/test_runtime.py"
-   ]
-  },
-  "ci": {
-   "status": "VERIFIED",
-   "requirement": "clean build and automated tests passing",
-   "metric": "GitHub Actions runs source-only tests on every push; ROM tests run locally",
-   "evidence": [
-    ".github/workflows/ci.yml"
-   ]
-  },
-  "documentation": {
-   "status": "IN PROGRESS",
-   "requirement": "complete contributor and technical documentation",
-   "metric": "README, STATUS, ROADMAP, inventory, functions, game states, assets, english patch, tools triage",
-   "evidence": [
-    "docs/"
-   ]
+  "reproducible_source_build": {
+   "percent_rom_free": 100.0,
+   "definition": "share of ROM bytes rebuilt without the original ROM (committed source + gamedata/)",
+   "by_representation_bytes": {
+    "opaque": 558967,
+    "editable": 194269,
+    "generated": 229788,
+    "source": 65552
+   },
+   "by_representation_percent": {
+    "opaque": 53.31,
+    "editable": 18.53,
+    "generated": 21.91,
+    "source": 6.25
+   },
+   "note": "source = committed asm; editable = gamedata PNG etc.; generated = layout metadata; opaque = gamedata/raw copies of undecoded bytes.  Only source, editable and explained generated bytes count as decompiled."
   }
  },
- "numbers": {
-  "rom_bytes": 1048576,
-  "bytes_from_assembly_source": 65552,
-  "bytes_generated_from_layout_and_decoded_assets": 424057,
-  "raw_bytes_copied_from_rom": 558967,
-  "entry_points": 746,
-  "named_hand": 36,
-  "documented_reviewed": 695,
-  "named_role_only": 9,
-  "unnamed": 1,
-  "dead_code": 5,
-  "instructions": 23645,
-  "runtime_entry_points_executed": 464,
-  "bpe_streams": 129,
-  "emulator_runs": 51
- }
+ "status": {
+  "build_fidelity": "VERIFIED",
+  "compression": "VERIFIED",
+  "ci": "VERIFIED (ubuntu + windows)",
+  "rom_free_build": "VERIFIED (clean build with the ROM removed matches)",
+  "code_discovery": "PARTIALLY VERIFIED",
+  "code_understanding": "PARTIALLY VERIFIED",
+  "data_classification": "IN PROGRESS",
+  "asset_understanding": "IN PROGRESS",
+  "runtime_validation": "PARTIALLY VERIFIED",
+  "save_system": "PARTIALLY VERIFIED",
+  "documentation": "IN PROGRESS"
+ },
+ "instructions": 23645,
+ "definitions": "docs/completion.json - measured progress, computed only from project artifacts.\n\nSix headline metrics (each with an explicit numerator / denominator):\n  1 executable_code_classification   code-bank bytes with an evidence-backed class / 65,536\n  2 routine_documentation            entry points documented (hand or reviewed high/medium) / all\n  3 data_classification              data bytes with an evidence-backed class / data bytes\n  4 data_decoding_editable           data bytes decoded into an editable representation, or\n                                     generated FFh padding / data bytes   (opaque tables do NOT count)\n  5 runtime_coverage                 static instructions executed in the emulator / static instructions\n  6 reproducible_source_build        ROM bytes rebuilt without the ROM, split by representation\n'Data bytes' = the ROM minus the code bank (40000h-4FFFFh) and the 16-byte footer.\n100 % is only claimed for a metric when the numerator equals the denominator."
 }
