@@ -20,7 +20,7 @@ for f in files:
     p = os.path.join(ROOT, f)
     if not os.path.isfile(p):
         continue
-    if f.lower().endswith(('.ws', '.wsc', '.bin', '.pc2', '.gitbundle', '.sav')):
+    if f.lower().endswith(('.ws', '.wsc', '.bin', '.pc2', '.gitbundle', '.sav', '.ips', '.bps', '.ups')):
         bad.append((f, 'forbidden extension'))
         continue
     data = open(p, 'rb').read()

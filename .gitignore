@@ -6,3 +6,7 @@ build/
 *.wsc
 *.bin
 __pycache__/
+*.ips
+*.bps
+*.ups
+emu/ktrun

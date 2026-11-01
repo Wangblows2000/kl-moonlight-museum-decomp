@@ -1,0 +1,13 @@
+--- a/mednafen/wswan/v30mz.c
++++ b/mednafen/wswan/v30mz.c
+@@ v30mz_execute
+       WSwan_InterruptCheck();
+ 
++      { extern void kt_hook(uint32); kt_hook(((I.sregs[PS] << 4) + I.pc) & 0xFFFFF); }
+       DoOP(FETCHOP);
+--- a/mednafen/wswan/wswan-memory.c
++++ b/mednafen/wswan/wswan-memory.c
+@@ void WSwan_writeport(uint32 IOPort, uint8 V)
+ {
++   { extern void kt_port(uint32, uint8); kt_port(IOPort, V); }
+    WritePortCore(IOPort, V, false);

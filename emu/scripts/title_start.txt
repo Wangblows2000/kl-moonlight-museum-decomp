@@ -1,0 +1,21 @@
+# T5-T7 title -> menu -> start game
+wait 700
+shot title
+tap start
+wait 60
+shot after_start
+tap start
+wait 60
+shot menu2
+tap a
+wait 120
+shot after_a
+wait 300
+shot later
+hold right 120
+shot moved_right
+hold a 10
+wait 30
+shot jump
+wait 600
+shot idle

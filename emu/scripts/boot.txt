@@ -1,0 +1,13 @@
+# T1 clean boot, no input: what does the game do by itself?
+wait 60
+shot f0060
+wait 120
+shot f0180
+wait 120
+shot f0300
+wait 300
+shot f0600
+wait 600
+shot f1200
+ram ram_f1200
+sram sram_f1200
