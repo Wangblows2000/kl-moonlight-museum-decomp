@@ -15,7 +15,7 @@ the English-patched build.
 | 2 | 17E5 | state02_museum_menu | Museum hub: World / Vision / Dream Stones / Lives / Gallery | 3, 9, 19 | N (pause -> Vision select) |
 | 3 | 2409 | state03_world_card_story | "World N - name" card and museum dialogue before a Vision | 4 | N |
 | 4 | 24BA | state04_vision_load | loads the Vision (~14 frames) | 1 | N |
-| 5 | 25A6 | state05_vision_restart_wipe (to be renamed: room transition) | vertical-bar wipe, then load another area of the Vision | 4 | F (`play_flags` bit 4); natural trigger found statically: `sub_B332` (warp records at 8000:[13C2h], every gameplay frame) sets bit 4 when the player holds a direction at a warp point |
+| 5 | 25A6 | state05_room_transition | vertical-bar wipe, then load another area (room) of the Vision | 4 | F (`play_flags` bit 4); natural trigger found statically: `sub_B332` (warp records at 8000:[13C2h], every gameplay frame) sets bit 4 when the player holds a direction at a warp point |
 | 6 | 2622 | state06_miss_retry | after a miss or pause->Retry; fade, reload | 4 | N (pause -> Retry, enemy hits) |
 | 7 | 208E | state07_vision_clear | "VISION CLEAR W-V" results, dream-stone tally | 9 | F (`play_flags` bit 5); natural trigger found statically: warp record type 4 + pressing Up sets bit 5 (`sub_B332_case4`) |
 | 8 | C294 | state08_namco_logo | boot logo | 0 | N |

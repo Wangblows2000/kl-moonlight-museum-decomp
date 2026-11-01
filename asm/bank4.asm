@@ -3,10 +3,12 @@
 ; then hand-annotated names come from tools/symbols.py.  Do not edit by hand:
 ; edit symbols.py / hints.py and regenerate.
 
+player_hurt_timer    equ 0x03D9
 game_state           equ 0x1380
 vblank_line          equ 0x1386
 play_flags           equ 0x1398
-lives_reserve        equ 0x13E0
+dream_stones         equ 0x13DE
+hearts               equ 0x13E0
 lives                equ 0x13E1
 progress_code        equ 0x13FE
 
@@ -127,7 +129,7 @@ loc_009B:
     rr xor, ax, ax                           ; 400C1
     mov ds,ax                                ; 400C3
     mov byte [0x262],0x81                    ; 400C5
-    call sub_DE51                            ; 400CA
+    call sound_stop_all                      ; 400CA
     call sound_tick                          ; 400CD
     cli                                      ; 400D0
     or byte [play_flags],0x80                ; 400D1
@@ -180,7 +182,12 @@ sprite_table_init:
     pop ax                                   ; 4010E
     ret                                      ; 4010F
 
-sub_0110:
+; Zeroes the main game globals: game_state, sprite cursor [1382h], play_flags, vblank_line, key words and assorted state bytes. [high, reviewed: range_0000_7B9B.json]
+; in:  none
+; out: [1380h]=0, [1382h]=0, [1384h], play_flags, [1385h], vblank_line, [1387h], [1388h..138Fh], [139Ah], [139Ch] = 0
+; side effects: sets DS=0
+; evidence: 40110-4013B: xor ax,ax; mov [game_state],ax; mov [play_flags],al ... mov [0x139c],ax; ret
+globals_clear:
     rr xor, ax, ax                           ; 40110
     mov ds,ax                                ; 40112
     mov [game_state],ax                      ; 40114
@@ -247,7 +254,7 @@ hw_init:
     out 0x90,al                              ; 40190
     out 0x91,al                              ; 40192
     call sprite_table_init                   ; 40194
-    call sub_0110                            ; 40197
+    call globals_clear                       ; 40197
     rr xor, ax, ax                           ; 4019A
     mov ds,ax                                ; 4019C
     mov ax,0x1                               ; 4019E
@@ -305,11 +312,11 @@ reset:
     rr xor, ax, ax                           ; 40207
     mov ds,ax                                ; 40209
     pusha                                    ; 4020B
-    call sub_AC60                            ; 4020C
+    call ieep_register_game_record           ; 4020C
     popa                                     ; 4020F
     call sram_check_signature                ; 40210
     call sound_init                          ; 40213
-    call sub_DE51                            ; 40216
+    call sound_stop_all                      ; 40216
     rr xor, ax, ax                           ; 40219
     mov ds,ax                                ; 4021B
     mov [vblank_line],al                     ; 4021D
@@ -334,17 +341,27 @@ main_loop:
     jmp ax                                   ; 40245
     db 0xE9,0xDF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 40247
 
-sub_0250:
+; Sets two sound-work bytes ([274h]=1, [275h]=4), runs install_game_vblank with SI=2 (fades both palette groups) and then calls DE51 which silences the sound channels. [medium, reviewed: range_0000_7B9B.json]
+; in:  none
+; out: RAM 0274h/0275h; whatever install_game_vblank/DE51 write
+; side effects: installs irq_vblank_game; ~60 frame fade; sound stopped (DE51 zeroes ports 88h/8Ah/8Eh and channel state)
+; evidence: 40251-40261: mov byte [0x274],1; mov byte [0x275],4; mov si,2; call install_game_vblank; call sub_DE51. In install_game_vblank SI=2 selects both fade routines (C810 and CAE3).
+fade_out_and_stop_sound:
     pusha                                    ; 40250
     mov byte [0x274],0x1                     ; 40251
     mov byte [0x275],0x4                     ; 40256
     mov si,0x2                               ; 4025B
     call install_game_vblank                 ; 4025E
-    call sub_DE51                            ; 40261
+    call sound_stop_all                      ; 40261
     popa                                     ; 40264
     ret                                      ; 40265
 
-sub_0266:
+; Integer square root of DX by the bit-pair method; result returned in DX. [high, reviewed: range_0000_7B9B.json]
+; in:  DX = 16-bit value
+; out: DX = floor(sqrt(DX)); AX,BX,CX,DI,SI preserved
+; side effects: none
+; evidence: 40271-4029B: 8 iterations (cl=10h, sub cl,2): remainder si=(si<<2)|2 bits of DX, trial=2*root+1 (di), if trial<=rem then root++ (bx); mov dx,bx. Used by the iris HBlank handlers 3A6D/3AE0.
+isqrt16:
     push ax                                  ; 40266
     push bx                                  ; 40267
     push cx                                  ; 40268
@@ -383,12 +400,17 @@ loc_029B:
     pop ax                                   ; 402A1
     ret                                      ; 402A2
 
-sub_02A3:
+; Installs irq_vblank_gameplay (03F0) as VBlank handler and, in horizontal mode outside world 6, a line-compare raster chain for SCR1 parallax: 4-band chain (0450) in worlds 1 and 4, 2-band chain (050D) otherwise; enables VBlank+line interrupts (B2h=50h), or VBlank only (40h) in vertical mode / world 6. [high, reviewed: range_0000_7B9B.json]
+; in:  play_flags bit0 (vertical), progress_code high nibble (world)
+; out: vector 26h (0:0098h), vector 24h (0:0090h), port 03h=0, B6h ack, B2h enable mask
+; side effects: replaces interrupt handlers
+; evidence: 402AB: mov word [bx],irq_03F0 at bx=98h; 402C1-402CE: ah&F0 compared with 60h/10h/40h; 402DA mov word [bx],irq_0450 (bx=90h); 402F9 irq_050D; out 0xb2,0x50 or 0x40.
+gameplay_install_irqs:
     pusha                                    ; 402A3
     rr xor, ax, ax                           ; 402A4
     mov ds,ax                                ; 402A6
     mov bx,0x98                              ; 402A8
-    mov word [bx],irq_03F0                   ; 402AB
+    mov word [bx],irq_vblank_gameplay        ; 402AB
     mov word [bx+0x2],0x4000                 ; 402AF
     test byte [play_flags],0x1               ; 402B4
     jnz short loc_0311                       ; 402B9
@@ -405,7 +427,7 @@ loc_02D3:
     rr xor, ax, ax                           ; 402D3
     mov ds,ax                                ; 402D5
     mov bx,0x90                              ; 402D7
-    mov word [bx],irq_0450                   ; 402DA
+    mov word [bx],irq_parallax4_band0        ; 402DA
     mov word [bx+0x2],0x4000                 ; 402DE
     rr xor, al, al                           ; 402E3
     out 0x3,al                               ; 402E5
@@ -418,7 +440,7 @@ loc_02F2:
     rr xor, ax, ax                           ; 402F2
     mov ds,ax                                ; 402F4
     mov bx,0x90                              ; 402F6
-    mov word [bx],irq_050D                   ; 402F9
+    mov word [bx],irq_parallax2_band0        ; 402F9
     mov word [bx+0x2],0x4000                 ; 402FD
     rr xor, al, al                           ; 40302
     out 0x3,al                               ; 40304
@@ -436,12 +458,17 @@ loc_0319:
     popa                                     ; 40319
     ret                                      ; 4031A
 
-sub_031B:
+; Same decision logic as gameplay_install_irqs but only re-installs irq_vblank_gameplay and re-enables the interrupt mask (B2h=50h with line-compare, 40h without); the line-compare handler already installed is reused. Called when the pause menu closes. [high, reviewed: range_0000_7B9B.json]
+; in:  play_flags bit0, progress_code world nibble
+; out: vector 26h, ports B6h/B2h
+; side effects: re-enables line-compare interrupt
+; evidence: 40323: mov word [bx],irq_03F0; 4034B-4035C out 0xb6/0xb2 = 50h; 40361 = 40h; caller 4136F in sub_11B6 (pause menu exit).
+gameplay_enable_irqs:
     pusha                                    ; 4031B
     rr xor, ax, ax                           ; 4031C
     mov ds,ax                                ; 4031E
     mov bx,0x98                              ; 40320
-    mov word [bx],irq_03F0                   ; 40323
+    mov word [bx],irq_vblank_gameplay        ; 40323
     mov word [bx+0x2],0x4000                 ; 40327
     test byte [play_flags],0x1               ; 4032C
     jnz short loc_0361                       ; 40331
@@ -475,7 +502,12 @@ loc_0369:
     popa                                     ; 40369
     ret                                      ; 4036A
 
-sub_036B:
+; Duplicate of sprite_table_init: sprite table base 0Bh (RAM 1600h), first sprite 0, sprite count 0. [high, reviewed: range_0000_7B9B.json]
+; in:  none
+; out: ports 04h=0Bh, 05h=0, 06h=0
+; side effects: none
+; evidence: 4036B-40373: mov al,0xb; out 0x4,al; xor ax,ax; out 0x5,al; out 0x6,al
+sprite_table_init_2:
     mov al,0xb                               ; 4036B
     out 0x4,al                               ; 4036D
     rr xor, ax, ax                           ; 4036F
@@ -483,7 +515,12 @@ sub_036B:
     out 0x6,al                               ; 40373
     ret                                      ; 40375
 
-irq_0376:
+; VBlank handler used outside gameplay (installed by video_reset_menu 1480 and after the state-5 wipe): writes SCR2 scroll from [139Eh]/[139Fh], reads keys, publishes the sprite count from the [1382h] write cursor, runs sound_tick, stores the scanline in vblank_line, acks VBlank. [high, reviewed: range_0000_7B9B.json]
+; in:  [139Eh],[139Fh] SCR2 x/y, [1382h] sprite cursor
+; out: ports 12h/13h, 05h=0, 06h=(cursor-1600h)/4, [1382h]=1600h, vblank_line, B6h=40h
+; side effects: calls read_keypad, sound_tick
+; evidence: 4037D-403B1: out 0x12/0x13 from [0x139e]/[0x139f]; mov ax,[0x1382]; sub ax,0x1600; shr x2; out 0x6,al; call sound_tick; in al,2; mov [vblank_line],al; out 0xb6,0x40; iret
+irq_vblank_simple:
     pusha                                    ; 40376
     push ds                                  ; 40377
     push es                                  ; 40378
@@ -517,15 +554,25 @@ irq_0376:
     iret                                     ; 403B6
     db 0x90   ; 403B7
 
-irq_03B8:
+; HBlank-timer interrupt handler that only acknowledges the interrupt (same behaviour as irq_hblank_timer_ack). Installed at vector 27h by video_reset_menu. [high, reviewed: range_0000_7B9B.json]
+; in:  none
+; out: port B6h=80h
+; side effects: none
+; evidence: 403B8-403BE: push ax; mov al,0x80; out 0xb6,al; pop ax; iret. Installed at 0:009Ch by 414A9.
+irq_hblank_ack_b:
     push ax                                  ; 403B8
     mov al,0x80                              ; 403B9
     out 0xb6,al                              ; 403BB
     pop ax                                   ; 403BD
     iret                                     ; 403BE
 
+; Writes the foreground scroll registers from the camera: SCR2 X = camX>>4, SCR2 Y = camY>>4 (1/16-px camera to pixels). [high, reviewed: range_0000_7B9B.json]
+; in:  [13A0h] camera x, [13A2h] camera y
+; out: ports 12h, 13h
+; side effects: none
+; evidence: 403C1-403CD: mov ax,[0x13a0]; shr ax,4; out 0x12,al; mov ax,[0x13a2]; shr ax,4; out 0x13,al. Port 07h=31h in hw_init puts SCR2 map at 1800h.
 ; dispatch roles: sub_03F0_case0, sub_03F0_case1, sub_03F0_case2, sub_03F0_case3
-sub_03F0_case0_03BF:
+scr2_scroll_from_camera:
     mov cl,0x4                               ; 403BF
     mov ax,[0x13a0]                          ; 403C1
     shr ax,cl                                ; 403C4
@@ -539,15 +586,20 @@ sub_03F0_case0_03BF:
 
 ; jump table tbl_03E8: 4 words, bound: hint (first use at 40413)
 tbl_03E8:
-    dw sub_03F0_case0_4E18
-    dw sub_03F0_case1
+    dw scr2_commit_col
+    dw scr2_commit_row
 
 ; jump table tbl_03EC: 2 words, bound: mask (first use at 40401)
 tbl_03EC:
-    dw sub_03F0_case0_03BF
-    dw sub_03F0_case0_03BF
+    dw scr2_scroll_from_camera
+    dw scr2_scroll_from_camera
 
-irq_03F0:
+; In-Vision VBlank handler: updates SCR2 scroll, reads keys, commits the map row/column prepared by the scroller ([13B4h] bit0 selects row/column writer), streams one set of animated tiles per frame (player frame 5DA6 on odd frames, else bank-7 animated tiles 6274 or held-enemy tiles 62E1, plus 6338 in progress 36xx), runs sound_tick, acks VBlank and sets vblank_line. [high, reviewed: range_0000_7B9B.json]
+; in:  play_flags bit0, [13B4h], [138Eh] frame counter, progress_code
+; out: ports 12h/13h, SCR2 map 1800h, tile RAM 3B30h/3C30h/3F00h/28E0h, vblank_line, B6h
+; side effects: calls read_keypad, sound_tick
+; evidence: 40401 call [cs:bx+tbl_03EC] (03BF); 40413 call [cs:bx+tbl_03E8] (4E18/4DD0 by [13B4h]&1); 40418-4043D: [138Eh] bit0 -> sub_5DA6, bit1 -> sub_6274 (+sub_6338 if progress&FF00=3600h), else sub_62E1; installed by 402AB.
+irq_vblank_gameplay:
     pusha                                    ; 403F0
     push ds                                  ; 403F1
     push es                                  ; 403F2
@@ -567,18 +619,18 @@ irq_03F0:
     jc short loc_043D                        ; 4041D
     shr ax,1                                 ; 4041F
     jc short loc_0429                        ; 40421
-    call sub_62E1                            ; 40423
+    call held_enemy_anim_update              ; 40423
     jmp near loc_0440                        ; 40426
 loc_0429:
-    call sub_6274                            ; 40429
+    call anim_tiles_update                   ; 40429
     mov ax,[progress_code]                   ; 4042C
     and ax,0xff00                            ; 4042F
     cmp ax,0x3600                            ; 40432
     jnz short loc_0440                       ; 40435
-    call sub_6338                            ; 40437
+    call anim_tile_28e0_w3v6                 ; 40437
     jmp near loc_0440                        ; 4043A
 loc_043D:
-    call sub_5DA6                            ; 4043D
+    call player_upload_anim_frame            ; 4043D
 loc_0440:
     call sound_tick                          ; 40440
     mov al,0x40                              ; 40443
@@ -590,7 +642,12 @@ loc_0440:
     popa                                     ; 4044E
     iret                                     ; 4044F
 
-irq_0450:
+; Line-compare interrupt, first band of a 4-band SCR1 parallax chain: SCR1 X = (camX/2 + frame counter)>>3, then chains to irq_parallax4_band1 at line 1Fh. [high, reviewed: range_0000_7B9B.json]
+; in:  [13A0h] camera x, [138Eh] frame counter
+; out: port 10h, port 03h=1Fh, vector 24h (0:0090h) = 0481, B6h=10h
+; side effects: re-targets the line interrupt
+; evidence: 40457-4047B: mov ax,[0x13a0]; shr ax,1; add ax,[0x138e]; shr ax,3; out 0x10,al; mov word [0x90],irq_0481; mov al,0x1f; out 0x3,al; out 0xb6,0x10
+irq_parallax4_band0:
     pusha                                    ; 40450
     push ds                                  ; 40451
     push es                                  ; 40452
@@ -604,7 +661,7 @@ irq_0450:
     rr xor, ax, ax                           ; 40465
     mov ds,ax                                ; 40467
     mov bx,0x90                              ; 40469
-    mov word [bx],irq_0481                   ; 4046C
+    mov word [bx],irq_parallax4_band1        ; 4046C
     mov word [bx+0x2],0x4000                 ; 40470
     mov al,0x1f                              ; 40475
     out 0x3,al                               ; 40477
@@ -615,7 +672,12 @@ irq_0450:
     popa                                     ; 4047F
     iret                                     ; 40480
 
-irq_0481:
+; Second parallax band: SCR1 X = (camX/2 + frame)>>4; next band at line 37h. [high, reviewed: range_0000_7B9B.json]
+; in:  [13A0h], [138Eh]
+; out: port 10h, port 03h=37h, vector 24h = 04B6
+; side effects: none
+; evidence: 4048C-404AC: shr ax,1; add ax,[0x138e]; shr ax,4; out 0x10,al; irq_04B6; mov al,0x37; out 0x3,al
+irq_parallax4_band1:
     pusha                                    ; 40481
     push ds                                  ; 40482
     push es                                  ; 40483
@@ -631,7 +693,7 @@ irq_0481:
     rr xor, ax, ax                           ; 4049A
     mov ds,ax                                ; 4049C
     mov bx,0x90                              ; 4049E
-    mov word [bx],irq_04B6                   ; 404A1
+    mov word [bx],irq_parallax4_band2        ; 404A1
     mov word [bx+0x2],0x4000                 ; 404A5
     mov al,0x37                              ; 404AA
     out 0x3,al                               ; 404AC
@@ -642,7 +704,12 @@ irq_0481:
     popa                                     ; 404B4
     iret                                     ; 404B5
 
-irq_04B6:
+; Third parallax band: SCR1 X = camX>>6; next band at line 87h. [high, reviewed: range_0000_7B9B.json]
+; in:  [13A0h]
+; out: port 10h, port 03h=87h, vector 24h = 04E6
+; side effects: none
+; evidence: 404C1-404DC: mov ax,[0x13a0]; mov cl,6; shr ax,cl; out 0x10,al; irq_04E6; mov al,0x87; out 0x3,al
+irq_parallax4_band2:
     pusha                                    ; 404B6
     push ds                                  ; 404B7
     push es                                  ; 404B8
@@ -657,7 +724,7 @@ irq_04B6:
     rr xor, ax, ax                           ; 404CA
     mov ds,ax                                ; 404CC
     mov bx,0x90                              ; 404CE
-    mov word [bx],irq_04E6                   ; 404D1
+    mov word [bx],irq_parallax4_band3        ; 404D1
     mov word [bx+0x2],0x4000                 ; 404D5
     mov al,0x87                              ; 404DA
     out 0x3,al                               ; 404DC
@@ -668,7 +735,12 @@ irq_04B6:
     popa                                     ; 404E4
     iret                                     ; 404E5
 
-irq_04E6:
+; Last band of the 4-band chain: SCR1 X/Y = 0 (static HUD/bottom area), line compare back to 0 and re-arms irq_parallax4_band0. [high, reviewed: range_0000_7B9B.json]
+; in:  none
+; out: ports 10h,11h,03h = 0; vector 24h = 0450
+; side effects: none
+; evidence: 404ED-404FC: xor al,al; out 0x10; out 0x11; out 0x3; mov word [bx],irq_0450
+irq_parallax4_band3:
     pusha                                    ; 404E6
     push ds                                  ; 404E7
     push es                                  ; 404E8
@@ -681,7 +753,7 @@ irq_04E6:
     rr xor, ax, ax                           ; 404F5
     mov ds,ax                                ; 404F7
     mov bx,0x90                              ; 404F9
-    mov word [bx],irq_0450                   ; 404FC
+    mov word [bx],irq_parallax4_band0        ; 404FC
     mov word [bx+0x2],0x4000                 ; 40500
     mov al,0x10                              ; 40505
     out 0xb6,al                              ; 40507
@@ -690,7 +762,12 @@ irq_04E6:
     popa                                     ; 4050B
     iret                                     ; 4050C
 
-irq_050D:
+; First band of the 2-band SCR1 parallax chain (worlds other than 1/4): SCR1 X = camX>>6; next band at line 87h. [high, reviewed: range_0000_7B9B.json]
+; in:  [13A0h]
+; out: port 10h, port 03h=87h, vector 24h = 0538
+; side effects: none
+; evidence: 40514-4052E: mov ax,[0x13a0]; shr ax,6; out 0x10,al; irq_0538; mov al,0x87; out 0x3,al
+irq_parallax2_band0:
     pusha                                    ; 4050D
     push ds                                  ; 4050E
     push es                                  ; 4050F
@@ -702,7 +779,7 @@ irq_050D:
     rr xor, ax, ax                           ; 4051C
     mov ds,ax                                ; 4051E
     mov bx,0x90                              ; 40520
-    mov word [bx],irq_0538                   ; 40523
+    mov word [bx],irq_parallax2_band1        ; 40523
     mov word [bx+0x2],0x4000                 ; 40527
     mov al,0x87                              ; 4052C
     out 0x3,al                               ; 4052E
@@ -713,7 +790,12 @@ irq_050D:
     popa                                     ; 40536
     iret                                     ; 40537
 
-irq_0538:
+; Second band of the 2-band chain: SCR1 X/Y = 0, line compare 0, re-arms irq_parallax2_band0. [high, reviewed: range_0000_7B9B.json]
+; in:  none
+; out: ports 10h,11h,03h=0; vector 24h = 050D
+; side effects: none
+; evidence: 4053F-4054E: xor al,al; out 0x10/0x11/0x3; mov word [bx],irq_050D
+irq_parallax2_band1:
     pusha                                    ; 40538
     push ds                                  ; 40539
     push es                                  ; 4053A
@@ -726,7 +808,7 @@ irq_0538:
     rr xor, ax, ax                           ; 40547
     mov ds,ax                                ; 40549
     mov bx,0x90                              ; 4054B
-    mov word [bx],irq_050D                   ; 4054E
+    mov word [bx],irq_parallax2_band0        ; 4054E
     mov word [bx+0x2],0x4000                 ; 40552
     mov al,0x10                              ; 40557
     out 0xb6,al                              ; 40559
@@ -777,7 +859,12 @@ loc_0593:
     popa                                     ; 405AC
     ret                                      ; 405AD
 
-state19_world_record_case0:
+; Per-frame object draw pass (horizontal mode): for each of the 40 slots at 0300h, culls against the camera window (x camX-100h..+F00h, y camY-100h..+A00h, unless byte+1 bit3 'always draw'), converts position to screen pixels (DH=x, DL=y) and calls the type's draw handler from the near-pointer table at 8:026Ah; sets byte+1 bit0 when drawn and clears bit1. [high, reviewed: range_0000_7B9B.json]
+; in:  object slots 0300h-07FFh, camera [13A0h]/[13A2h]
+; out: object byte+1 flags; sprite entries written by the draw handlers
+; side effects: calls per-type draw handlers (ES=8000h)
+; evidence: 405B1-40635: mov ax,0x8000; mov es,ax; mov di,0x300; mov cx,0x28; bounds via [0x13a0]/[0x13a2] -100h/+1000h/+B00h; call [es:si+0x26a]; or bh,1; and bh,0FDh. Role name 'state19_world_record_case0' came from a jump table but the routine is also called by 23A5 and gameplay.
+objects_draw:
     pusha                                    ; 405AE
     push ds                                  ; 405AF
     push es                                  ; 405B0
@@ -847,7 +934,12 @@ loc_062C:
     popa                                     ; 40639
     ret                                      ; 4063A
 
-state19_world_record_case1:
+; Vertical-orientation variant of objects_draw: same slot walk and draw-table call, but culls and converts with axes swapped (screen x from [13B2h]*256 - y, screen y from x). [high, reviewed: range_0000_7B9B.json]
+; in:  object slots, [13A0h]/[13A2h], [13B2h] level extent
+; out: object flags, sprite entries via draw handlers
+; side effects: calls draw handlers at 8:026Ah
+; evidence: 40647: mov bp,[0x13a2] (x tested against camY window); 40671-40691: mov dh/ah,[0x13b2]; sub ax,[di+4]; 406B9 call [es:si+0x26a].
+objects_draw_vert:
     pusha                                    ; 4063B
     mov ax,0x8000                            ; 4063C
     mov es,ax                                ; 4063F
@@ -920,8 +1012,8 @@ loc_06C4:
 
 ; jump table tbl_06D2: 2 words, bound: hint (first use at 41FD7)
 tbl_06D2:
-    dw state19_world_record_case0
-    dw state19_world_record_case1
+    dw objects_draw
+    dw objects_draw_vert
 
 ; objects_collide [high]
 ; Pairwise object collision.  For player (0300h+0C0h) vs every slot, then other groups,
@@ -1175,16 +1267,16 @@ loc_08A1:
 loc_08B5:
     test si,si                               ; 408B5
     jnz short loc_08BF                       ; 408B7
-    call obj3B_update_case3_C810             ; 408B9
+    call obj3B_palfade_step_spr_to_black     ; 408B9
     jmp near loc_08D0                        ; 408BC
 loc_08BF:
     cmp si,byte +0x1                         ; 408BF
     jnz short loc_08CA                       ; 408C2
-    call obj3B_update_case2_CAE3             ; 408C4
+    call obj3B_palfade_step_bg_to_black      ; 408C4
     jmp near loc_08D0                        ; 408C7
 loc_08CA:
-    call obj3B_update_case3_C810             ; 408CA
-    call obj3B_update_case2_CAE3             ; 408CD
+    call obj3B_palfade_step_spr_to_black     ; 408CA
+    call obj3B_palfade_step_bg_to_black      ; 408CD
 loc_08D0:
     popa                                     ; 408D0
     cmp di,byte +0x3c                        ; 408D1
@@ -1304,7 +1396,12 @@ loc_08E2:
     db 0xE7,0x28,0x58,0x8B,0xC0,0xE7,0x26,0x58,0x8B,0xC0,0xE7,0x24,0x58,0x8B,0xC0,0xE7   ; 40DAC
     db 0x22,0x58,0x8B,0xC0,0xE7,0x20,0x83,0xC4,0x10,0x61,0xC3,0x90   ; 40DBC
 
-sub_0DC8:
+; Loads the key-configuration panel graphics: maps ROM bank 1 at 2000h and BPE-expands two panel streams (Type A / Type B) into tile RAM 34C0h and 3A10h, swapping which goes where according to the current choice (DI) and picking the horizontal or vertical set from play_flags bit0. [high, reviewed: range_0000_7B9B.json]
+; in:  DI = current selection (0 / nonzero), play_flags bit0
+; out: tile RAM 34C0h.., 3A10h..
+; side effects: port C2h set to F1h and restored
+; evidence: 40DCC: mov al,0xf1; out 0xc2,al; 40DE6-40E1E: bp=[es:bx+1399h/13A5h/13A1h/139Dh]; call bpe_expand to di=34C0h/3A10h. Bank 1 streams 113A9.. are the keyconfig_panel family in docs/assets.md.
+keyconfig_load_panels:
     pusha                                    ; 40DC8
     in al,0xc2                               ; 40DC9
     push ax                                  ; 40DCB
@@ -1344,7 +1441,12 @@ loc_0E21:
     popa                                     ; 40E25
     ret                                      ; 40E26
 
-sub_11B6_case2:
+; Pause-menu option 2 (Key config): shows the two key-layout panels, toggles the choice with left/right, confirms with Start/A (B or X-pad in vertical mode cancels) and stores the choice in play_flags bit1 (horizontal) or bit2 (vertical). Restores the pause window graphics afterwards. [medium, reviewed: range_0000_7B9B.json]
+; in:  keys [1388h]/[138Ch], remapped keys via BFD6, play_flags bits0-2
+; out: play_flags bit1 or bit2, sprite table, port 00h, port 06h
+; side effects: plays SFX 2Bh/2Fh/30h via DD97; reloads pause gfx (1051, 1106)
+; evidence: 40E4A call sub_0DC8; 40E71 test [0x1392],0xa0 -> not di; 40F18 test [0x138c],0x600 / 0x800 (0x250/0xa0 when vertical); 40F72-40F8B: and al,2 / and al,4 into play_flags; reached through tbl_1045[2] of the pause menu.
+pause_opt_key_config:
     pusha                                    ; 40E27
     mov ax,0x2b                              ; 40E28
     out 0x0,ax                               ; 40E2B
@@ -1360,7 +1462,7 @@ sub_11B6_case2:
 loc_0E46:
     shr al,1                                 ; 40E46
     rr sbb, di, di                           ; 40E48
-    call sub_0DC8                            ; 40E4A
+    call keyconfig_load_panels               ; 40E4A
     mov ax,0x2f                              ; 40E4D
     out 0x0,ax                               ; 40E50
     sti                                      ; 40E52
@@ -1370,17 +1472,17 @@ loc_0E54:
     mov ds,ax                                ; 40E56
     mov [vblank_line],al                     ; 40E58
     mov dx,[0x1388]                          ; 40E5B
-    call sub_BFD6                            ; 40E5F
+    call keymap_apply                        ; 40E5F
     mov [0x1390],dx                          ; 40E62
     mov dx,[0x138c]                          ; 40E66
-    call sub_BFD6                            ; 40E6A
+    call keymap_apply                        ; 40E6A
     mov [0x1392],dx                          ; 40E6D
     test word [0x1392],0xa0                  ; 40E71
     jz short loc_0E84                        ; 40E77
     not di                                   ; 40E79
-    call sub_0DC8                            ; 40E7B
+    call keyconfig_load_panels               ; 40E7B
     mov ax,0x2b                              ; 40E7E
-    call sub_DD97                            ; 40E81
+    call sound_play                          ; 40E81
 loc_0E84:
     test byte [play_flags],0x1               ; 40E84
     jnz short loc_0EC5                       ; 40E89
@@ -1389,21 +1491,21 @@ loc_0E84:
     mov cx,0x80a                             ; 40E8F
     mov dx,0x2818                            ; 40E92
     mov bp,0x14c                             ; 40E95
-    call sub_DCB8                            ; 40E98
+    call emit_sprite_block_pal               ; 40E98
     mov cx,0x602                             ; 40E9B
     mov dx,0x8020                            ; 40E9E
     mov bp,0x1a1                             ; 40EA1
-    call sub_DCB8                            ; 40EA4
+    call emit_sprite_block_pal               ; 40EA4
     jmp near loc_0EFF                        ; 40EA7
 loc_0EAA:
     mov cx,0x602                             ; 40EAA
     mov dx,0x3020                            ; 40EAD
     mov bp,0x1a1                             ; 40EB0
-    call sub_DCB8                            ; 40EB3
+    call emit_sprite_block_pal               ; 40EB3
     mov cx,0x80a                             ; 40EB6
     mov dx,0x7818                            ; 40EB9
     mov bp,0x14c                             ; 40EBC
-    call sub_DCB8                            ; 40EBF
+    call emit_sprite_block_pal               ; 40EBF
     jmp near loc_0EFF                        ; 40EC2
 loc_0EC5:
     test di,di                               ; 40EC5
@@ -1411,21 +1513,21 @@ loc_0EC5:
     mov cx,0xa08                             ; 40EC9
     mov dx,0x4804                            ; 40ECC
     mov bp,0x14c                             ; 40ECF
-    call sub_DCB8                            ; 40ED2
+    call emit_sprite_block_pal               ; 40ED2
     mov cx,0x206                             ; 40ED5
     mov dx,0x8054                            ; 40ED8
     mov bp,0x1a1                             ; 40EDB
-    call sub_DCB8                            ; 40EDE
+    call emit_sprite_block_pal               ; 40EDE
     jmp near loc_0EFF                        ; 40EE1
 loc_0EE4:
     mov cx,0x206                             ; 40EE4
     mov dx,0x800c                            ; 40EE7
     mov bp,0x1a1                             ; 40EEA
-    call sub_DCB8                            ; 40EED
+    call emit_sprite_block_pal               ; 40EED
     mov cx,0xa08                             ; 40EF0
     mov dx,0x484c                            ; 40EF3
     mov bp,0x14c                             ; 40EF6
-    call sub_DCB8                            ; 40EF9
+    call emit_sprite_block_pal               ; 40EF9
     jmp near loc_0EFF                        ; 40EFC
 loc_0EFF:
     mov ax,[0x1382]                          ; 40EFF
@@ -1439,7 +1541,7 @@ loc_0EFF:
     test word [0x138c],0x600                 ; 40F18
     jz short loc_0F29                        ; 40F1E
     mov ax,0x2f                              ; 40F20
-    call sub_DD97                            ; 40F23
+    call sound_play                          ; 40F23
     jmp near loc_0F61                        ; 40F26
 loc_0F29:
     test word [0x138c],0x800                 ; 40F29
@@ -1449,7 +1551,7 @@ loc_0F34:
     test word [0x138c],0x250                 ; 40F34
     jz short loc_0F45                        ; 40F3A
     mov ax,0x2f                              ; 40F3C
-    call sub_DD97                            ; 40F3F
+    call sound_play                          ; 40F3F
     jmp near loc_0F61                        ; 40F42
 loc_0F45:
     test word [0x138c],0xa0                  ; 40F45
@@ -1461,11 +1563,11 @@ loc_0F4D:
     jmp near loc_0E54                        ; 40F55
 loc_0F58:
     mov ax,0x30                              ; 40F58
-    call sub_DD97                            ; 40F5B
+    call sound_play                          ; 40F5B
     jmp near loc_0F8F                        ; 40F5E
 loc_0F61:
     mov ax,0x2f                              ; 40F61
-    call sub_DD97                            ; 40F64
+    call sound_play                          ; 40F64
     test byte [play_flags],0x1               ; 40F67
     jnz short loc_0F80                       ; 40F6C
     shr di,1                                 ; 40F6E
@@ -1485,16 +1587,21 @@ loc_0F8F:
     mov ds,ax                                ; 40F91
     mov [0x1388],ax                          ; 40F93
     mov [0x138c],ax                          ; 40F96
-    call sub_1051                            ; 40F99
+    call pause_load_window_gfx               ; 40F99
     mov di,0x2                               ; 40F9C
-    call sub_1106                            ; 40F9F
+    call pause_load_item_label               ; 40F9F
     mov word [0x1382],0x1600                 ; 40FA2
     mov ax,0x2b                              ; 40FA8
     out 0x0,ax                               ; 40FAB
     popa                                     ; 40FAD
     ret                                      ; 40FAE
 
-sub_11B6_case4:
+; Pause-menu option 4 ('???'): toggles screen orientation. Sets/clears play_flags bit0, switches the LCD orientation icon (port 15h = 2 vertical / 4 horizontal), rebuilds the level view (1C68), rotates tiles 0-1C8h clockwise (to vertical) or counter-clockwise (back), and re-installs gameplay interrupts. [high, reviewed: range_0000_7B9B.json]
+; in:  play_flags bit0
+; out: play_flags bit0, port 15h, port 10h, tile RAM, interrupt vectors; returns AX=1 (close menu)
+; side effects: calls sub_1C68, tiles_rotate_cw/ccw, D6AE, gameplay_install_irqs, C370
+; evidence: 40FB7: mov al,2; out 0x15,al; or play_flags,1; 40FCC call sub_4230 (bp=1C9h tiles); 40FD6: mov al,4; out 0x15,al; and play_flags,0FEh; 40FEB call sub_426A; 41001 mov ax,1. Port 15h bits 1/2 are the vertical/horizontal LCD icons.
+pause_opt_rotate_screen:
     pusha                                    ; 40FAF
     test byte [play_flags],0x1               ; 40FB0
     jnz short loc_0FD6                       ; 40FB5
@@ -1502,12 +1609,12 @@ sub_11B6_case4:
     out 0x15,al                              ; 40FB9
     or byte [play_flags],0x1                 ; 40FBB
     cli                                      ; 40FC0
-    call sub_1C68                            ; 40FC1
+    call level_init_view                     ; 40FC1
     sti                                      ; 40FC4
     rr xor, bx, bx                           ; 40FC5
     mov bp,0x1c9                             ; 40FC7
     rr sub, bp, bx                           ; 40FCA
-    call sub_4230                            ; 40FCC
+    call tiles_rotate_cw                     ; 40FCC
     rr xor, al, al                           ; 40FCF
     out 0x10,al                              ; 40FD1
     jmp near loc_0FEE                        ; 40FD3
@@ -1516,36 +1623,41 @@ loc_0FD6:
     out 0x15,al                              ; 40FD8
     and byte [play_flags],0xfe               ; 40FDA
     cli                                      ; 40FDF
-    call sub_1C68                            ; 40FE0
+    call level_init_view                     ; 40FE0
     sti                                      ; 40FE3
     rr xor, bx, bx                           ; 40FE4
     mov bp,0x1c9                             ; 40FE6
     rr sub, bp, bx                           ; 40FE9
-    call sub_426A                            ; 40FEB
+    call tiles_rotate_ccw                    ; 40FEB
 loc_0FEE:
     push ax                                  ; 40FEE
     push dx                                  ; 40FEF
     mov ax,0x8                               ; 40FF0
     rr xor, dx, dx                           ; 40FF3
-    call sub_D6AE                            ; 40FF5
+    call start_palette_fade                  ; 40FF5
     pop dx                                   ; 40FF8
     pop ax                                   ; 40FF9
-    call sub_02A3                            ; 40FFA
-    call sub_C370                            ; 40FFD
+    call gameplay_install_irqs               ; 40FFA
+    call hud_fill_background                 ; 40FFD
     popa                                     ; 41000
     mov ax,0x1                               ; 41001
     ret                                      ; 41004
 
-sub_11B6_case3:
+; Pause-menu option 3 (Vision select): stops sound, writes 1Dh bytes of RAM 1480h to save memory via F302 (AX=4), stores the orientation/key-config bits (play_flags&7) into [14B8h], and jumps to main_loop with game_state = 2 (museum menu). [high, reviewed: range_0000_7B9B.json]
+; in:  play_flags
+; out: [262h]=81h, SRAM via F302, [14B8h] low 3 bits, game_state=2
+; side effects: does not return (jmp main_loop)
+; evidence: 41009 mov byte [0x262],0x81; 4100E call sub_0250; 41012-4101B mov ax,4; mov di,0x1480; mov cx,0x1d; call sub_F302; 41023 and [0x14b8],0F8h; or [0x14b8],al; 4102C mov word [game_state],2; jmp main_loop
+pause_opt_vision_select:
     rr xor, ax, ax                           ; 41005
     mov ds,ax                                ; 41007
     mov byte [0x262],0x81                    ; 41009
-    call sub_0250                            ; 4100E
+    call fade_out_and_stop_sound             ; 4100E
     cli                                      ; 41011
     mov ax,0x4                               ; 41012
     mov di,0x1480                            ; 41015
     mov cx,0x1d                              ; 41018
-    call sub_F302                            ; 4101B
+    call sram_load_record                    ; 4101B
     mov al,[play_flags]                      ; 4101E
     and al,0x7                               ; 41021
     and byte [0x14b8],0xf8                   ; 41023
@@ -1553,27 +1665,42 @@ sub_11B6_case3:
     mov word [game_state],0x2                ; 4102C
     jmp near main_loop                       ; 41032
 
-sub_11B6_case1:
-    call sub_DE51                            ; 41035
+; Pause-menu option 1 (Retry): stops sound (DE51), sets play_flags bit6 (gameplay loop then goes to state 6) and returns AX=1 to close the menu. [high, reviewed: range_0000_7B9B.json]
+; in:  none
+; out: play_flags bit6, AX=1
+; side effects: sound channels silenced
+; evidence: 41035-41040: call sub_DE51; or byte [play_flags],0x40; mov ax,1; ret
+pause_opt_retry:
+    call sound_stop_all                      ; 41035
     or byte [play_flags],0x40                ; 41038
     mov ax,0x1                               ; 4103D
     ret                                      ; 41040
 
+; Pause-menu option 0 (Cancel) and entry 5: returns AX=1 so the menu closes without further action. [high, reviewed: range_0000_7B9B.json]
+; in:  none
+; out: AX=1
+; side effects: none
+; evidence: 41041: mov ax,1; ret (tbl_1045 entries 0 and 5)
 ; dispatch roles: sub_11B6_case0, sub_11B6_case5
-sub_11B6_case0:
+pause_opt_close:
     mov ax,0x1                               ; 41041
     ret                                      ; 41044
 
 ; jump table tbl_1045: 6 words, bound: adjacent (first use at 41329)
 tbl_1045:
-    dw sub_11B6_case0
-    dw sub_11B6_case1
-    dw sub_11B6_case2
-    dw sub_11B6_case3
-    dw sub_11B6_case4
-    dw sub_11B6_case0
+    dw pause_opt_close
+    dw pause_opt_retry
+    dw pause_opt_key_config
+    dw pause_opt_vision_select
+    dw pause_opt_rotate_screen
+    dw pause_opt_close
 
-sub_1051:
+; Loads the pause-window (or, when [13FDh] != 0, a hint-sign picture) graphics: sets sprite palettes 8-15, maps ROM bank 1, picks a stream from the bank-1 pointer tables at 2000:0000 (4-item window) or 2000:0829 (5-item window / hint signs) and BPE-expands it to tile RAM 34C0h; sets the item count [1384h] to 4 or 5; rotates the window tiles in vertical mode. [medium, reviewed: range_0000_7B9B.json]
+; in:  [13FDh] hint index, play_flags bit0, progress_code, [148Fh]
+; out: ports 30h-3Eh, tile RAM 34C0h.., [1384h]
+; side effects: port C2h=F1h then restored; may call AEDF and tiles_rotate_cw
+; evidence: 41075-4109B: out 0x30..0x3e; 410A7-410C2: compare progress high byte with [0x148f], world 6 check via AEDF; 410C4 bp=[es:bx+0x829], [0x1384]=5; 410D1 bp=[es:bx+0], [0x1384]=4; 410E1 call bpe_expand (di=34C0h); 410FC call sub_4230 when vertical.
+pause_load_window_gfx:
     pusha                                    ; 41051
     rr xor, ax, ax                           ; 41052
     mov ds,ax                                ; 41054
@@ -1620,7 +1747,7 @@ loc_106A:
     cmp ah,0x60                              ; 410B5
     jnz short loc_10C4                       ; 410B8
     and ax,0xf                               ; 410BA
-    call sub_AEDF                            ; 410BD
+    call ex_vision_cleared_test              ; 410BD
     test ax,ax                               ; 410C0
     jz short loc_10D1                        ; 410C2
 loc_10C4:
@@ -1645,7 +1772,7 @@ loc_10DB:
     jnc short loc_10FF                       ; 410F4
     mov bx,0x14c                             ; 410F6
     mov bp,0x7e                              ; 410F9
-    call sub_4230                            ; 410FC
+    call tiles_rotate_cw                     ; 410FC
 loc_10FF:
     rr xor, ax, ax                           ; 410FF
     mov ds,ax                                ; 41101
@@ -1653,7 +1780,12 @@ loc_10FF:
     ret                                      ; 41104
     db 0x90   ; 41105
 
-sub_1106:
+; BPE-expands the menu-label graphic for pause item DI (bank-1 table at 2000:086D, +0Ah entries for vertical mode) into tile RAM 3BF0h. [high, reviewed: range_0000_7B9B.json]
+; in:  DI = item index, play_flags bit0
+; out: tile RAM 3BF0h..
+; side effects: port C2h=F1h then restored
+; evidence: 41110-4112E: shl di,1; sbb ax,ax; and ax,0xa; add di,ax; mov bp,[es:di+0x86d]; mov di,0x3bf0; call bpe_expand. Bank 1 menu_label streams are 10 strips (5 horizontal + 5 vertical).
+pause_load_item_label:
     pusha                                    ; 41106
     push ds                                  ; 41107
     push es                                  ; 41108
@@ -1680,7 +1812,12 @@ sub_1106:
     popa                                     ; 41136
     ret                                      ; 41137
 
-sub_1138:
+; Emits a 14x9 grid of sprites (126 entries) for the hint-sign picture: tile numbers from the map at RAM 3CA0h, tile base 14Ch, at (38h,24h) in horizontal mode or rotated (columns from x=8Ch downward) in vertical mode. [medium, reviewed: range_0000_7B9B.json]
+; in:  RAM 3CA0h tile map, play_flags bit0, [1382h] sprite cursor
+; out: sprite table entries, [1382h] += 1F8h
+; side effects: none
+; evidence: 41138-4117C: add word [0x1382],0x1f8; mov si,0x3ca0; mov ax,0x14c|0x2000; dl=24h,cx=9 rows x 0Eh; 41180.. vertical variant (dh=8Ch, sub dh,8). Hint signs are 14x9 tiles per docs/assets.md.
+hint_sign_draw:
     mov bx,[0x1382]                          ; 41138
     add word [0x1382],0x1f8                  ; 4113C
     pusha                                    ; 41142
@@ -1744,18 +1881,23 @@ loc_1194:
     popa                                     ; 411B4
     ret                                      ; 411B5
 
-sub_11B6:
+; Pause menu / hint-sign viewer. Plays SFX 33h, fades via install_game_vblank, loads the window graphics, then loops each frame: up/down moves the cursor over [1384h] items (reloading the label), draws cursor and window sprites (orientation dependent), Start/A runs the item handler from tbl_1045 (Cancel, Retry, Key config, Vision select, rotate), B closes. With [13FDh] != 0 it only displays the hint sign until Start/A/B. On exit restores interrupts and reloads gameplay graphics. [medium, reviewed: range_0000_7B9B.json]
+; in:  [13FDh], play_flags, keys [1388h]/[138Ch] and remapped [1390h]/[1392h]
+; out: play_flags bit3 cleared, [13FDh]=0, sprite table, interrupt vectors, [1384h]=0
+; side effects: calls install_game_vblank, 1051, 1106, 1138, DCB8, item handlers, 031B, 1426, 13BA, C370, C4DE; SFX 2Bh/2Fh/30h/33h
+; evidence: 411C3 mov ax,0x33; call DD97; 4123D test [0x1392],0x40 (next) / 0x10 (prev) with modulo [0x1384]; 41303 call [cs:bx+tbl_1045]; 412F1 [0x138c]&600h confirm, 800h cancel; 41377 and byte [play_flags],0F7h; 4137C call sub_1426.
+pause_menu:
     pusha                                    ; 411B6
     cmp byte [0x13fd],0x0                    ; 411B7
     jnz short loc_11C3                       ; 411BC
     mov byte [0x262],0x80                    ; 411BE
 loc_11C3:
     mov ax,0x33                              ; 411C3
-    call sub_DD97                            ; 411C6
+    call sound_play                          ; 411C6
     rr xor, si, si                           ; 411C9
     call install_game_vblank                 ; 411CB
-    call sub_C370                            ; 411CE
-    call sub_1051                            ; 411D1
+    call hud_fill_background                 ; 411CE
+    call pause_load_window_gfx               ; 411D1
     rr xor, ax, ax                           ; 411D4
     mov ds,ax                                ; 411D6
     mov bx,0x98                              ; 411D8
@@ -1777,7 +1919,7 @@ loc_11C3:
 loc_1205:
     cmp byte [0x13fd],0x0                    ; 41205
     jnz short loc_120F                       ; 4120A
-    call sub_1106                            ; 4120C
+    call pause_load_item_label               ; 4120C
 loc_120F:
     sti                                      ; 4120F
     hlt                                      ; 41210
@@ -1788,10 +1930,10 @@ loc_1216:
     mov ds,ax                                ; 41218
     mov [vblank_line],al                     ; 4121A
     mov dx,[0x1388]                          ; 4121D
-    call sub_BFD6                            ; 41221
+    call keymap_apply                        ; 41221
     mov [0x1390],dx                          ; 41224
     mov dx,[0x138c]                          ; 41228
-    call sub_BFD6                            ; 4122C
+    call keymap_apply                        ; 4122C
     mov [0x1392],dx                          ; 4122F
     cmp byte [0x13fd],0x0                    ; 41233
     jz short loc_123D                        ; 41238
@@ -1805,9 +1947,9 @@ loc_123D:
     rr cmp, di, dx                           ; 4124C
     rr sbb, ax, ax                           ; 4124E
     rr and, di, ax                           ; 41250
-    call sub_1106                            ; 41252
+    call pause_load_item_label               ; 41252
     mov ax,0x2b                              ; 41255
-    call sub_DD97                            ; 41258
+    call sound_play                          ; 41258
 loc_125B:
     test word [0x1392],0x10                  ; 4125B
     jz short loc_127C                        ; 41261
@@ -1819,9 +1961,9 @@ loc_125B:
     dec dl                                   ; 4126F
     rr mov, di, dx                           ; 41271
 loc_1273:
-    call sub_1106                            ; 41273
+    call pause_load_item_label               ; 41273
     mov ax,0x2b                              ; 41276
-    call sub_DD97                            ; 41279
+    call sound_play                          ; 41279
 loc_127C:
     test byte [play_flags],0x1               ; 4127C
     jnz short loc_12A8                       ; 41281
@@ -1833,11 +1975,11 @@ loc_127C:
     mov cx,0x902                             ; 4128E
     mov dh,0x4c                              ; 41291
     mov bp,0x1bf                             ; 41293
-    call sub_DCB8                            ; 41296
+    call emit_sprite_block_pal               ; 41296
     mov cx,0xb09                             ; 41299
     mov dx,0x4424                            ; 4129C
     mov bp,0x14c                             ; 4129F
-    call sub_DCB8                            ; 412A2
+    call emit_sprite_block_pal               ; 412A2
     jmp near loc_12D1                        ; 412A5
 loc_12A8:
     rr mov, ax, di                           ; 412A8
@@ -1849,14 +1991,14 @@ loc_12A8:
     mov cx,0x209                             ; 412B4
     mov dl,0x24                              ; 412B7
     mov bp,0x1bf                             ; 412B9
-    call sub_DCB8                            ; 412BC
+    call emit_sprite_block_pal               ; 412BC
     mov cx,0x90b                             ; 412BF
     mov dx,0x501c                            ; 412C2
     mov bp,0x14c                             ; 412C5
-    call sub_DCB8                            ; 412C8
+    call emit_sprite_block_pal               ; 412C8
     jmp near loc_12D1                        ; 412CB
 loc_12CE:
-    call sub_1138                            ; 412CE
+    call hint_sign_draw                      ; 412CE
 loc_12D1:
     mov ax,[0x1382]                          ; 412D1
     sub ax,0x1600                            ; 412D4
@@ -1871,7 +2013,7 @@ loc_12D1:
     test word [0x138c],0x600                 ; 412F1
     jz short loc_130C                        ; 412F7
     mov ax,0x2f                              ; 412F9
-    call sub_DD97                            ; 412FC
+    call sound_play                          ; 412FC
     rr mov, bx, di                           ; 412FF
     shl bx,1                                 ; 41301
     call [cs:bx+tbl_1045]                    ; 41303
@@ -1885,7 +2027,7 @@ loc_1317:
     test word [0x138c],0x250                 ; 41317
     jz short loc_1332                        ; 4131D
     mov ax,0x2f                              ; 4131F
-    call sub_DD97                            ; 41322
+    call sound_play                          ; 41322
     rr mov, bx, di                           ; 41325
     shl bx,1                                 ; 41327
     call [cs:bx+tbl_1045]                    ; 41329
@@ -1899,7 +2041,7 @@ loc_133D:
     test word [0x1392],0xe00                 ; 4133D
     jz short loc_134E                        ; 41343
     mov ax,0x2f                              ; 41345
-    call sub_DD97                            ; 41348
+    call sound_play                          ; 41348
     jmp near loc_1364                        ; 4134B
 loc_134E:
     hlt                                      ; 4134E
@@ -1910,20 +2052,20 @@ loc_134E:
     jmp near loc_1216                        ; 4135B
 loc_135E:
     mov ax,0x30                              ; 4135E
-    call sub_DD97                            ; 41361
+    call sound_play                          ; 41361
 loc_1364:
     rr xor, si, si                           ; 41364
     call install_game_vblank                 ; 41366
     mov word [0x1382],0x1600                 ; 41369
-    call sub_031B                            ; 4136F
+    call gameplay_enable_irqs                ; 4136F
     mov byte [0x13fd],0x0                    ; 41372
     and byte [play_flags],0xf7               ; 41377
-    call sub_1426                            ; 4137C
-    call sub_13BA                            ; 4137F
-    call sub_C370                            ; 41382
+    call load_gameplay_sprite_tiles          ; 4137C
+    call set_default_sprite_palettes         ; 4137F
+    call hud_fill_background                 ; 41382
     test byte [play_flags],0x40              ; 41385
     jnz short loc_138F                       ; 4138A
-    call sub_C4DE                            ; 4138C
+    call hud_draw_all                        ; 4138C
 loc_138F:
     mov byte [0x262],0x81                    ; 4138F
     rr xor, ax, ax                           ; 41394
@@ -1943,7 +2085,12 @@ loc_139D:
     popa                                     ; 413B8
     ret                                      ; 413B9
 
-sub_13BA:
+; Writes fixed values to the eight sprite palettes (ports 30h-3Eh). [high, reviewed: range_0000_7B9B.json]
+; in:  none
+; out: ports 30h,32h,...,3Eh
+; side effects: none
+; evidence: 413BA-413E0: mov ax,0x7000; out 0x30,ax ... mov ax,0x6400; out 0x3e,ax; ret
+set_default_sprite_palettes:
     mov ax,0x7000                            ; 413BA
     out 0x30,ax                              ; 413BD
     mov ax,0x4200                            ; 413BF
@@ -1962,7 +2109,12 @@ sub_13BA:
     out 0x3e,ax                              ; 413E0
     ret                                      ; 413E2
 
-sub_13E3:
+; Clears 2000h words at 0:2000h, i.e. the whole 2bpp tile area 2000h-3FFFh. [high, reviewed: range_0000_7B9B.json]
+; in:  none
+; out: RAM 2000h-3FFFh = 0
+; side effects: sets DS=0
+; evidence: 413E8-413EE: mov di,0x2000; mov cx,0x1000; rep stosw
+clear_tile_ram:
     pusha                                    ; 413E3
     rr xor, ax, ax                           ; 413E4
     mov es,ax                                ; 413E6
@@ -1974,7 +2126,12 @@ sub_13E3:
     popa                                     ; 413F4
     ret                                      ; 413F5
 
-sub_13F6:
+; Clears the SCR1 tile map at RAM 0800h-0FFFh (port 07h=31h puts SCR1 at 0800h). [high, reviewed: range_0000_7B9B.json]
+; in:  none
+; out: RAM 0800h-0FFFh = 0
+; side effects: none
+; evidence: 413FB-41401: mov di,0x800; mov cx,0x400; rep stosw
+clear_scr1_map:
     pusha                                    ; 413F6
     rr xor, ax, ax                           ; 413F7
     mov es,ax                                ; 413F9
@@ -1984,7 +2141,12 @@ sub_13F6:
     popa                                     ; 41403
     ret                                      ; 41404
 
-sub_1405:
+; Fills the SCR2 tile map at RAM 1800h-1FFFh with entry 0E00h (tile 0, palette 7). [high, reviewed: range_0000_7B9B.json]
+; in:  none
+; out: RAM 1800h-1FFFh = 0E00h
+; side effects: none
+; evidence: 4140A-41413: mov di,0x1800; mov cx,0x400; mov ax,0xe00; rep stosw
+clear_scr2_map:
     pusha                                    ; 41405
     rr xor, ax, ax                           ; 41406
     mov es,ax                                ; 41408
@@ -1995,7 +2157,12 @@ sub_1405:
     popa                                     ; 41415
     ret                                      ; 41416
 
-sub_1417:
+; Clears the sprite attribute table at RAM 1600h-17FFh. [high, reviewed: range_0000_7B9B.json]
+; in:  none
+; out: RAM 1600h-17FFh = 0
+; side effects: none
+; evidence: 4141C-41422: mov di,0x1600; mov cx,0x100; rep stosw
+clear_sprite_table:
     pusha                                    ; 41417
     rr xor, ax, ax                           ; 41418
     mov es,ax                                ; 4141A
@@ -2005,31 +2172,36 @@ sub_1417:
     popa                                     ; 41424
     ret                                      ; 41425
 
-sub_1426:
+; (Re)loads the fixed gameplay sprite tiles: calls the per-object tile loaders (B720, obj03 tiles, defeat-burst tiles, captured-enemy tiles, 8C42, 903A, 9882, 895A), the player base tiles, rotates tiles 14Bh-1FFh clockwise in vertical mode, and refreshes the animated tile sets and the current player frame. [medium, reviewed: range_0000_7B9B.json]
+; in:  play_flags bit0
+; out: tile RAM 2000h-3FFFh (sprite tile area)
+; side effects: none
+; evidence: 41429-41441 calls B720,674E,7966,7646,8C42,903A,9882,895A,4EB4; 4144B-41453 bx=14Bh, bp=200h-14Bh, call sub_4230 if vertical; 41456-4145F calls 6274,62E1,5CBC,5DA6. Callers: pause_menu exit (4137C) and state04_vision_load (42543).
+load_gameplay_sprite_tiles:
     pusha                                    ; 41426
     push ds                                  ; 41427
     push es                                  ; 41428
-    call sub_B720                            ; 41429
-    call sub_674E                            ; 4142C
-    call sub_7966                            ; 4142F
-    call sub_7646                            ; 41432
-    call sub_8C42                            ; 41435
-    call sub_903A                            ; 41438
-    call sub_9882                            ; 4143B
-    call sub_895A                            ; 4143E
-    call sub_4EB4                            ; 41441
+    call load_font_tiles                     ; 41429
+    call load_obj03_tiles                    ; 4142C
+    call load_burst_tiles                    ; 4142F
+    call load_held_enemy_tiles               ; 41432
+    call load_key_tiles                      ; 41435
+    call load_switch_tiles                   ; 41438
+    call load_gate_tiles                     ; 4143B
+    call load_tiles_1d4                      ; 4143E
+    call load_player_base_tiles              ; 41441
     mov al,[play_flags]                      ; 41444
     shr al,1                                 ; 41447
     jnc short loc_1456                       ; 41449
     mov bx,0x14b                             ; 4144B
     mov bp,0x200                             ; 4144E
     rr sub, bp, bx                           ; 41451
-    call sub_4230                            ; 41453
+    call tiles_rotate_cw                     ; 41453
 loc_1456:
-    call sub_6274                            ; 41456
-    call sub_62E1                            ; 41459
-    call obj01_draw_case0_5CBC               ; 4145C
-    call sub_5DA6                            ; 4145F
+    call anim_tiles_update                   ; 41456
+    call held_enemy_anim_update              ; 41459
+    call obj01_player_anim_select_normal     ; 4145C
+    call player_upload_anim_frame            ; 4145F
     rr xor, ax, ax                           ; 41462
     mov ds,ax                                ; 41464
     pop es                                   ; 41466
@@ -2037,7 +2209,12 @@ loc_1456:
     popa                                     ; 41468
     ret                                      ; 41469
 
-sub_146A:
+; Resets the sprite-tile allocator: next free tile index [1396h] = 14Bh (allocation proceeds downward) and clears the 24 per-object tile-base words at 1400h-142Fh used by the lvlXX_tick loaders. [high, reviewed: range_0000_7B9B.json]
+; in:  none
+; out: [1396h]=14Bh, RAM 1400h-142Fh = 0
+; side effects: none
+; evidence: 4146C mov word [0x1396],0x14b; 41472-4147D: bx=1400h, cx=18h words zeroed. lvlXX_tick routines do [1396h]-=n and store it in [14xxh].
+tile_alloc_reset:
     rr xor, ax, ax                           ; 4146A
     mov word [0x1396],0x14b                  ; 4146C
     mov bx,0x1400                            ; 41472
@@ -2048,7 +2225,12 @@ loc_1478:
     loop loc_1478                            ; 4147D
     ret                                      ; 4147F
 
-sub_1480:
+; Resets video for a non-gameplay screen: display and sprites off, installs irq_vblank_simple (VBlank) and irq_hblank_ack_b, enables VBlank+HBlank-timer interrupts, clears SCR1 map, SCR2 map, sprite table and tile RAM, initialises sprites, default sprite palettes, zero scrolls and key words, and sets the SCR2 and sprite windows to (0,0)-(E0h,8Fh). [high, reviewed: range_0000_7B9B.json]
+; in:  none
+; out: ports 00h,06h,B7h,B4h,B6h,B2h,10h-13h,08h-0Fh; vectors 26h/27h; RAM maps; [1382h]=1600h; [139Eh],[139Fh],[138Eh],[1385h],[1388h],[138Ch],[1390h],[1392h]=0
+; side effects: interrupts re-armed (CLI on entry)
+; evidence: 41499 mov word [bx],irq_0376 (bx=98h); 414A9 irq_03B8 (bx=9Ch); 414B6-414BC out 0xb6/0xb2,0xc0; calls 13F6,1405,1417,13E3,036B,B524,B720,13BA; 41500-4150E out 0xa/0xe,0xe0; out 0xb/0xf,0x8f.
+video_reset_menu:
     pusha                                    ; 41480
     cli                                      ; 41481
     rr xor, ax, ax                           ; 41482
@@ -2060,12 +2242,12 @@ sub_1480:
     rr xor, ax, ax                           ; 41492
     mov ds,ax                                ; 41494
     mov bx,0x98                              ; 41496
-    mov word [bx],irq_0376                   ; 41499
+    mov word [bx],irq_vblank_simple          ; 41499
     mov word [bx+0x2],0x4000                 ; 4149D
     rr xor, ax, ax                           ; 414A2
     mov ds,ax                                ; 414A4
     mov bx,0x9c                              ; 414A6
-    mov word [bx],irq_03B8                   ; 414A9
+    mov word [bx],irq_hblank_ack_b           ; 414A9
     mov word [bx+0x2],0x4000                 ; 414AD
     mov al,0x0                               ; 414B2
     out 0xb4,al                              ; 414B4
@@ -2073,14 +2255,14 @@ sub_1480:
     out 0xb6,al                              ; 414B8
     mov al,0xc0                              ; 414BA
     out 0xb2,al                              ; 414BC
-    call sub_13F6                            ; 414BE
-    call sub_1405                            ; 414C1
-    call sub_1417                            ; 414C4
-    call sub_13E3                            ; 414C7
-    call sub_036B                            ; 414CA
-    call sub_B524                            ; 414CD
-    call sub_B720                            ; 414D0
-    call sub_13BA                            ; 414D3
+    call clear_scr1_map                      ; 414BE
+    call clear_scr2_map                      ; 414C1
+    call clear_sprite_table                  ; 414C4
+    call clear_tile_ram                      ; 414C7
+    call sprite_table_init_2                 ; 414CA
+    call objs_clear_all                      ; 414CD
+    call load_font_tiles                     ; 414D0
+    call set_default_sprite_palettes         ; 414D3
     rr xor, ax, ax                           ; 414D6
     out 0x10,al                              ; 414D8
     out 0x11,al                              ; 414DA
@@ -2109,7 +2291,12 @@ sub_1480:
     popa                                     ; 41510
     ret                                      ; 41511
 
-sub_1512:
+; Title-screen option drawing: from the selection word in BP picks which of three option graphics is highlighted (byte table at 4000:15FD), copies each option's 1Ah tiles from bank-3 pointer table 3000:8D97 (highlight variant at +8) to tile RAM 3B20h/3CC0h/3E60h and emits them as sprite blocks (DD05). Options 2 and 3 are drawn only when the corresponding bits of BP's high byte are set. [medium, reviewed: range_0000_7B9B.json]
+; in:  BP = menu state (low nibble cursor, high-byte bits = options present)
+; out: tile RAM 3B20h/3CC0h/3E60h, sprite entries
+; side effects: none
+; evidence: 4152F mov cl,[cs:bx+0x15fd]; 4153B shr ah,1 / 41580 shr ah,1 gate the extra options; 41546 bx=8D97h (+8 when highlighted); call sub_6244 (cx=1Ah); call sub_DD05. Only caller 41703 is inside state00_title.
+title_draw_menu_options:
     pusha                                    ; 41512
     rr mov, ax, bp                           ; 41513
     rr mov, bx, ax                           ; 41515
@@ -2150,12 +2337,12 @@ loc_1562:
     mov si,[es:bx+0x4]                       ; 41565
     mov di,0x3e60                            ; 41569
     mov cx,0x1a                              ; 4156C
-    call sub_6244                            ; 4156F
+    call copy_tiles_to_ram                   ; 4156F
     pop di                                   ; 41572
     pop dx                                   ; 41573
     pop cx                                   ; 41574
     mov bp,0x1e6                             ; 41575
-    call sub_DD05                            ; 41578
+    call emit_sprite_block                   ; 41578
     pop bp                                   ; 4157B
     pop ax                                   ; 4157C
     add dl,0x14                              ; 4157D
@@ -2182,12 +2369,12 @@ loc_15A6:
     mov si,[es:bx+0x2]                       ; 415A9
     mov di,0x3cc0                            ; 415AD
     mov cx,0x1a                              ; 415B0
-    call sub_6244                            ; 415B3
+    call copy_tiles_to_ram                   ; 415B3
     pop di                                   ; 415B6
     pop dx                                   ; 415B7
     pop cx                                   ; 415B8
     mov bp,0x1cc                             ; 415B9
-    call sub_DD05                            ; 415BC
+    call emit_sprite_block                   ; 415BC
     add dl,0x14                              ; 415BF
     pop bp                                   ; 415C2
 loc_15C3:
@@ -2210,24 +2397,24 @@ loc_15E3:
     mov si,[es:bx]                           ; 415E6
     mov di,0x3b20                            ; 415E9
     mov cx,0x1a                              ; 415EC
-    call sub_6244                            ; 415EF
+    call copy_tiles_to_ram                   ; 415EF
     pop di                                   ; 415F2
     pop dx                                   ; 415F3
     pop cx                                   ; 415F4
     mov bp,0x1b2                             ; 415F5
-    call sub_DD05                            ; 415F8
+    call emit_sprite_block                   ; 415F8
     popa                                     ; 415FB
     ret                                      ; 415FC
     db 0x00,0x00,0x00,0x00,0x00,0x00,0x02,0x00,0x02,0x00,0x02,0x00,0x01,0x00,0x01,0x00   ; 415FD
     db 0x01,0x00,0x02,0x00,0x01,0x02,0x00,0x01,0x90   ; 4160D
 
 state00_title:
-    call sub_1480                            ; 41616
-    call sub_AD25                            ; 41619
+    call video_reset_menu                    ; 41616
+    call save_block_init                     ; 41619
     mov al,0x4                               ; 4161C
     out 0x15,al                              ; 4161E
     and byte [play_flags],0xfe               ; 41620
-    call sub_F28E                            ; 41625
+    call title_screen_load_gfx               ; 41625
     mov ax,0x0                               ; 41628
     out 0x30,ax                              ; 4162B
     mov ax,0x6310                            ; 4162D
@@ -2246,17 +2433,17 @@ state00_title:
     out 0x3e,ax                              ; 4164E
     mov ax,0x4                               ; 41650
     rr xor, dx, dx                           ; 41653
-    call sub_D6AE                            ; 41655
+    call start_palette_fade                  ; 41655
     rr xor, bp, bp                           ; 41658
     push bp                                  ; 4165A
-    call sub_F3DF                            ; 4165B
+    call sram_suspend_valid                  ; 4165B
     pop bp                                   ; 4165E
     test ax,ax                               ; 4165F
     jz short loc_1667                        ; 41661
     or bp,0x100                              ; 41663
 loc_1667:
     push bp                                  ; 41667
-    call sub_F360                            ; 41668
+    call sram_scan_tickets                   ; 41668
     pop bp                                   ; 4166B
     test ax,ax                               ; 4166C
     jz short loc_1674                        ; 4166E
@@ -2266,7 +2453,7 @@ loc_1674:
     out 0x0,ax                               ; 41677
     sti                                      ; 41679
     mov ax,0x1a                              ; 4167A
-    call sub_DD97                            ; 4167D
+    call sound_play                          ; 4167D
 loc_1680:
     rr xor, ax, ax                           ; 41680
     mov ds,ax                                ; 41682
@@ -2306,13 +2493,13 @@ loc_16DA:
     rr or, bp, ax                            ; 416DA
 loc_16DC:
     mov ax,0x2b                              ; 416DC
-    call sub_DD97                            ; 416DF
+    call sound_play                          ; 416DF
 loc_16E2:
     test word [0x138c],0x800                 ; 416E2
     jz short loc_1703                        ; 416E8
     and bp,0xfff                             ; 416EA
     mov ax,0x30                              ; 416EE
-    call sub_DD97                            ; 416F1
+    call sound_play                          ; 416F1
     mov ax,0x3210                            ; 416F4
     out 0x22,ax                              ; 416F7
     mov ax,0x6532                            ; 416F9
@@ -2320,14 +2507,14 @@ loc_16E2:
     mov ax,0x5300                            ; 416FE
     out 0x2a,ax                              ; 41701
 loc_1703:
-    call sub_1512                            ; 41703
+    call title_draw_menu_options             ; 41703
 loc_1706:
     cmp word [0x138e],byte +0x20             ; 41706
     jc short loc_173A                        ; 4170B
     test word [0x138c],0x600                 ; 4170D
     jz short loc_173A                        ; 41713
     mov ax,0x2f                              ; 41715
-    call sub_DD97                            ; 41718
+    call sound_play                          ; 41718
     rr mov, ax, bp                           ; 4171B
     and ax,0xf000                            ; 4171D
     test ax,ax                               ; 41720
@@ -2362,7 +2549,7 @@ loc_1753:
 loc_176A:
     mov word [0x1382],0x1600                 ; 4176A
     hlt                                      ; 41770
-    call sub_DE51                            ; 41771
+    call sound_stop_all                      ; 41771
     cli                                      ; 41774
     mov si,0x1                               ; 41775
     call install_game_vblank                 ; 41778
@@ -2387,7 +2574,7 @@ loc_176A:
     mov [progress_code],ax                   ; 417A8
     out 0x0,ax                               ; 417AB
     mov word [game_state],0x9                ; 417AD
-    call sub_AD25                            ; 417B3
+    call save_block_init                     ; 417B3
     or byte [0x1399],0x4                     ; 417B6
     jmp near main_loop                       ; 417BB
 loc_17BE:
@@ -2405,21 +2592,21 @@ loc_17D0:
     jmp near main_loop                       ; 417E2
 
 state02_museum_menu:
-    call sub_1480                            ; 417E5
+    call video_reset_menu                    ; 417E5
     mov al,0x4                               ; 417E8
     out 0x15,al                              ; 417EA
     and byte [play_flags],0xfe               ; 417EC
-    call sub_F1C0                            ; 417F1
+    call museum_menu_init                    ; 417F1
     mov ax,0x5                               ; 417F4
     out 0x0,ax                               ; 417F7
     sti                                      ; 417F9
     mov ax,0x3c                              ; 417FA
-    call sub_DD97                            ; 417FD
+    call sound_play                          ; 417FD
 loc_1800:
     rr xor, ax, ax                           ; 41800
     mov ds,ax                                ; 41802
     mov [vblank_line],al                     ; 41804
-    call sub_EC00                            ; 41807
+    call vision_select_menu_frame            ; 41807
     push ax                                  ; 4180A
     mov ax,[0x1382]                          ; 4180B
     sub ax,0x1600                            ; 4180E
@@ -2438,12 +2625,12 @@ loc_1826:
     jmp near loc_1800                        ; 41832
 loc_1835:
     push ax                                  ; 41835
-    call sub_0250                            ; 41836
+    call fade_out_and_stop_sound             ; 41836
     rr xor, ax, ax                           ; 41839
     out 0x0,ax                               ; 4183B
     cli                                      ; 4183D
     mov ds,ax                                ; 4183E
-    mov [0x13de],al                          ; 41840
+    mov [dream_stones],al                    ; 41840
     pop ax                                   ; 41843
     test ax,ax                               ; 41844
     jnz short loc_1874                       ; 41846
@@ -2466,17 +2653,17 @@ loc_1874:
     jmp near main_loop                       ; 4187A
 
 state11_scene_save_prompt:
-    call sub_1480                            ; 4187D
+    call video_reset_menu                    ; 4187D
     mov al,0x4                               ; 41880
     out 0x15,al                              ; 41882
     and byte [play_flags],0xfe               ; 41884
-    call sub_F434                            ; 41889
+    call ticket_menu_init                    ; 41889
     sti                                      ; 4188C
 loc_188D:
     rr xor, ax, ax                           ; 4188D
     mov ds,ax                                ; 4188F
     mov byte [vblank_line],0x0               ; 41891
-    call sub_F86B                            ; 41896
+    call ticket_save_menu_frame              ; 41896
     test ax,ax                               ; 41899
     jnz short loc_18D6                       ; 4189B
     mov ax,[0x138c]                          ; 4189D
@@ -2503,7 +2690,7 @@ loc_18D6:
     cmp ax,0x2                               ; 418D6
     jz short loc_18DB                        ; 418D9
 loc_18DB:
-    call sub_0250                            ; 418DB
+    call fade_out_and_stop_sound             ; 418DB
     cli                                      ; 418DE
     rr xor, ax, ax                           ; 418DF
     out 0x0,ax                               ; 418E1
@@ -2512,7 +2699,7 @@ loc_18DB:
     jmp near main_loop                       ; 418EB
 
 state12_new_game_intro:
-    call sub_1480                            ; 418EE
+    call video_reset_menu                    ; 418EE
     mov al,0x4                               ; 418F1
     out 0x15,al                              ; 418F3
     and byte [play_flags],0xfe               ; 418F5
@@ -2521,13 +2708,13 @@ state12_new_game_intro:
     jz short loc_1904                        ; 41901
     inc ax                                   ; 41903
 loc_1904:
-    call sub_F410                            ; 41904
+    call ticket_menu_init_mode               ; 41904
     sti                                      ; 41907
 loc_1908:
     rr xor, ax, ax                           ; 41908
     mov ds,ax                                ; 4190A
     mov byte [vblank_line],0x0               ; 4190C
-    call sub_F60B                            ; 41911
+    call ticket_load_menu_frame              ; 41911
     test ax,ax                               ; 41914
     jnz short loc_194B                       ; 41916
     call objects_update                      ; 41918
@@ -2552,7 +2739,7 @@ loc_194B:
     jz short loc_196A                        ; 4194E
     test byte [0x1399],0x4                   ; 41950
     jnz short loc_197D                       ; 41955
-    call sub_0250                            ; 41957
+    call fade_out_and_stop_sound             ; 41957
     cli                                      ; 4195A
     rr xor, ax, ax                           ; 4195B
     out 0x0,ax                               ; 4195D
@@ -2560,7 +2747,7 @@ loc_194B:
     mov word [game_state],0x2                ; 41961
     jmp near main_loop                       ; 41967
 loc_196A:
-    call sub_0250                            ; 4196A
+    call fade_out_and_stop_sound             ; 4196A
     cli                                      ; 4196D
     rr xor, ax, ax                           ; 4196E
     out 0x0,ax                               ; 41970
@@ -2569,7 +2756,7 @@ loc_196A:
     jmp near main_loop                       ; 4197A
 loc_197D:
     and byte [0x1399],0xf3                   ; 4197D
-    call sub_0250                            ; 41982
+    call fade_out_and_stop_sound             ; 41982
     cli                                      ; 41985
     rr xor, ax, ax                           ; 41986
     out 0x0,ax                               ; 41988
@@ -2578,12 +2765,12 @@ loc_197D:
     jmp near main_loop                       ; 41992
 
 state18_ending:
-    call sub_1480                            ; 41995
+    call video_reset_menu                    ; 41995
     mov al,0x4                               ; 41998
     out 0x15,al                              ; 4199A
     and byte [play_flags],0xfe               ; 4199C
-    call sub_C046                            ; 419A1
-    call sub_C267                            ; 419A4
+    call logo_load_tiles                     ; 419A1
+    call clear_sprite_palettes               ; 419A4
     mov ax,0x6307                            ; 419A7
     out 0x20,ax                              ; 419AA
     mov ax,0x6420                            ; 419AC
@@ -2616,20 +2803,20 @@ state18_ending:
     mov ax,0x200                             ; 41A00
     rep stosw                                ; 41A03
     popa                                     ; 41A05
-    call sub_B53D                            ; 41A06
+    call obj_alloc_from_3c0                  ; 41A06
     mov ax,0x1                               ; 41A09
-    call sub_C20E                            ; 41A0C
+    call init_obj39_spawner                  ; 41A0C
     mov ax,0x4                               ; 41A0F
     out 0x0,ax                               ; 41A12
     sti                                      ; 41A14
     mov ax,0x3d                              ; 41A15
-    call sub_DD97                            ; 41A18
+    call sound_play                          ; 41A18
 loc_1A1B:
     rr xor, ax, ax                           ; 41A1B
     mov ds,ax                                ; 41A1D
     mov [vblank_line],al                     ; 41A1F
     call objects_update                      ; 41A22
-    call state19_world_record_case0          ; 41A25
+    call objects_draw                        ; 41A25
     test word [0x1388],0x10                  ; 41A28
     jz short loc_1A35                        ; 41A2E
     sub word [0x3c4],byte +0x10              ; 41A30
@@ -2673,7 +2860,7 @@ loc_1A90:
     ja short loc_1AA7                        ; 41AA2
     jmp near loc_1A1B                        ; 41AA4
 loc_1AA7:
-    call sub_0250                            ; 41AA7
+    call fade_out_and_stop_sound             ; 41AA7
     cli                                      ; 41AAA
     rr xor, ax, ax                           ; 41AAB
     mov ds,ax                                ; 41AAD
@@ -2717,7 +2904,7 @@ state09_story_sequencer:
     and ax,0xff00                            ; 41B0F
     cmp ax,0x6600                            ; 41B12
     jz short loc_1B45                        ; 41B15
-    call sub_DE51                            ; 41B17
+    call sound_stop_all                      ; 41B17
     rr xor, ax, ax                           ; 41B1A
     out 0x0,ax                               ; 41B1C
     mov word [game_state],0xa                ; 41B1E
@@ -2729,7 +2916,7 @@ loc_1B27:
     and dx,0xf000                            ; 41B2E
     jmp near loc_1B55                        ; 41B32
 loc_1B35:
-    call sub_DE51                            ; 41B35
+    call sound_stop_all                      ; 41B35
     rr xor, ax, ax                           ; 41B38
     out 0x0,ax                               ; 41B3A
     mov word [game_state],0x3                ; 41B3C
@@ -2751,7 +2938,7 @@ loc_1B5A:
     loop loc_1B5A                            ; 41B66
     mov si,0x1                               ; 41B68
     call install_game_vblank                 ; 41B6B
-    call sub_DE51                            ; 41B6E
+    call sound_stop_all                      ; 41B6E
     cli                                      ; 41B71
     rr xor, ax, ax                           ; 41B72
     out 0x0,ax                               ; 41B74
@@ -2764,7 +2951,7 @@ loc_1B7F:
     add bx,byte +0x2                         ; 41B8A
     mov ax,[es:bx-0x1221]                    ; 41B8D
     mov [game_state],ax                      ; 41B92
-    call sub_1480                            ; 41B95
+    call video_reset_menu                    ; 41B95
     mov al,0x4                               ; 41B98
     out 0x15,al                              ; 41B9A
     mov ax,0x4320                            ; 41B9C
@@ -2789,7 +2976,7 @@ loc_1B7F:
     mov word [0x1394],0x0                    ; 41BC6
     mov ax,[0x13c0]                          ; 41BCC
     mov dx,0xc6e                             ; 41BCF
-    call sub_BBD4                            ; 41BD2
+    call spawn_dialogue_box                  ; 41BD2
 loc_1BD5:
     rr xor, ax, ax                           ; 41BD5
     mov ds,ax                                ; 41BD7
@@ -2825,7 +3012,7 @@ loc_1C22:
     mov [0x138e],ax                          ; 41C2E
     jmp near loc_1BD5                        ; 41C31
 loc_1C34:
-    call sub_0250                            ; 41C34
+    call fade_out_and_stop_sound             ; 41C34
     rr xor, ax, ax                           ; 41C37
     out 0x0,ax                               ; 41C39
     mov cx,0x40                              ; 41C3B
@@ -2837,7 +3024,12 @@ loc_1C3E:
     mov [0x12d8],ax                          ; 41C45
     jmp near main_loop                       ; 41C48
 
-sub_1C4B:
+; Starts the background music for the current world: index = progress_code>>12, sound id from the word table at 8000:00CC, passed to DD97. [high, reviewed: range_0000_7B9B.json]
+; in:  progress_code
+; out: sound request via DD97
+; side effects: starts music
+; evidence: 41C4C-41C63: mov bx,[progress_code]; shr bx,4; mov bl,bh; mov ax,[es:bx+0xcc] (ES=8000h); call sub_DD97
+play_world_bgm:
     pusha                                    ; 41C4B
     mov bx,[progress_code]                   ; 41C4C
     shr bx,byte 0x4                          ; 41C50
@@ -2847,15 +3039,20 @@ sub_1C4B:
     mov es,ax                                ; 41C5A
     shl bx,1                                 ; 41C5C
     mov ax,[es:bx+0xcc]                      ; 41C5E
-    call sub_DD97                            ; 41C63
+    call sound_play                          ; 41C63
     popa                                     ; 41C66
     ret                                      ; 41C67
 
-sub_1C68:
+; Builds the initial view of a Vision: reads level size (44CF) and initialises the camera on the player (4A60), sets the tile origin [12D4h]/[12D6h], turns the display off, suppresses VBlank map commits ([1384h]=FFh), draws SCR2 and SCR1 completely (45FD), primes the four scroll edges, and sets the SCR2/sprite windows for horizontal or vertical layout. [medium, reviewed: range_0000_7B9B.json]
+; in:  level data via [12D8h], player slot 03C0h, play_flags bit0
+; out: [12D4h],[12D6h],[1384h], camera 13A0h-13B3h, SCR1/SCR2 maps, ports 00h,08h-11h
+; side effects: none
+; evidence: 41C69 call sub_44CF; 41C6E call sub_4A60; 41C7D/41C88 store (cam-80h)>>7 and (cam-280h)>>7; 41C8F mov byte [0x1384],0xff; 41C97 call sub_45FD; 41CA2-41CD1 bp=0..3 call sub_4C84 + tbl_03E8; 41CDF-41D18 window ports. Callers: rotate option and state04_vision_load.
+level_init_view:
     pusha                                    ; 41C68
-    call sub_44CF                            ; 41C69
+    call level_get_size                      ; 41C69
     rr mov, dx, ax                           ; 41C6C
-    call sub_4A60                            ; 41C6E
+    call camera_init                         ; 41C6E
     mov si,0x13a0                            ; 41C71
     mov cl,0x7                               ; 41C74
     mov ax,[si]                              ; 41C76
@@ -2872,25 +3069,25 @@ sub_1C68:
     pusha                                    ; 41C94
     push ds                                  ; 41C95
     push es                                  ; 41C96
-    call sub_45FD                            ; 41C97
+    call level_draw_both_layers              ; 41C97
     pop es                                   ; 41C9A
     pop ds                                   ; 41C9B
     popa                                     ; 41C9C
     mov di,0x3c0                             ; 41C9D
     rr xor, bp, bp                           ; 41CA0
-    call sub_4C84                            ; 41CA2
+    call camera_update                       ; 41CA2
     rr xor, bx, bx                           ; 41CA5
     call [cs:bx+tbl_03E8]                    ; 41CA7
     mov bp,0x1                               ; 41CAC
-    call sub_4C84                            ; 41CAF
+    call camera_update                       ; 41CAF
     mov bx,0x2                               ; 41CB2
     call [cs:bx+tbl_03E8]                    ; 41CB5
     mov bp,0x2                               ; 41CBA
-    call sub_4C84                            ; 41CBD
+    call camera_update                       ; 41CBD
     mov bx,0x4                               ; 41CC0
     call [cs:bx+tbl_03E8]                    ; 41CC3
     mov bp,0x3                               ; 41CC8
-    call sub_4C84                            ; 41CCB
+    call camera_update                       ; 41CCB
     mov bx,0x6                               ; 41CCE
     call [cs:bx+tbl_03E8]                    ; 41CD1
     rr xor, ax, ax                           ; 41CD6
@@ -2930,7 +3127,12 @@ loc_1D1A:
     popa                                     ; 41D1A
     ret                                      ; 41D1B
 
-sub_1D1C:
+; Maps ROM bank 0 and BPE-expands the picture for the current world (stream pointer table at 2000:0000, index = world-1) into tile RAM 21C0h, then loads BG palettes 1-5 (ports 22h-2Ah) from the bank-2 table at 2000:5A48 indexed by world. [medium, reviewed: range_0000_7B9B.json]
+; in:  progress_code world nibble
+; out: tile RAM 21C0h.., ports 22h-2Ah
+; side effects: port C2h=F0h then restored
+; evidence: 41D22 mov al,0xf0; out 0xc2,al; 41D2E-41D46 world-1 -> bp=[es:bx]; di=21C0h; call bpe_expand; 41D58 mov si,[es:bx+0x5a48]; out 0x22..0x2a. Bank 0 holds the six gallery_picture streams (docs/assets.md).
+load_world_picture:
     pusha                                    ; 41D1C
     push ds                                  ; 41D1D
     push es                                  ; 41D1E
@@ -2975,14 +3177,24 @@ sub_1D1C:
     popa                                     ; 41D80
     ret                                      ; 41D81
 
-sub_1D82:
+; BPE-expands a stream located in segment 3000h (ROM bank 3): ES=3000h, SI=1000h work area, then bpe_expand. [high, reviewed: range_0000_7B9B.json]
+; in:  BP = stream offset in bank 3, DI = destination
+; out: destination buffer (DI)
+; side effects: clobbers ES, SI
+; evidence: 41D82-41D8A: mov ax,0x3000; mov es,ax; mov si,0x1000; call bpe_expand; ret
+bpe_expand_bank3:
     mov ax,0x3000                            ; 41D82
     mov es,ax                                ; 41D85
     mov si,0x1000                            ; 41D87
     call bpe_expand                          ; 41D8A
     ret                                      ; 41D8D
 
-sub_1D8E:
+; Draws AL (0-99) as two large digits: AL/10 and AL%10 select 3-tile digit graphics from bank-3 tables 3000:884F (tens) and 3000:8877 (ones) (+14h for vertical), copies them to tile RAM 3F00h/3EA0h and places them in the map at DH,DL via DC70 (1x3 horizontal, 3x1 vertical). Used by the lives screen. [medium, reviewed: range_0000_7B9B.json]
+; in:  AL = number, DX = map position, play_flags bit0
+; out: tile RAM 3EA0h/3F00h, BG map at 0800h (AX=800h passed to DC70)
+; side effects: none
+; evidence: 41D9D-41D9F mov cl,0xa; div cl; 41DA7 mov bx,0x8877; 41DC7 mov bx,0x884f; call sub_6244 (cx=3); 41DEF/41E12 call sub_DC70 with bp=1EAh/1F0h. Only caller 428DC is in state13_lives_vision_over.
+draw_two_digit_number:
     pusha                                    ; 41D8E
     mov cl,[play_flags]                      ; 41D8F
     shr cl,1                                 ; 41D93
@@ -3002,7 +3214,7 @@ sub_1D8E:
     mov si,[es:bx]                           ; 41DB3
     mov di,0x3ea0                            ; 41DB6
     mov cx,0x3                               ; 41DB9
-    call sub_6244                            ; 41DBC
+    call copy_tiles_to_ram                   ; 41DBC
     pop ax                                   ; 41DBF
     rr mov, al, ah                           ; 41DC0
     and ax,0xf                               ; 41DC2
@@ -3015,20 +3227,20 @@ sub_1D8E:
     mov si,[es:bx]                           ; 41DD3
     mov di,0x3f00                            ; 41DD6
     mov cx,0x3                               ; 41DD9
-    call sub_6244                            ; 41DDC
+    call copy_tiles_to_ram                   ; 41DDC
     test bp,bp                               ; 41DDF
     jnz short loc_1E06                       ; 41DE1
     mov cx,0x103                             ; 41DE3
     mov bp,0x1ea                             ; 41DE6
     mov ax,0x800                             ; 41DE9
     mov di,0x0                               ; 41DEC
-    call sub_DC70                            ; 41DEF
+    call map_fill_tile_rect                  ; 41DEF
     add dh,0x1                               ; 41DF2
     mov cx,0x103                             ; 41DF5
     mov bp,0x1f0                             ; 41DF8
     mov ax,0x800                             ; 41DFB
     mov di,0x0                               ; 41DFE
-    call sub_DC70                            ; 41E01
+    call map_fill_tile_rect                  ; 41E01
     popa                                     ; 41E04
     ret                                      ; 41E05
 loc_1E06:
@@ -3036,21 +3248,26 @@ loc_1E06:
     mov bp,0x1ea                             ; 41E09
     mov ax,0x800                             ; 41E0C
     mov di,0x0                               ; 41E0F
-    call sub_DC70                            ; 41E12
+    call map_fill_tile_rect                  ; 41E12
     add dl,0x1                               ; 41E15
     mov cx,0x301                             ; 41E18
     mov bp,0x1f0                             ; 41E1B
     mov ax,0x800                             ; 41E1E
     mov di,0x0                               ; 41E21
-    call sub_DC70                            ; 41E24
+    call map_fill_tile_rect                  ; 41E24
     popa                                     ; 41E27
     ret                                      ; 41E28
     db 0x90   ; 41E29
 
-sub_1E2A:
+; Graphics setup for the world-record page: calls F2A4, loads the world picture and its palettes (load_world_picture), sets palettes 0, 6 and 15, and copies 16h tiles from 3000:7B69 to tile RAM 3EA0h. [medium, reviewed: range_0000_7B9B.json]
+; in:  progress_code
+; out: tile RAM, ports 20h,2Ch,3Eh, palettes from 1D1C
+; side effects: calls F2A4
+; evidence: 41E2B call sub_F2A4; 41E2E call sub_1D1C; 41E31-41E3E out 0x20/0x2c/0x3e; 41E40-41E4C ax=3000h, si=7B69h, di=3EA0h, cx=16h, call sub_6244
+world_record_load_gfx:
     pusha                                    ; 41E2A
     call sub_F2A4                            ; 41E2B
-    call sub_1D1C                            ; 41E2E
+    call load_world_picture                  ; 41E2E
     mov ax,0x6307                            ; 41E31
     out 0x20,ax                              ; 41E34
     mov ax,0x7400                            ; 41E36
@@ -3061,17 +3278,22 @@ sub_1E2A:
     mov si,0x7b69                            ; 41E43
     mov di,0x3ea0                            ; 41E46
     mov cx,0x16                              ; 41E49
-    call sub_6244                            ; 41E4C
+    call copy_tiles_to_ram                   ; 41E4C
     popa                                     ; 41E4F
     ret                                      ; 41E50
     db 0x90   ; 41E51
 
-sub_1E52:
+; Per-frame update of the world-record page: counts the displayed tally [13DFh] up toward the value from AEE9 (revealing one record cell per step via DBE3 with entries from bank-3 table 3000:9A2B), plays SFX 38h every 8 frames once the frame counter passes 180, prints the tally with B78A and emits the fixed sprites of the '/180'-style counter (different layout for world 6). [medium, reviewed: range_0000_7B9B.json]
+; in:  [13DFh], [13DEh], [138Eh], progress_code, AEE9 result
+; out: [13DFh], sprite entries, [1382h]
+; side effects: calls AEE9, DBE3, B78A, DD97
+; evidence: 41E53 call sub_AEE9; cmp al,[0x13df]; 41E91 mov ax,[es:bx-0x65d5]; call sub_DBE3; 41EA6 inc byte [0x13df]; 41E6F cmp ax,0xb4; 41E7C mov ax,0x38; call DD97; 41EB3 call sub_B78A; 41ED1-41F73 fixed sprite entries. Callers are in state19_world_record.
+world_record_update:
     pusha                                    ; 41E52
-    call sub_AEE9                            ; 41E53
+    call get_world_stone_total               ; 41E53
     cmp al,[0x13df]                          ; 41E56
     jz short loc_1EAA                        ; 41E5A
-    sub al,[0x13de]                          ; 41E5C
+    sub al,[dream_stones]                    ; 41E5C
     rr sbb, dx, dx                           ; 41E60
     cmp al,[0x13df]                          ; 41E62
     jna short loc_1E6C                       ; 41E66
@@ -3085,7 +3307,7 @@ loc_1E6C:
     cmp ax,0x7                               ; 41E77
     jnz short loc_1EAA                       ; 41E7A
     mov ax,0x38                              ; 41E7C
-    call sub_DD97                            ; 41E7F
+    call sound_play                          ; 41E7F
 loc_1E82:
     mov ax,0x3000                            ; 41E82
     mov es,ax                                ; 41E85
@@ -3096,22 +3318,22 @@ loc_1E82:
     mov ax,[es:bx-0x65d5]                    ; 41E91
     add bx,byte +0x2                         ; 41E96
     mov dx,[es:bx-0x65d5]                    ; 41E99
-    call sub_DBE3                            ; 41E9E
+    call put_grid_cell_tile                  ; 41E9E
     rr mov, ax, dx                           ; 41EA1
-    call sub_DBE3                            ; 41EA3
+    call put_grid_cell_tile                  ; 41EA3
     inc byte [0x13df]                        ; 41EA6
 loc_1EAA:
     mov al,[0x13df]                          ; 41EAA
     mov dx,0xbc30                            ; 41EAD
     mov si,0xfea                             ; 41EB0
-    call sub_B78A                            ; 41EB3
+    call draw_number_3digit_sprites          ; 41EB3
     mov ax,[progress_code]                   ; 41EB6
     shr ax,byte 0xc                          ; 41EB9
     cmp ax,0x6                               ; 41EBC
     jz short loc_1ECD                        ; 41EBF
     mov dx,0xbc10                            ; 41EC1
     mov si,0xfea                             ; 41EC4
-    call sub_B78A                            ; 41EC7
+    call draw_number_3digit_sprites          ; 41EC7
     jmp near loc_1EE4                        ; 41ECA
 loc_1ECD:
     mov bx,[0x1382]                          ; 41ECD
@@ -3181,23 +3403,28 @@ loc_1EE4:
     popa                                     ; 41F76
     ret                                      ; 41F77
 
-sub_1F78:
+; Starts a world-record page: clears the displayed tallies [13DEh]/[13DFh], loads the page graphics (world_record_load_gfx) and, if the AEE9 count is at least 180 (B4h), starts the world music. [medium, reviewed: range_0000_7B9B.json]
+; in:  AEE9 result
+; out: [13DEh],[13DFh]=0
+; side effects: calls 1E2A, AEE9, play_world_bgm
+; evidence: 41F7B-41F8C: mov [0x13df],al; mov [0x13de],al; call sub_1E2A; call sub_AEE9; cmp ax,0xb4; jc; call sub_1C4B
+world_record_init:
     push ax                                  ; 41F78
     rr xor, ax, ax                           ; 41F79
     mov [0x13df],al                          ; 41F7B
-    mov [0x13de],al                          ; 41F7E
-    call sub_1E2A                            ; 41F81
-    call sub_AEE9                            ; 41F84
+    mov [dream_stones],al                    ; 41F7E
+    call world_record_load_gfx               ; 41F81
+    call get_world_stone_total               ; 41F84
     cmp ax,0xb4                              ; 41F87
     jc short loc_1F8F                        ; 41F8A
-    call sub_1C4B                            ; 41F8C
+    call play_world_bgm                      ; 41F8C
 loc_1F8F:
     pop ax                                   ; 41F8F
     ret                                      ; 41F90
     db 0x90   ; 41F91
 
 state19_world_record:
-    call sub_1480                            ; 41F92
+    call video_reset_menu                    ; 41F92
     mov al,0x40                              ; 41F95
     out 0xb6,al                              ; 41F97
     mov al,0x40                              ; 41F99
@@ -3213,7 +3440,7 @@ state19_world_record:
     shl ax,byte 0x4                          ; 41FB1
     and ax,0xf000                            ; 41FB4
     mov [progress_code],ax                   ; 41FB7
-    call sub_1F78                            ; 41FBA
+    call world_record_init                   ; 41FBA
     mov ax,0x7                               ; 41FBD
     out 0x0,ax                               ; 41FC0
     sti                                      ; 41FC2
@@ -3226,7 +3453,7 @@ loc_1FC3:
     and bx,0x1                               ; 41FD1
     shl bx,1                                 ; 41FD5
     call [cs:bx+tbl_06D2]                    ; 41FD7
-    call sub_1E52                            ; 41FDC
+    call world_record_update                 ; 41FDC
     mov ax,[0x1382]                          ; 41FDF
     sub ax,0x1600                            ; 41FE2
     shr ax,1                                 ; 41FE5
@@ -3265,9 +3492,9 @@ loc_202B:
     mov [progress_code],ax                   ; 42041
 loc_2044:
     mov ax,0x2c                              ; 42044
-    call sub_DD97                            ; 42047
-    call sub_0250                            ; 4204A
-    call sub_1F78                            ; 4204D
+    call sound_play                          ; 42047
+    call fade_out_and_stop_sound             ; 4204A
+    call world_record_init                   ; 4204D
 loc_2050:
     test word [0x138c],0xe00                 ; 42050
     jnz short loc_2074                       ; 42056
@@ -3286,15 +3513,15 @@ loc_2074:
     pop ax                                   ; 42074
     mov [progress_code],ax                   ; 42075
     mov ax,0x30                              ; 42078
-    call sub_DD97                            ; 4207B
-    call sub_0250                            ; 4207E
+    call sound_play                          ; 4207B
+    call fade_out_and_stop_sound             ; 4207E
     rr xor, ax, ax                           ; 42081
     mov ds,ax                                ; 42083
     mov word [game_state],0x2                ; 42085
     jmp near main_loop                       ; 4208B
 
 state07_vision_clear:
-    call sub_1480                            ; 4208E
+    call video_reset_menu                    ; 4208E
     mov al,0x40                              ; 42091
     out 0xb6,al                              ; 42093
     mov al,0x40                              ; 42095
@@ -3302,34 +3529,34 @@ state07_vision_clear:
     mov al,0x4                               ; 42099
     out 0x15,al                              ; 4209B
     and byte [play_flags],0xfe               ; 4209D
-    call sub_1E2A                            ; 420A2
+    call world_record_load_gfx               ; 420A2
     mov di,0x39b0                            ; 420A5
     mov bp,0x7300                            ; 420A8
-    call sub_1D82                            ; 420AB
+    call bpe_expand_bank3                    ; 420AB
     mov di,0x3b90                            ; 420AE
     mov bp,0x74d7                            ; 420B1
-    call sub_1D82                            ; 420B4
+    call bpe_expand_bank3                    ; 420B4
     mov cx,0xa03                             ; 420B7
     mov dx,0x304                             ; 420BA
     mov bp,0x19b                             ; 420BD
     mov ax,0x1800                            ; 420C0
     mov di,0xc00                             ; 420C3
-    call sub_DC70                            ; 420C6
+    call map_fill_tile_rect                  ; 420C6
     mov cx,0xa03                             ; 420C9
     mov dx,0xf04                             ; 420CC
     mov bp,0x1b9                             ; 420CF
     mov ax,0x1800                            ; 420D2
     mov di,0xc00                             ; 420D5
-    call sub_DC70                            ; 420D8
+    call map_fill_tile_rect                  ; 420D8
     mov dx,0xb09                             ; 420DB
-    call sub_2232                            ; 420DE
+    call draw_vision_number                  ; 420DE
     rr xor, ax, ax                           ; 420E1
     mov [0x13df],al                          ; 420E3
     mov ax,0x7                               ; 420E6
     out 0x0,ax                               ; 420E9
     sti                                      ; 420EB
     mov ax,0x37                              ; 420EC
-    call sub_DD97                            ; 420EF
+    call sound_play                          ; 420EF
 loc_20F2:
     rr xor, ax, ax                           ; 420F2
     mov ds,ax                                ; 420F4
@@ -3347,7 +3574,7 @@ loc_20F2:
     mov word [0x1394],0x50                   ; 42117
     mov ax,0x2                               ; 4211D
     mov dx,0xfa                              ; 42120
-    call sub_D892                            ; 42123
+    call spawn_raster_effect                 ; 42123
     pop dx                                   ; 42126
     pop ax                                   ; 42127
 loc_2128:
@@ -3357,19 +3584,19 @@ loc_2128:
     mov si,0x7cc9                            ; 42133
     mov di,0x39b0                            ; 42136
     mov cx,0x3c                              ; 42139
-    call sub_6244                            ; 4213C
+    call copy_tiles_to_ram                   ; 4213C
 loc_213F:
     test byte [0x1399],0x40                  ; 4213F
     jz short loc_2189                        ; 42144
     cmp word [0x138e],0x190                  ; 42146
     jnz short loc_2189                       ; 4214C
-    call sub_1405                            ; 4214E
+    call clear_scr2_map                      ; 4214E
     mov cx,0x1802                            ; 42151
     mov dx,0x208                             ; 42154
     mov bp,0x19b                             ; 42157
     mov ax,0x1800                            ; 4215A
     mov di,0xc00                             ; 4215D
-    call sub_DC70                            ; 42160
+    call map_fill_tile_rect                  ; 42160
     rr xor, dx, dx                           ; 42163
     mov dl,[0x14af]                          ; 42165
     shr dx,byte 0x4                          ; 42169
@@ -3381,11 +3608,11 @@ loc_213F:
     mov dx,0x908                             ; 42178
     mov ax,0x1800                            ; 4217B
     mov di,0xc00                             ; 4217E
-    call sub_DC70                            ; 42181
+    call map_fill_tile_rect                  ; 42181
     mov ax,0x7                               ; 42184
     out 0x0,ax                               ; 42187
 loc_2189:
-    call sub_1E52                            ; 42189
+    call world_record_update                 ; 42189
     mov ax,[0x1382]                          ; 4218C
     sub ax,0x1600                            ; 4218F
     shr ax,1                                 ; 42192
@@ -3406,7 +3633,7 @@ loc_21A6:
     ja short loc_21BD                        ; 421B8
     jmp near loc_20F2                        ; 421BA
 loc_21BD:
-    call sub_0250                            ; 421BD
+    call fade_out_and_stop_sound             ; 421BD
     cli                                      ; 421C0
     rr xor, ax, ax                           ; 421C1
     mov ds,ax                                ; 421C3
@@ -3453,7 +3680,12 @@ loc_2224:
     jmp near main_loop                       ; 4222E
     db 0x90   ; 42231
 
-sub_2232:
+; Draws the 'W-V' Vision number on the SCR2 map: copies digit/dash tiles from bank-3 pointer table 3000:81A9 (dash, world digit from progress_code bits 12-15, vision digit from bits 8-11) to tile RAM 3D70h/3D80h/3DE0h and places them with DC70 at DH,DL; world 6 uses the two special entries (+0Eh,+10h) instead of a digit. [medium, reviewed: range_0000_7B9B.json]
+; in:  DX = map position, progress_code
+; out: tile RAM 3D70h-3E9Fh, SCR2 map 1800h
+; side effects: none
+; evidence: 42238 bx=81A9h; call sub_6244; 42252 mov ax,0x1800; call sub_DC70; 4225D-42298 ah low nibble / high nibble indexes; 4229B cmp ax,6 -> loc_22C8 uses [es:bx+0xe]/[es:bx+0x10].
+draw_vision_number:
     push dx                                  ; 42232
     mov ax,0x3000                            ; 42233
     mov es,ax                                ; 42236
@@ -3461,14 +3693,14 @@ sub_2232:
     mov si,[es:bx]                           ; 4223B
     mov di,0x3d70                            ; 4223E
     mov cx,0x1                               ; 42241
-    call sub_6244                            ; 42244
+    call copy_tiles_to_ram                   ; 42244
     mov cx,0x101                             ; 42247
     add dh,0x3                               ; 4224A
     inc dl                                   ; 4224D
     mov bp,0x1d7                             ; 4224F
     mov ax,0x1800                            ; 42252
     mov di,0xc00                             ; 42255
-    call sub_DC70                            ; 42258
+    call map_fill_tile_rect                  ; 42258
     pop dx                                   ; 4225B
     push dx                                  ; 4225C
     mov ax,[progress_code]                   ; 4225D
@@ -3482,13 +3714,13 @@ sub_2232:
     mov si,[es:bx]                           ; 42271
     mov di,0x3d80                            ; 42274
     mov cx,0x6                               ; 42277
-    call sub_6244                            ; 4227A
+    call copy_tiles_to_ram                   ; 4227A
     mov cx,0x203                             ; 4227D
     add dh,0x5                               ; 42280
     mov bp,0x1d8                             ; 42283
     mov ax,0x1800                            ; 42286
     mov di,0xc00                             ; 42289
-    call sub_DC70                            ; 4228C
+    call map_fill_tile_rect                  ; 4228C
     pop dx                                   ; 4228F
     mov ax,[progress_code]                   ; 42290
     rr mov, al, ah                           ; 42293
@@ -3504,12 +3736,12 @@ sub_2232:
     mov si,[es:bx]                           ; 422AC
     mov di,0x3de0                            ; 422AF
     mov cx,0x6                               ; 422B2
-    call sub_6244                            ; 422B5
+    call copy_tiles_to_ram                   ; 422B5
     mov cx,0x203                             ; 422B8
     mov bp,0x1de                             ; 422BB
     mov ax,0x1800                            ; 422BE
     mov di,0xc00                             ; 422C1
-    call sub_DC70                            ; 422C4
+    call map_fill_tile_rect                  ; 422C4
     ret                                      ; 422C7
 loc_22C8:
     push dx                                  ; 422C8
@@ -3519,14 +3751,14 @@ loc_22C8:
     mov si,[es:bx+0xe]                       ; 422D1
     mov di,0x3de0                            ; 422D5
     mov cx,0x6                               ; 422D8
-    call sub_6244                            ; 422DB
+    call copy_tiles_to_ram                   ; 422DB
     mov cx,0x203                             ; 422DE
     sub dh,0x2                               ; 422E1
     and dh,0x1f                              ; 422E4
     mov bp,0x1de                             ; 422E7
     mov ax,0x1800                            ; 422EA
     mov di,0xc00                             ; 422ED
-    call sub_DC70                            ; 422F0
+    call map_fill_tile_rect                  ; 422F0
     pop dx                                   ; 422F3
     mov ax,0x3000                            ; 422F4
     mov es,ax                                ; 422F7
@@ -3534,15 +3766,20 @@ loc_22C8:
     mov si,[es:bx+0x10]                      ; 422FC
     mov di,0x3e40                            ; 42300
     mov cx,0x6                               ; 42303
-    call sub_6244                            ; 42306
+    call copy_tiles_to_ram                   ; 42306
     mov cx,0x203                             ; 42309
     mov bp,0x1e4                             ; 4230C
     mov ax,0x1800                            ; 4230F
     mov di,0xc00                             ; 42312
-    call sub_DC70                            ; 42315
+    call map_fill_tile_rect                  ; 42315
     ret                                      ; 42318
 
-sub_2319:
+; Shows the 'VISION W-V' card: sets BG palettes, (vertical mode) an extra banner strip, expands the VISION banner from bank 3 (3000:7300) to tile RAM 39B0h and maps it, draws the W-V number, turns the display on, then runs objects for up to 200 frames (575 in vertical mode) or until a key is pressed after frame 81, starting the world music at frame 80; ends with a fade (install_game_vblank). [medium, reviewed: range_0000_7B9B.json]
+; in:  progress_code, play_flags bit0, keys [138Ch], [138Eh]
+; out: ports 20h-2Eh, port 00h, SCR2 map, [138Eh], key words cleared
+; side effects: calls 1D82, DC70, 2232, D6AE, objects_update, objects_draw, play_world_bgm, install_game_vblank
+; evidence: 4231A-42340 out 0x20..0x2e; 4236C mov di,0x39b0; mov bp,0x7300; call sub_1D82 (bank-3 37300 = banner_text); 4238A call sub_2232; 423A2/423A5 objects_update/objects_draw; 423B7 cmp ax,0x51; 423C4 cmp ax,0x50 -> call sub_1C4B; 423D6 and dx,0x177; add dx,0xc8. Callers in state03 and state16.
+show_vision_card:
     pusha                                    ; 42319
     mov ax,0x7777                            ; 4231A
     out 0x20,ax                              ; 4231D
@@ -3567,37 +3804,37 @@ sub_2319:
     mov si,0x8ccb                            ; 4234E
     mov di,0x3ea0                            ; 42351
     mov cx,0xc                               ; 42354
-    call sub_6244                            ; 42357
+    call copy_tiles_to_ram                   ; 42357
     mov cx,0xc01                             ; 4235A
     mov dx,0x80e                             ; 4235D
     mov bp,0x1ea                             ; 42360
     mov ax,0x1800                            ; 42363
     mov di,0xe00                             ; 42366
-    call sub_DC70                            ; 42369
+    call map_fill_tile_rect                  ; 42369
 loc_236C:
     mov di,0x39b0                            ; 4236C
     mov bp,0x7300                            ; 4236F
-    call sub_1D82                            ; 42372
+    call bpe_expand_bank3                    ; 42372
     mov cx,0xa03                             ; 42375
     mov dx,0x406                             ; 42378
     mov bp,0x19b                             ; 4237B
     mov ax,0x1800                            ; 4237E
     mov di,0xe00                             ; 42381
-    call sub_DC70                            ; 42384
+    call map_fill_tile_rect                  ; 42384
     mov dx,0x1106                            ; 42387
-    call sub_2232                            ; 4238A
+    call draw_vision_number                  ; 4238A
     mov ax,0x7                               ; 4238D
     out 0x0,ax                               ; 42390
     mov ax,0x8                               ; 42392
     rr xor, dx, dx                           ; 42395
-    call sub_D6AE                            ; 42397
+    call start_palette_fade                  ; 42397
     sti                                      ; 4239A
 loc_239B:
     rr xor, ax, ax                           ; 4239B
     mov ds,ax                                ; 4239D
     mov [vblank_line],al                     ; 4239F
     call objects_update                      ; 423A2
-    call state19_world_record_case0          ; 423A5
+    call objects_draw                        ; 423A5
 loc_23A8:
     hlt                                      ; 423A8
     cmp byte [vblank_line],0x0               ; 423A9
@@ -3612,7 +3849,7 @@ loc_23A8:
 loc_23C4:
     cmp ax,0x50                              ; 423C4
     jnz short loc_23CC                       ; 423C7
-    call sub_1C4B                            ; 423C9
+    call play_world_bgm                      ; 423C9
 loc_23CC:
     rr xor, dx, dx                           ; 423CC
     mov dl,[play_flags]                      ; 423CE
@@ -3636,8 +3873,8 @@ loc_23E5:
     db 0x00,0x08,0x28,0x04,0x40,0x1C,0x0C,0x00,0x00,0x20,0x00,0x42,0x00,0x04   ; 423FB
 
 state03_world_card_story:
-    call sub_DE51                            ; 42409
-    call sub_1480                            ; 4240C
+    call sound_stop_all                      ; 42409
+    call video_reset_menu                    ; 4240C
     rr xor, ax, ax                           ; 4240F
     mov ds,ax                                ; 42411
     mov ax,[0x12d8]                          ; 42413
@@ -3660,13 +3897,13 @@ state03_world_card_story:
     or byte [0x1399],0x1                     ; 42448
     or byte [0x13e3],0x1                     ; 4244D
 loc_2452:
-    call sub_2319                            ; 42452
+    call show_vision_card                    ; 42452
     rr xor, ax, ax                           ; 42455
     mov [0x1388],ax                          ; 42457
     mov [0x138c],ax                          ; 4245A
     mov [0x1390],ax                          ; 4245D
     mov [0x1392],ax                          ; 42460
-    call sub_AF67                            ; 42463
+    call vision_state_init                   ; 42463
     and byte [0x13e3],0x7f                   ; 42466
     mov cl,0x4                               ; 4246B
     rr xor, bx, bx                           ; 4246D
@@ -3688,11 +3925,11 @@ loc_248B:
     rr xor, ax, ax                           ; 42496
     mov si,0x13e0                            ; 42498
     mov cx,0x10                              ; 4249B
-    call sub_F332                            ; 4249E
+    call sram_save_record                    ; 4249E
     mov ax,0x4                               ; 424A1
     mov si,0x1480                            ; 424A4
     mov cx,0x1d                              ; 424A7
-    call sub_F332                            ; 424AA
+    call sram_save_record                    ; 424AA
     rr xor, ax, ax                           ; 424AD
     mov ds,ax                                ; 424AF
     mov word [game_state],0x4                ; 424B1
@@ -3711,13 +3948,13 @@ state04_vision_load:
     hlt                                      ; 424D0
     rr mov, al, al                           ; 424D1
     out 0xb2,al                              ; 424D3
-    call sub_13E3                            ; 424D5
-    call sub_036B                            ; 424D8
-    call sub_B524                            ; 424DB
+    call clear_tile_ram                      ; 424D5
+    call sprite_table_init_2                 ; 424D8
+    call objs_clear_all                      ; 424DB
     rr xor, ax, ax                           ; 424DE
     mov ds,ax                                ; 424E0
     mov di,0x3c0                             ; 424E2
-    call sub_B4F0                            ; 424E5
+    call obj_clear_slot                      ; 424E5
     mov al,0x1                               ; 424E8
     mov ah,0x1                               ; 424EA
     mov [di],ax                              ; 424EC
@@ -3738,7 +3975,7 @@ loc_2523:
     shl al,1                                 ; 42523
     jnc short loc_2534                       ; 42525
     or word [di+0x12],0x4                    ; 42527
-    call sub_AC30                            ; 4252C
+    call spawn_obj36_pulse                   ; 4252C
     mov word [di+0x10],0x0                   ; 4252F
 loc_2534:
     mov di,0x3c0                             ; 42534
@@ -3746,21 +3983,21 @@ loc_2534:
     mov [di+0x2],ax                          ; 4253A
     mov ax,[0x13e6]                          ; 4253D
     mov [di+0x4],ax                          ; 42540
-    call sub_1426                            ; 42543
-    call sub_146A                            ; 42546
-    call sub_13BA                            ; 42549
-    call sub_B053                            ; 4254C
-    call sub_1C68                            ; 4254F
-    call sub_42F9                            ; 42552
+    call load_gameplay_sprite_tiles          ; 42543
+    call tile_alloc_reset                    ; 42546
+    call set_default_sprite_palettes         ; 42549
+    call vision_load_spawn_setup             ; 4254C
+    call level_init_view                     ; 4254F
+    call level_build_collision_map           ; 42552
     mov al,[play_flags]                      ; 42555
     shr al,1                                 ; 42558
     jnc short loc_2566                       ; 4255A
     rr xor, bx, bx                           ; 4255C
     mov bp,0x14b                             ; 4255E
     rr sub, bp, bx                           ; 42561
-    call sub_4230                            ; 42563
+    call tiles_rotate_cw                     ; 42563
 loc_2566:
-    call sub_02A3                            ; 42566
+    call gameplay_install_irqs               ; 42566
     mov al,0x0                               ; 42569
     out 0x10,al                              ; 4256B
     mov al,0x0                               ; 4256D
@@ -3775,8 +4012,8 @@ loc_2566:
     mov al,0x2                               ; 42587
     out 0x15,al                              ; 42589
 loc_258B:
-    call sub_C370                            ; 4258B
-    call sub_C4DE                            ; 4258E
+    call hud_fill_background                 ; 4258B
+    call hud_draw_all                        ; 4258E
     rr xor, ax, ax                           ; 42591
     mov ds,ax                                ; 42593
     mov word [game_state],0x1                ; 42595
@@ -3784,15 +4021,15 @@ loc_258B:
 
 ; jump table tbl_259E: 4 words, bound: hint (first use at 425D7)
 tbl_259E:
-    dw state05_vision_restart_wipe_case0
-    dw state05_vision_restart_wipe_case1
-    dw state05_vision_restart_wipe_case2
-    dw state05_vision_restart_wipe_case3
+    dw wipe_pattern0_diagonal
+    dw wipe_pattern1_rows
+    dw wipe_pattern2_columns
+    dw wipe_pattern3_cross
 
-state05_vision_restart_wipe:
+state05_room_transition:
     rr xor, ax, ax                           ; 425A6
     mov ds,ax                                ; 425A8
-    call sub_E7AB                            ; 425AA
+    call snd_voice_stop_if_active            ; 425AA
     push ax                                  ; 425AD
     push di                                  ; 425AE
     rr xor, ax, ax                           ; 425AF
@@ -3814,7 +4051,7 @@ state05_vision_restart_wipe:
     rr xor, ax, ax                           ; 425DC
     mov ds,ax                                ; 425DE
     mov bx,0x98                              ; 425E0
-    mov word [bx],irq_0376                   ; 425E3
+    mov word [bx],irq_vblank_simple          ; 425E3
     mov word [bx+0x2],0x4000                 ; 425E7
     mov al,0x40                              ; 425EC
     out 0xb6,al                              ; 425EE
@@ -3822,7 +4059,7 @@ state05_vision_restart_wipe:
     out 0xb2,al                              ; 425F2
     rr xor, ax, ax                           ; 425F4
     out 0x0,ax                               ; 425F6
-    call sub_B0BB                            ; 425F8
+    call checkpoint_save                     ; 425F8
     mov ax,[progress_code]                   ; 425FB
     cmp ah,0x61                              ; 425FE
     jz short loc_2613                        ; 42601
@@ -3831,7 +4068,7 @@ state05_vision_restart_wipe:
     rr xor, ax, ax                           ; 42608
     mov si,0x13e0                            ; 4260A
     mov cx,0x10                              ; 4260D
-    call sub_F332                            ; 42610
+    call sram_save_record                    ; 42610
 loc_2613:
     mov ax,[progress_code]                   ; 42613
     mov [0x12d8],ax                          ; 42616
@@ -3845,26 +4082,26 @@ state06_miss_retry:
     out 0x0,ax                               ; 42627
     out 0x6,al                               ; 42629
     mov word [0x1382],0x1600                 ; 4262B
-    call sub_B11A                            ; 42631
+    call checkpoint_restore                  ; 42631
     mov word [game_state],0x4                ; 42634
-    call sub_1C4B                            ; 4263A
+    call play_world_bgm                      ; 4263A
     pop ax                                   ; 4263D
     jmp near main_loop                       ; 4263E
 
 state16_resume_card:
-    call sub_DE51                            ; 42641
-    call sub_1480                            ; 42644
+    call sound_stop_all                      ; 42641
+    call video_reset_menu                    ; 42644
     rr xor, ax, ax                           ; 42647
     mov di,0x13e0                            ; 42649
     mov cx,0x10                              ; 4264C
-    call sub_F302                            ; 4264F
+    call sram_load_record                    ; 4264F
     mov ax,0x4                               ; 42652
     mov di,0x1480                            ; 42655
     mov cx,0x1d                              ; 42658
-    call sub_F302                            ; 4265B
+    call sram_load_record                    ; 4265B
     mov ax,[progress_code]                   ; 4265E
     mov [0x12d8],ax                          ; 42661
-    call sub_B11A                            ; 42664
+    call checkpoint_restore                  ; 42664
     and byte [play_flags],0xfe               ; 42667
     mov cl,0x4                               ; 4266C
     rr xor, bx, bx                           ; 4266E
@@ -3880,8 +4117,8 @@ state16_resume_card:
     or byte [play_flags],0x1                 ; 42687
     or byte [0x1399],0x1                     ; 4268C
 loc_2691:
-    call sub_B06C                            ; 42691
-    call sub_2319                            ; 42694
+    call vision_resume_setup                 ; 42691
+    call show_vision_card                    ; 42694
     rr xor, ax, ax                           ; 42697
     mov [0x1388],ax                          ; 42699
     mov [0x138c],ax                          ; 4269C
@@ -3896,7 +4133,12 @@ loc_2691:
     jmp near main_loop                       ; 426B8
     db 0x90   ; 426BB
 
-sub_26BC:
+; Copies the two button graphics of the Continue/Quit prompt from bank-3 pointer table 3000:9737 into tile RAM 3E80h and 3F40h, choosing the highlighted or plain variant (and its size) from the selection byte [1384h]. [medium, reviewed: range_0000_7B9B.json]
+; in:  [1384h] = selection (0 or FFh)
+; out: tile RAM 3E80h.., 3F40h..
+; side effects: none
+; evidence: 426BC-42706: mov al,[0x1384]; not bp; and bp,2; cx=0Ah+bp; bx=9737h+..; call sub_6244 (di=3E80h, then di=3F40h). Callers in state13_lives_vision_over.
+continue_quit_load_buttons:
     mov al,[0x1384]                          ; 426BC
     cbw                                      ; 426BF
     rr mov, bp, ax                           ; 426C0
@@ -3911,7 +4153,7 @@ sub_26BC:
     mov es,ax                                ; 426D7
     mov si,[es:bx]                           ; 426D9
     mov di,0x3e80                            ; 426DC
-    call sub_6244                            ; 426DF
+    call copy_tiles_to_ram                   ; 426DF
     mov al,[0x1384]                          ; 426E2
     cbw                                      ; 426E5
     rr mov, bp, ax                           ; 426E6
@@ -3926,15 +4168,20 @@ sub_26BC:
     mov es,ax                                ; 426FE
     mov si,[es:bx]                           ; 42700
     mov di,0x3f40                            ; 42703
-    call sub_6244                            ; 42706
+    call copy_tiles_to_ram                   ; 42706
     ret                                      ; 42709
 
-sub_270A:
+; Per-frame Continue/Quit prompt: left/right toggles the selection [1384h] (reloading the button tiles) and emits the two button sprite blocks with the selected one larger/highlighted. [medium, reviewed: range_0000_7B9B.json]
+; in:  [138Ch] newly pressed keys, [1384h]
+; out: [1384h], sprite entries
+; side effects: calls continue_quit_load_buttons, DD05
+; evidence: 4270B test word [0x138c],0xa0; not byte [0x1384]; call sub_26BC; 4271A-4275D two DD05 calls with cx 602h/502h swapped by selection.
+continue_quit_update:
     pusha                                    ; 4270A
     test word [0x138c],0xa0                  ; 4270B
     jz short loc_271A                        ; 42711
     not byte [0x1384]                        ; 42713
-    call sub_26BC                            ; 42717
+    call continue_quit_load_buttons          ; 42717
 loc_271A:
     cmp byte [0x1384],0x0                    ; 4271A
     jnz short loc_2742                       ; 4271F
@@ -3942,35 +4189,40 @@ loc_271A:
     mov bp,0x1e8                             ; 42724
     mov cx,0x602                             ; 42727
     mov di,0x600                             ; 4272A
-    call sub_DD05                            ; 4272D
+    call emit_sprite_block                   ; 4272D
     mov dx,0x7870                            ; 42730
     mov bp,0x1f4                             ; 42733
     mov cx,0x502                             ; 42736
     mov di,0x400                             ; 42739
-    call sub_DD05                            ; 4273C
+    call emit_sprite_block                   ; 4273C
     jmp near loc_2760                        ; 4273F
 loc_2742:
     mov dx,0x4070                            ; 42742
     mov bp,0x1e8                             ; 42745
     mov cx,0x502                             ; 42748
     mov di,0x400                             ; 4274B
-    call sub_DD05                            ; 4274E
+    call emit_sprite_block                   ; 4274E
     mov dx,0x7470                            ; 42751
     mov bp,0x1f4                             ; 42754
     mov cx,0x602                             ; 42757
     mov di,0x600                             ; 4275A
-    call sub_DD05                            ; 4275D
+    call emit_sprite_block                   ; 4275D
 loc_2760:
     popa                                     ; 42760
     ret                                      ; 42761
 
-sub_2762:
+; Life-loss bookkeeping on the path into state 13: decrements lives, refills lives_reserve (health) to 3, copies [13E9h], health and lives into 13F5h-13F7h, and unless in progress 61xx/62xx saves 16 bytes from 13E0h via F332 (lives >= 0) or calls F3FC (lives < 0). [medium, reviewed: range_0000_7B9B.json]
+; in:  lives, lives_reserve, [13E9h], progress_code
+; out: lives, lives_reserve=3, [13F5h]-[13F7h], save data via F332/F3FC
+; side effects: SRAM write (F332/F3FC are the save routines in the F2BE-F3FC area)
+; evidence: 42763 dec byte [lives]; 42767 mov byte [lives_reserve],3; 4276C-4277B copies to 13F5h-13F7h; 42781/42786 cmp ah,0x61/0x62; 42797 mov si,0x13e0; mov cx,0x10; call sub_F332; 4279F call sub_F3FC. Caller 42B82 in state01_gameplay before game_state=13.
+lose_life_and_save:
     pusha                                    ; 42762
     dec byte [lives]                         ; 42763
-    mov byte [lives_reserve],0x3             ; 42767
+    mov byte [hearts],0x3                    ; 42767
     mov al,[0x13e9]                          ; 4276C
     mov [0x13f5],al                          ; 4276F
-    mov al,[lives_reserve]                   ; 42772
+    mov al,[hearts]                          ; 42772
     mov [0x13f6],al                          ; 42775
     mov al,[lives]                           ; 42778
     mov [0x13f7],al                          ; 4277B
@@ -3984,37 +4236,37 @@ sub_2762:
     rr xor, ax, ax                           ; 42792
     mov si,0x13e0                            ; 42794
     mov cx,0x10                              ; 42797
-    call sub_F332                            ; 4279A
+    call sram_save_record                    ; 4279A
 loc_279D:
     popa                                     ; 4279D
     ret                                      ; 4279E
 loc_279F:
-    call sub_F3FC                            ; 4279F
+    call sram_suspend_clear                  ; 4279F
     popa                                     ; 427A2
     ret                                      ; 427A3
 
 state13_lives_vision_over:
-    call sub_1480                            ; 427A4
+    call video_reset_menu                    ; 427A4
     cmp byte [lives],0x0                     ; 427A7
     jnl short loc_27F0                       ; 427AC
     mov di,0x39b0                            ; 427AE
     mov bp,0x7300                            ; 427B1
-    call sub_1D82                            ; 427B4
+    call bpe_expand_bank3                    ; 427B4
     mov di,0x3b90                            ; 427B7
     mov bp,0x7697                            ; 427BA
-    call sub_1D82                            ; 427BD
+    call bpe_expand_bank3                    ; 427BD
     mov cx,0xa03                             ; 427C0
     mov dx,0x305                             ; 427C3
     mov bp,0x19b                             ; 427C6
     mov ax,0x1800                            ; 427C9
     mov di,0xe00                             ; 427CC
-    call sub_DC70                            ; 427CF
+    call map_fill_tile_rect                  ; 427CF
     mov cx,0x903                             ; 427D2
     mov dx,0xf05                             ; 427D5
     mov bp,0x1b9                             ; 427D8
     mov ax,0x1800                            ; 427DB
     mov di,0xe00                             ; 427DE
-    call sub_DC70                            ; 427E1
+    call map_fill_tile_rect                  ; 427E1
     mov al,0x4                               ; 427E4
     out 0x15,al                              ; 427E6
     and byte [play_flags],0xfe               ; 427E8
@@ -4027,13 +4279,13 @@ loc_27F0:
     mov si,0x8089                            ; 427FC
     mov di,0x39b0                            ; 427FF
     mov cx,0x9                               ; 42802
-    call sub_6244                            ; 42805
+    call copy_tiles_to_ram                   ; 42805
     mov cx,0x303                             ; 42808
     mov dx,0x150f                            ; 4280B
     mov bp,0x19b                             ; 4280E
     mov ax,0x800                             ; 42811
     mov di,0x0                               ; 42814
-    call sub_DC70                            ; 42817
+    call map_fill_tile_rect                  ; 42817
     jmp near loc_2840                        ; 4281A
 loc_281D:
     mov ax,0x3000                            ; 4281D
@@ -4041,13 +4293,13 @@ loc_281D:
     mov si,0x8119                            ; 42822
     mov di,0x39b0                            ; 42825
     mov cx,0x9                               ; 42828
-    call sub_6244                            ; 4282B
+    call copy_tiles_to_ram                   ; 4282B
     mov cx,0x303                             ; 4282E
     mov dx,0xc                               ; 42831
     mov bp,0x19b                             ; 42834
     mov ax,0x800                             ; 42837
     mov di,0x0                               ; 4283A
-    call sub_DC70                            ; 4283D
+    call map_fill_tile_rect                  ; 4283D
 loc_2840:
     mov ax,0x6307                            ; 42840
     out 0x20,ax                              ; 42843
@@ -4070,15 +4322,15 @@ loc_2840:
     mov ax,0x6420                            ; 4286D
     out 0x36,ax                              ; 42870
     mov byte [0x1384],0x0                    ; 42872
-    call sub_26BC                            ; 42877
+    call continue_quit_load_buttons          ; 42877
     mov ax,0x8                               ; 4287A
     rr xor, dx, dx                           ; 4287D
-    call sub_D6AE                            ; 4287F
+    call start_palette_fade                  ; 4287F
     mov ax,0x7                               ; 42882
     out 0x0,ax                               ; 42885
     sti                                      ; 42887
     mov ax,0x1c                              ; 42888
-    call sub_DD97                            ; 4288B
+    call sound_play                          ; 4288B
 loc_288E:
     rr xor, ax, ax                           ; 4288E
     mov ds,ax                                ; 42890
@@ -4090,7 +4342,7 @@ loc_288E:
     call [cs:bx+tbl_06D2]                    ; 428A4
     cmp byte [lives],0x0                     ; 428A9
     jnl short loc_28BE                       ; 428AE
-    call sub_270A                            ; 428B0
+    call continue_quit_update                ; 428B0
     test word [0x138c],0xe00                 ; 428B3
     jnz short loc_2921                       ; 428B9
     jmp near loc_28FD                        ; 428BB
@@ -4106,11 +4358,11 @@ loc_28BE:
     mov al,[lives]                           ; 428D1
     cmp word [0x138e],0x96                   ; 428D4
     adc al,0x0                               ; 428DA
-    call sub_1D8E                            ; 428DC
+    call draw_two_digit_number               ; 428DC
     cmp word [0x138e],0x96                   ; 428DF
     jnz short loc_28ED                       ; 428E5
     mov ax,0x19                              ; 428E7
-    call sub_DD97                            ; 428EA
+    call sound_play                          ; 428EA
 loc_28ED:
     cmp word [0x138e],0xe6                   ; 428ED
     ja short loc_2921                        ; 428F3
@@ -4132,7 +4384,7 @@ loc_290F:
     mov [0x138e],ax                          ; 4291B
     jmp near loc_288E                        ; 4291E
 loc_2921:
-    call sub_DE51                            ; 42921
+    call sound_stop_all                      ; 42921
     cli                                      ; 42924
     rr xor, ax, ax                           ; 42925
     out 0x0,ax                               ; 42927
@@ -4147,7 +4399,7 @@ loc_293B:
     mov ax,0x4                               ; 42942
     mov di,0x1480                            ; 42945
     mov cx,0x1d                              ; 42948
-    call sub_F302                            ; 4294B
+    call sram_load_record                    ; 4294B
     mov word [game_state],0x2                ; 4294E
     jmp near main_loop                       ; 42954
 loc_2957:
@@ -4155,20 +4407,20 @@ loc_2957:
     jmp near main_loop                       ; 4295D
 
 state17_good_night_quit:
-    call sub_1480                            ; 42960
+    call video_reset_menu                    ; 42960
     mov al,0x40                              ; 42963
     out 0xb6,al                              ; 42965
     mov al,0x40                              ; 42967
     out 0xb2,al                              ; 42969
     mov di,0x39b0                            ; 4296B
     mov bp,0x782f                            ; 4296E
-    call sub_1D82                            ; 42971
+    call bpe_expand_bank3                    ; 42971
     mov cx,0x1204                            ; 42974
     mov dx,0x506                             ; 42977
     mov bp,0x19b                             ; 4297A
     mov ax,0x1800                            ; 4297D
     mov di,0xe00                             ; 42980
-    call sub_DC70                            ; 42983
+    call map_fill_tile_rect                  ; 42983
     mov ax,0x6307                            ; 42986
     out 0x20,ax                              ; 42989
     mov ax,0x6420                            ; 4298B
@@ -4187,12 +4439,12 @@ state17_good_night_quit:
     out 0x2e,ax                              ; 429AC
     mov ax,0x8                               ; 429AE
     rr xor, dx, dx                           ; 429B1
-    call sub_D6AE                            ; 429B3
+    call start_palette_fade                  ; 429B3
     mov ax,0x7                               ; 429B6
     out 0x0,ax                               ; 429B9
     sti                                      ; 429BB
     mov ax,0x1b                              ; 429BC
-    call sub_DD97                            ; 429BF
+    call sound_play                          ; 429BF
 loc_29C2:
     rr xor, ax, ax                           ; 429C2
     mov ds,ax                                ; 429C4
@@ -4207,13 +4459,13 @@ loc_29C2:
     mov word [0x1394],0x7d0                  ; 429E5
     mov ax,0x2                               ; 429EB
     mov dx,0xfa                              ; 429EE
-    call sub_D892                            ; 429F1
+    call spawn_raster_effect                 ; 429F1
 loc_29F4:
     cmp word [0x138e],0x870                  ; 429F4
     jnz short loc_2A05                       ; 429FA
     mov ax,0x10                              ; 429FC
     mov dx,0x2                               ; 429FF
-    call sub_D6AE                            ; 42A02
+    call start_palette_fade                  ; 42A02
 loc_2A05:
     test word [0x138c],0xe00                 ; 42A05
     jnz short loc_2A36                       ; 42A0B
@@ -4234,7 +4486,7 @@ loc_2A1F:
     ja short loc_2A36                        ; 42A31
     jmp near loc_29C2                        ; 42A33
 loc_2A36:
-    call sub_DE51                            ; 42A36
+    call sound_stop_all                      ; 42A36
     rr xor, ax, ax                           ; 42A39
     out 0x0,ax                               ; 42A3B
     cli                                      ; 42A3D
@@ -4247,13 +4499,13 @@ state01_gameplay:
     mov byte [0x1385],0x0                    ; 42A4B
     mov ax,0x4                               ; 42A50
     rr xor, dx, dx                           ; 42A53
-    call sub_D6AE                            ; 42A55
+    call start_palette_fade                  ; 42A55
     mov ax,[progress_code]                   ; 42A58
     and ah,0xf0                              ; 42A5B
     cmp ah,0x50                              ; 42A5E
     jnz short loc_2A68                       ; 42A61
     rr xor, ax, ax                           ; 42A63
-    call sub_D892                            ; 42A65
+    call spawn_raster_effect                 ; 42A65
 loc_2A68:
     mov word [0x1394],0x1ff                  ; 42A68
     sti                                      ; 42A6E
@@ -4268,40 +4520,40 @@ loc_2A7C:
     mov [vblank_line],al                     ; 42A80
     mov [0x1384],al                          ; 42A83
     mov dx,[0x1388]                          ; 42A86
-    call sub_BFD6                            ; 42A8A
+    call keymap_apply                        ; 42A8A
     mov [0x1390],dx                          ; 42A8D
     mov dx,[0x138c]                          ; 42A91
-    call sub_BFD6                            ; 42A95
+    call keymap_apply                        ; 42A95
     mov [0x1392],dx                          ; 42A98
-    call sub_C6F6                            ; 42A9C
+    call hud_tick_stone_counter              ; 42A9C
     test byte [play_flags],0x8               ; 42A9F
     jnz short loc_2AB3                       ; 42AA4
     test word [0x138c],0x200                 ; 42AA6
     jz short loc_2ABD                        ; 42AAC
     or byte [play_flags],0x8                 ; 42AAE
 loc_2AB3:
-    call sub_11B6                            ; 42AB3
+    call pause_menu                          ; 42AB3
     test byte [play_flags],0x70              ; 42AB6
     jnz short loc_2ADD                       ; 42ABB
 loc_2ABD:
-    call sub_C49C                            ; 42ABD
+    call draw_hearts_sprites                 ; 42ABD
     inc word [0x138e]                        ; 42AC0
     call objects_update                      ; 42AC4
     call objects_collide                     ; 42AC7
-    call sub_4C96                            ; 42ACA
+    call camera_adjust_lookahead             ; 42ACA
     mov di,0x3c0                             ; 42ACD
     mov al,[0x13b4]                          ; 42AD0
     inc al                                   ; 42AD3
     and ax,0x3                               ; 42AD5
     rr mov, bp, ax                           ; 42AD8
-    call sub_4C84                            ; 42ADA
+    call camera_update                       ; 42ADA
 loc_2ADD:
     mov bl,[play_flags]                      ; 42ADD
     and bx,0x1                               ; 42AE1
     shl bx,1                                 ; 42AE5
     call [cs:bx+tbl_06D2]                    ; 42AE7
-    call sub_B3A0                            ; 42AEC
-    call sub_B332                            ; 42AEF
+    call spawn_objects_near_player           ; 42AEC
+    call check_warp_points                   ; 42AEF
     mov bx,[0x1382]                          ; 42AF2
     add word [0x1382],byte +0x4              ; 42AF6
     mov word [bx],0x2d4b                     ; 42AFB
@@ -4315,9 +4567,9 @@ loc_2ADD:
     mov word [0x1382],0x1600                 ; 42B11
     test byte [play_flags],0x70              ; 42B17
     jnz short loc_2B41                       ; 42B1C
-    cmp byte [lives_reserve],0x0             ; 42B1E
+    cmp byte [hearts],0x0                    ; 42B1E
     jnz short loc_2B2C                       ; 42B23
-    mov al,[0x3d9]                           ; 42B25
+    mov al,[player_hurt_timer]               ; 42B25
     cmp al,0x3c                              ; 42B28
     jc short loc_2B7F                        ; 42B2A
 loc_2B2C:
@@ -4342,24 +4594,24 @@ loc_2B52:
     mov word [game_state],0x5                ; 42B52
     jmp near main_loop                       ; 42B58
 loc_2B5B:
-    call sub_DE51                            ; 42B5B
-    call sub_3B5E                            ; 42B5E
+    call sound_stop_all                      ; 42B5B
+    call vision_clear_iris_out               ; 42B5E
     cli                                      ; 42B61
     rr xor, ax, ax                           ; 42B62
     mov ds,ax                                ; 42B64
     mov word [game_state],0x7                ; 42B66
-    call sub_AD5F                            ; 42B6C
+    call save_block_record_vision_clear      ; 42B6C
     jmp near main_loop                       ; 42B6F
 loc_2B72:
-    call sub_0250                            ; 42B72
+    call fade_out_and_stop_sound             ; 42B72
     cli                                      ; 42B75
     mov word [game_state],0x6                ; 42B76
     jmp near main_loop                       ; 42B7C
 loc_2B7F:
-    call sub_DE51                            ; 42B7F
-    call sub_2762                            ; 42B82
-    call sub_4EE6                            ; 42B85
-    call sub_3EE5                            ; 42B88
+    call sound_stop_all                      ; 42B7F
+    call lose_life_and_save                  ; 42B82
+    call load_player_alt_frame               ; 42B85
+    call random_dissolve_wipe                ; 42B88
     cli                                      ; 42B8B
     mov al,0x0                               ; 42B8C
     out 0x6,al                               ; 42B8E
@@ -4369,7 +4621,12 @@ loc_2B7F:
     mov word [game_state],0xd                ; 42B9A
     jmp near main_loop                       ; 42BA0
 
-sub_2BA3:
+; Pseudo-random generator: advances the 15-bit shift-register value in [1394h] and returns it in AX. [medium, reviewed: range_0000_7B9B.json]
+; in:  [1394h] state
+; out: AX = new value, [1394h]
+; side effects: none
+; evidence: 42BA9-42BBD: mov ax,[0x1394]; rotate/rcl bit mixing; rcl dx,8; xor ax,dx; and ax,0x7fff; mov [0x1394],ax. Used by random_dissolve_wipe (441F8) to pick map cells.
+random_next:
     push cx                                  ; 42BA3
     push dx                                  ; 42BA4
     mov cl,0x8                               ; 42BA5
@@ -4407,7 +4664,12 @@ dead_2BC3:
     pop cx                                   ; 42BE2
     ret                                      ; 42BE3
 
-irq_2BE4:
+; VBlank handler for wipe pattern 3: records the scanline in vblank_line and writes tile entry 11D3h along two diagonals (x = start +/- BP) for 32 rows of the SCR2 map, growing an X shape as the interrupted loop increments BP; runs sound_tick and acks VBlank. [high, reviewed: range_0000_7B9B.json]
+; in:  BP (frame step), DI (start map offset) from the interrupted wipe loop
+; out: SCR2 map 1800h, vblank_line, B6h
+; side effects: relies on the main loop's registers
+; evidence: 42BE9 in al,2; mov [vblank_line],al; 42BEE dx=bp*2; 42C02-42C2C two stores mov [bx+0x1800],ax (ax=11D3h) per row; call sound_tick; out 0xb6,0x40. Installed by 42C3F.
+irq_wipe3_cross:
     pusha                                    ; 42BE4
     rr xor, ax, ax                           ; 42BE5
     mov ds,ax                                ; 42BE7
@@ -4442,12 +4704,17 @@ loc_2C02:
     popa                                     ; 42C35
     iret                                     ; 42C36
 
-state05_vision_restart_wipe_case3:
+; State-5 restart wipe, pattern 3: installs irq_wipe3_cross, derives the start map cell from the camera, and for 41 frames lets the IRQ draw the X pattern while every 4th frame each 4-bit entry of sprite palettes 8-15 is decremented (saturating at 0). [high, reviewed: range_0000_7B9B.json]
+; in:  [13A0h]/[13A2h] camera
+; out: vector 26h, ports 30h-3Eh, SCR2 map (via IRQ)
+; side effects: waits on vblank_line
+; evidence: 42C3F mov word [bx],irq_2BE4; 42C4E-42C70 di from (cam>>4 - 10h); 42C8C-42F5A in ax,0x30..0x3e / per-nibble cmp 1; cmc; sbb / out; 42F5C cmp bp,0x28. Selected by tbl_259E[3] from [138Eh]&3 in state05.
+wipe_pattern3_cross:
     pusha                                    ; 42C37
     rr xor, ax, ax                           ; 42C38
     mov ds,ax                                ; 42C3A
     mov bx,0x98                              ; 42C3C
-    mov word [bx],irq_2BE4                   ; 42C3F
+    mov word [bx],irq_wipe3_cross            ; 42C3F
     mov word [bx+0x2],0x4000                 ; 42C43
     rr xor, ax, ax                           ; 42C48
     mov ds,ax                                ; 42C4A
@@ -4792,7 +5059,12 @@ loc_2F65:
     popa                                     ; 42F65
     ret                                      ; 42F66
 
-irq_2F67:
+; VBlank handler for wipe pattern 2: fills SCR2 map columns with tile entry 11D3h: for BP <= 20h every other row of column start+BP (12 cells), afterwards full columns to the left of the start (start-BP, 24 cells). [high, reviewed: range_0000_7B9B.json]
+; in:  BP, DI from the interrupted wipe loop
+; out: SCR2 map 1800h, vblank_line, B6h
+; side effects: calls sound_tick
+; evidence: 42F76 cmp bp,0x20; 42F9B-42FB5 cx=0Ch, add di,0x80; 42FBD-43009 sub si,ax; two stores per step; mov ax,0x11d3; mov [bx+0x1800],ax
+irq_wipe2_columns:
     push di                                  ; 42F67
     rr xor, ax, ax                           ; 42F68
     mov ds,ax                                ; 42F6A
@@ -4865,12 +5137,17 @@ loc_2FE3:
     pop di                                   ; 4300F
     iret                                     ; 43010
 
-state05_vision_restart_wipe_case2:
+; State-5 restart wipe, pattern 2: installs irq_wipe2_columns and for 71 frames (BP up to 46h) decrements sprite palettes 8-15 one shade step every 8th frame. [high, reviewed: range_0000_7B9B.json]
+; in:  camera [13A0h]/[13A2h]
+; out: vector 26h, ports 30h-3Eh
+; side effects: waits on vblank_line
+; evidence: 43019 mov word [bx],irq_2F67; 4304E and ax,7 (every 8 frames); 43336 cmp bp,0x46. tbl_259E[2].
+wipe_pattern2_columns:
     pusha                                    ; 43011
     rr xor, ax, ax                           ; 43012
     mov ds,ax                                ; 43014
     mov bx,0x98                              ; 43016
-    mov word [bx],irq_2F67                   ; 43019
+    mov word [bx],irq_wipe2_columns          ; 43019
     mov word [bx+0x2],0x4000                 ; 4301D
     rr xor, ax, ax                           ; 43022
     mov ds,ax                                ; 43024
@@ -5215,7 +5492,12 @@ loc_333F:
     popa                                     ; 4333F
     ret                                      ; 43340
 
-irq_3341:
+; VBlank handler for wipe pattern 1: each frame fills one SCR2 map row with tile entry 11D3h, every second cell while BP <= 15h and every cell afterwards, then advances to the next row. [high, reviewed: range_0000_7B9B.json]
+; in:  BP, DI, SI from the interrupted wipe loop
+; out: SCR2 map 1800h, vblank_line, B6h
+; side effects: calls sound_tick; advances DI/SI of the interrupted code
+; evidence: 4334F cmp bp,0x15; 43354-43367 cx=10h, add si,4; add di,0x40; 43377-4339D two stores per step, add si,2
+irq_wipe1_rows:
     rr xor, ax, ax                           ; 43341
     mov ds,ax                                ; 43343
     pusha                                    ; 43345
@@ -5260,12 +5542,17 @@ loc_337D:
     out 0xb6,al                              ; 433A6
     iret                                     ; 433A8
 
-state05_vision_restart_wipe_case1:
+; State-5 restart wipe, pattern 1: installs irq_wipe1_rows (starting at the camera's row, column 0) and for 51 frames decrements sprite palettes 8-15 one shade step every 8th frame. [high, reviewed: range_0000_7B9B.json]
+; in:  camera [13A2h]
+; out: vector 26h, ports 30h-3Eh
+; side effects: waits on vblank_line
+; evidence: 433B1 mov word [bx],irq_3341; 433C0 dx=[0x13a2] only; 433E8 and ax,7; 436D0 cmp bp,0x32. tbl_259E[1]; runtime-executed.
+wipe_pattern1_rows:
     pusha                                    ; 433A9
     rr xor, ax, ax                           ; 433AA
     mov ds,ax                                ; 433AC
     mov bx,0x98                              ; 433AE
-    mov word [bx],irq_3341                   ; 433B1
+    mov word [bx],irq_wipe1_rows             ; 433B1
     mov word [bx+0x2],0x4000                 ; 433B5
     rr xor, ax, ax                           ; 433BA
     mov ds,ax                                ; 433BC
@@ -5610,7 +5897,12 @@ loc_36D9:
     popa                                     ; 436D9
     ret                                      ; 436DA
 
-irq_36DB:
+; VBlank handler for wipe pattern 0: draws a diagonal line of BP+1 tile entries 11D3h from column start+BP going down-left (row+1, column-1 per cell) in the SCR2 map, so the filled triangle grows each frame. [high, reviewed: range_0000_7B9B.json]
+; in:  BP, DI from the interrupted wipe loop
+; out: SCR2 map 1800h, vblank_line, B6h
+; side effects: calls sound_tick
+; evidence: 436EC and bp,0x3f; mov cx,ax; inc cx; 43706-4371C add si,0x3e; add di,0x40; mov [bx+0x1800],ax (11D3h)
+irq_wipe0_diagonal:
     pusha                                    ; 436DB
     push ds                                  ; 436DC
     push es                                  ; 436DD
@@ -5647,12 +5939,17 @@ loc_3706:
     popa                                     ; 43724
     iret                                     ; 43725
 
-state05_vision_restart_wipe_case0:
+; State-5 restart wipe, pattern 0: installs irq_wipe0_diagonal and for 49 frames decrements sprite palettes 8-15 one shade step every 4th frame. [high, reviewed: range_0000_7B9B.json]
+; in:  camera [13A0h]/[13A2h]
+; out: vector 26h, ports 30h-3Eh
+; side effects: waits on vblank_line
+; evidence: 4372E mov word [bx],irq_36DB; 43761 and ax,3; 43A49 cmp bp,0x30. tbl_259E[0].
+wipe_pattern0_diagonal:
     pusha                                    ; 43726
     rr xor, ax, ax                           ; 43727
     mov ds,ax                                ; 43729
     mov bx,0x98                              ; 4372B
-    mov word [bx],irq_36DB                   ; 4372E
+    mov word [bx],irq_wipe0_diagonal         ; 4372E
     mov word [bx+0x2],0x4000                 ; 43732
     rr xor, ax, ax                           ; 43737
     mov ds,ax                                ; 43739
@@ -5996,7 +6293,12 @@ loc_3A52:
     popa                                     ; 43A52
     ret                                      ; 43A53
 
-irq_3A54:
+; Minimal VBlank handler: runs sound_tick, stores the scanline in vblank_line, acks VBlank. [high, reviewed: range_0000_7B9B.json]
+; in:  none
+; out: vblank_line, B6h=40h
+; side effects: calls sound_tick
+; evidence: 43A5C call sound_tick; 43A60 in al,2; mov [vblank_line],al; out 0xb6,0x40; iret. Installed by vision_clear_iris_out (43B66).
+irq_vblank_sound_only:
     pusha                                    ; 43A54
     push ds                                  ; 43A55
     push es                                  ; 43A56
@@ -6014,7 +6316,12 @@ irq_3A54:
     popa                                     ; 43A6B
     iret                                     ; 43A6C
 
-irq_3A6D:
+; Per-scanline HBlank-timer handler for the circular 'iris' effect: for the current line computes the half-width sqrt(r^2 - dy^2) of a circle of radius [1394h] centred on the player (slot 03C0h, relative to the camera) and sets the SCR2 window and sprite window X limits to that span. [high, reviewed: range_0000_7B9B.json]
+; in:  [1394h] radius, player x/y [3C2h]/[3C4h], camera [13A0h]/[13A2h], port 02h line
+; out: ports 08h,0Ah (SCR2 window x1/x2), 0Ch,0Eh (sprite window x1/x2), B6h=80h
+; side effects: calls isqrt16
+; evidence: 43A7A in al,2 (lines >= 90h give 0); 43A82 dx=[0x3c4]-[0x13a2]>>4; imul cl; mul dl (r*r); sub; 43AA5 call sub_0266; 43ABD out 0x8/0xc; 43AD3 out 0xa/0xe; out 0xb6,0x80
+irq_hblank_iris_window:
     pusha                                    ; 43A6D
     push ds                                  ; 43A6E
     push es                                  ; 43A6F
@@ -6041,7 +6348,7 @@ irq_3A6D:
     cwd                                      ; 43AA0
     not dx                                   ; 43AA1
     rr and, dx, ax                           ; 43AA3
-    call sub_0266                            ; 43AA5
+    call isqrt16                             ; 43AA5
     mov cx,[0x3c2]                           ; 43AA8
     sub cx,[0x13a0]                          ; 43AAC
     shr cx,byte 0x4                          ; 43AB0
@@ -6070,7 +6377,12 @@ irq_3A6D:
     iret                                     ; 43ADE
     db 0x90   ; 43ADF
 
-irq_3AE0:
+; Vertical-orientation variant of irq_hblank_iris_window: same circle computation with the player axes swapped (screen line vs player x, span from [13B2h]*256 - player y), clamping the left edge to at least 10h. [high, reviewed: range_0000_7B9B.json]
+; in:  [1394h], [3C2h]/[3C4h], [13A0h]/[13A2h], [13B2h], port 02h
+; out: ports 08h,0Ah,0Ch,0Eh, B6h
+; side effects: calls isqrt16
+; evidence: 43AF5 dx=[0x3c2]-[0x13a2]; 43B1D mov ah,[0x13b2]; sub ax,[0x3c4]; 43B36 cmp al,0x10 clamp; out 0x8/0xa/0xc/0xe
+irq_hblank_iris_window_vert:
     pusha                                    ; 43AE0
     push ds                                  ; 43AE1
     push es                                  ; 43AE2
@@ -6097,7 +6409,7 @@ irq_3AE0:
     cwd                                      ; 43B13
     not dx                                   ; 43B14
     rr and, dx, ax                           ; 43B16
-    call sub_0266                            ; 43B18
+    call isqrt16                             ; 43B18
     rr xor, ax, ax                           ; 43B1B
     mov ah,[0x13b2]                          ; 43B1D
     sub ax,[0x3c4]                           ; 43B21
@@ -6131,26 +6443,31 @@ loc_3B3C:
     popa                                     ; 43B5C
     iret                                     ; 43B5D
 
-sub_3B5E:
+; Vision-clear transition: installs irq_vblank_sound_only and the iris HBlank handler (horizontal or vertical variant), then for 200 frames shrinks the iris radius [1394h] from 8Ch by 1 per frame (to 0) while decrementing sprite palettes 8-15 every 16th frame; finally re-enables plain VBlank interrupts. Called when play_flags bit5 is set, before game_state = 7. [high, reviewed: range_0000_7B9B.json]
+; in:  play_flags bit0
+; out: [1394h], vectors 26h/27h, ports 00h, 30h-3Eh, B2h, B6h
+; side effects: takes over interrupts for ~200 frames
+; evidence: 43B66 irq_3A54 at 98h; 43B7D/43B90 irq_3A6D/irq_3AE0 at 9Ch; 43BB0 mov word [0x1394],0x8c; 43E9D-43EA8 dec radius to 0; 43EB8 cmp bp,0xc8. Caller 42B5E (play_flags & 20h -> state 7).
+vision_clear_iris_out:
     pusha                                    ; 43B5E
     rr xor, ax, ax                           ; 43B5F
     mov ds,ax                                ; 43B61
     mov bx,0x98                              ; 43B63
-    mov word [bx],irq_3A54                   ; 43B66
+    mov word [bx],irq_vblank_sound_only      ; 43B66
     mov word [bx+0x2],0x4000                 ; 43B6A
     test byte [play_flags],0x1               ; 43B6F
     jnz short loc_3B89                       ; 43B74
     rr xor, ax, ax                           ; 43B76
     mov ds,ax                                ; 43B78
     mov bx,0x9c                              ; 43B7A
-    mov word [bx],irq_3A6D                   ; 43B7D
+    mov word [bx],irq_hblank_iris_window     ; 43B7D
     mov word [bx+0x2],0x4000                 ; 43B81
     jmp near loc_3B99                        ; 43B86
 loc_3B89:
     rr xor, ax, ax                           ; 43B89
     mov ds,ax                                ; 43B8B
     mov bx,0x9c                              ; 43B8D
-    mov word [bx],irq_3AE0                   ; 43B90
+    mov word [bx],irq_hblank_iris_window_vert ; 43B90
     mov word [bx+0x2],0x4000                 ; 43B94
 loc_3B99:
     mov al,0x10                              ; 43B99
@@ -6505,7 +6822,12 @@ loc_3EC2:
     popa                                     ; 43ECA
     ret                                      ; 43ECB
 
-irq_3ECC:
+; Second copy of the minimal VBlank handler (sound_tick, vblank_line, ack). Installed by random_dissolve_wipe. [high, reviewed: range_0000_7B9B.json]
+; in:  none
+; out: vblank_line, B6h
+; side effects: calls sound_tick
+; evidence: 43ED4 call sound_tick; 43ED8 in al,2; mov [vblank_line],al; out 0xb6,0x40; iret; installed at 43EED
+irq_vblank_sound_only_b:
     pusha                                    ; 43ECC
     push ds                                  ; 43ECD
     push es                                  ; 43ECE
@@ -6523,12 +6845,17 @@ irq_3ECC:
     popa                                     ; 43EE3
     iret                                     ; 43EE4
 
-sub_3EE5:
+; Random-dissolve transition used on the life-lost path into state 13: installs irq_vblank_sound_only_b, seeds the PRNG [1394h] from the frame counter, then for 96 frames writes tile entry 11D3h into 12 random SCR2 map cells per frame and decrements sprite palettes 8-15 every 16th frame. [high, reviewed: range_0000_7B9B.json]
+; in:  [138Eh] frame counter
+; out: [1394h], SCR2 map 1800h, ports 30h-3Eh, vector 26h
+; side effects: takes over VBlank
+; evidence: 43EED irq_3ECC; 43F05-43F0C mov ax,[0x138e]; and 0x7ffe; inc; mov [0x1394],ax; 441F5-4420C cx=0Ch: call sub_2BA3; dec ax; cmp ax,0x400; mov [bx+0x1800],0x11d3; 4421B cmp bp,0x60. Caller 42B88 (state01, then game_state=0Dh).
+random_dissolve_wipe:
     pusha                                    ; 43EE5
     rr xor, ax, ax                           ; 43EE6
     mov ds,ax                                ; 43EE8
     mov bx,0x98                              ; 43EEA
-    mov word [bx],irq_3ECC                   ; 43EED
+    mov word [bx],irq_vblank_sound_only_b    ; 43EED
     mov word [bx+0x2],0x4000                 ; 43EF1
     mov al,0x10                              ; 43EF6
     out 0xb6,al                              ; 43EF8
@@ -6862,7 +7189,7 @@ loc_3F25:
 loc_41F5:
     mov cx,0xc                               ; 441F5
 loc_41F8:
-    call sub_2BA3                            ; 441F8
+    call random_next                         ; 441F8
     dec ax                                   ; 441FB
     cmp ax,0x400                             ; 441FC
     jnc short loc_41F8                       ; 441FF
@@ -6885,7 +7212,12 @@ loc_4224:
     ret                                      ; 44225
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 44226
 
-sub_4230:
+; Rotates BP consecutive 8x8 2bpp tiles, starting at tile index BX (RAM 2000h + BX*16), 90 degrees clockwise in place using a 16-byte buffer at 1280h. Used when switching to vertical orientation. [high, reviewed: range_0000_7B9B.json]
+; in:  BX = first tile index, BP = tile count
+; out: tile RAM, RAM 1280h-128Fh scratch
+; side effects: ES=0
+; evidence: 44234 shl bx,4; add bx,0x2000; 4424A-42457 shl cl,1; rcr byte [si],1; shl ch,1; rcr byte [si+1],1 over 8 rows; 4425F rep movsw back. New row c = old column c with old row 7 at the left.
+tiles_rotate_cw:
     rr xor, ax, ax                           ; 44230
     mov es,ax                                ; 44232
     shl bx,byte 0x4                          ; 44234
@@ -6919,7 +7251,12 @@ loc_424A:
     rep movsw                                ; 44265
     jmp near loc_423B                        ; 44267
 
-sub_426A:
+; Rotates BP tiles starting at tile index BX 90 degrees counter-clockwise in place (inverse of tiles_rotate_cw). Used when switching back to horizontal orientation. [high, reviewed: range_0000_7B9B.json]
+; in:  BX = first tile index, BP = tile count
+; out: tile RAM, RAM 1280h scratch
+; side effects: ES=0
+; evidence: 44284-44291 shr cl,1; rcl byte [si],1; shr ch,1; rcl byte [si+1],1; caller 40FEB in pause_opt_rotate_screen (horizontal branch).
+tiles_rotate_ccw:
     rr xor, ax, ax                           ; 4426A
     mov es,ax                                ; 4426C
     shl bx,byte 0x4                          ; 4426E
@@ -6953,7 +7290,12 @@ loc_4284:
     rep movsw                                ; 4429F
     jmp near loc_4275                        ; 442A1
 
-sub_42A4:
+; Looks up the camera-hint cell for a world position: one byte per 32x32-px cell in 256x256-px blocks of the table at [132Ch]:[132Eh]; returns AL = low nibble*8 and AH = high nibble*8 (AX=4040h when the level has no table, [132Eh]=FFFFh). [medium, reviewed: range_0000_7B9B.json]
+; in:  AX = y, DX = x (1/16 px), [132Ch]/[132Eh], [12F6h] level width in blocks
+; out: AX = two offsets
+; side effects: ES = [132Ch]
+; evidence: 442A8 cmp di,-1; mov ax,0x4040; 442B3-442E1 block=(y>>12)*[0x12f6]+(x>>12), *64, + x-cell, + y-cell; 442E8 mov al,[es:di]; and al,0xf; shl al,3; and ah,0xf0; shr ah,1. Only caller camera_adjust_lookahead.
+camera_hint_lookup:
     mov di,[0x132e]                          ; 442A4
     cmp di,byte -0x1                         ; 442A8
     jnz short loc_42B1                       ; 442AB
@@ -6994,7 +7336,12 @@ loc_42B1:
     shr ah,1                                 ; 442F6
     ret                                      ; 442F8
 
-sub_42F9:
+; Loads the level tileset into tile RAM 2000h (raw copy of [1303h]*16 bytes from [1320h]:[12E0h] or BPE stream [1320h]:[1330h]) and builds the 2-bit-per-8x8-cell terrain map at 0C80h: for every row of every 256x256 block it fetches the tile row (map_fetch_tile_row) and classifies each tile number: < [12F4h] -> 0, < [12F4h]+[12F5h] -> 1, else 2 (3 in levels 61xx/64xx). [high, reviewed: range_0000_7B9B.json]
+; in:  [1302h], [1320h], [1330h], [12E0h], [1303h], [12F4h], [12F5h], [12F6h], [12F7h], [12D8h]
+; out: tile RAM 2000h.., terrain map 0C80h.., [1316h]
+; side effects: play_flags temporarily cleared during row fetch
+; evidence: 44300-4431C rep movsw to 0x2000; 4432F mov si,0xc80; call bpe_expand; 44360 call sub_484D; 4437A-44399 cmp with [0x12f4], add [0x12f5]; cmp ax,0x6100/0x6400 -> al=3; 443AB rcr packing; 443B8 mov [di],dl
+level_build_collision_map:
     test byte [0x1302],0x1                   ; 442F9
     jnz short loc_4323                       ; 442FE
     push ds                                  ; 44300
@@ -7040,7 +7387,7 @@ loc_4343:
     mov ch,[play_flags]                      ; 44356
     mov byte [play_flags],0x0                ; 4435A
     push bp                                  ; 4435F
-    call sub_484D                            ; 44360
+    call map_fetch_tile_row                  ; 44360
     pop bp                                   ; 44363
     mov [play_flags],ch                      ; 44364
     popa                                     ; 44368
@@ -7107,7 +7454,12 @@ loc_43D7:
 loc_43E4:
     ret                                      ; 443E4
 
-sub_43E5:
+; Reads the 2-bit terrain attribute of the 8x8 cell at a world position from the map at 0C80h (256 bytes per 256x256-px block, 4 cells per byte). Returns CL = attribute (0 empty, 1 solid, 2/3 hazard), AL = CH if attribute != 0 else 0, and ORs that into BH (contact-flag accumulator). [high, reviewed: range_0000_7B9B.json]
+; in:  AX = y, DX = x (1/16 px), CH = contact bit to report, BH = accumulated flags, [12F6h] width in blocks
+; out: CL = attribute, AX (AL = CH or 0), BH |= AL
+; side effects: none
+; evidence: 443ED-443FF block=(y>>12)*[0x12f6]+(x>>12), *256 + 0C80h; 44403-44413 + (x&FFFh)>>9 + (y&F80h)>>4; 44417-44423 shift (x>>6)&6, and 3; 4442D-44433 neg al; sbb al,al; and al,ch; or bh,al. Callers test cl>=2 to apply damage (e.g. 45524).
+terrain_attr_at:
     pusha                                    ; 443E5
     mov di,0xc80                             ; 443E6
     rr mov, bp, dx                           ; 443E9
@@ -7146,14 +7498,19 @@ sub_43E5:
     rr or, bh, al                            ; 44433
     ret                                      ; 44435
 
-sub_4436:
+; Sets terrain attribute 1 for a rectangle of 8x8 cells: BL cells along x by BH cells along y starting at (AX=y, DX=x). [high, reviewed: range_0000_7B9B.json]
+; in:  AX = y, DX = x, BL = width (cells), BH = height (cells)
+; out: terrain map 0C80h
+; side effects: none
+; evidence: 4443C mov ch,1; call sub_4480; add dx,0x80 (BL times); add ax,0x80 (BH times)
+terrain_rect_set:
     pusha                                    ; 44436
     rr mov, bp, dx                           ; 44437
     rr xor, cx, cx                           ; 44439
 loc_443B:
     push cx                                  ; 4443B
     mov ch,0x1                               ; 4443C
-    call sub_4480                            ; 4443E
+    call terrain_attr_set                    ; 4443E
     pop cx                                   ; 44441
     add dx,0x80                              ; 44442
     inc cl                                   ; 44446
@@ -7168,14 +7525,19 @@ loc_443B:
     popa                                     ; 44459
     ret                                      ; 4445A
 
-sub_445B:
+; Clears the terrain attribute (0) for a rectangle of BL x BH 8x8 cells starting at (AX=y, DX=x). [high, reviewed: range_0000_7B9B.json]
+; in:  AX = y, DX = x, BL, BH
+; out: terrain map 0C80h
+; side effects: none
+; evidence: 44461 xor ch,ch; call sub_4480; loops identical to terrain_rect_set
+terrain_rect_clear:
     pusha                                    ; 4445B
     rr mov, bp, dx                           ; 4445C
     rr xor, cx, cx                           ; 4445E
 loc_4460:
     push cx                                  ; 44460
     rr xor, ch, ch                           ; 44461
-    call sub_4480                            ; 44463
+    call terrain_attr_set                    ; 44463
     pop cx                                   ; 44466
     add dx,0x80                              ; 44467
     inc cl                                   ; 4446B
@@ -7190,7 +7552,12 @@ loc_4460:
     popa                                     ; 4447E
     ret                                      ; 4447F
 
-sub_4480:
+; Writes the 2-bit terrain attribute CH for the 8x8 cell at (AX=y, DX=x) in the map at 0C80h (inverse of terrain_attr_at). [high, reviewed: range_0000_7B9B.json]
+; in:  AX = y, DX = x (1/16 px), CH = attribute 0-3
+; out: terrain map byte
+; side effects: none
+; evidence: 44487-444CB same addressing as terrain_attr_at; mov ah,3; shl ah,cl; not ah; shl ch,cl; and al,ah; or al,ch; mov [di],al
+terrain_attr_set:
     pusha                                    ; 44480
     mov cl,0x4                               ; 44481
     sar dx,cl                                ; 44483
@@ -7230,8 +7597,13 @@ sub_4480:
     popa                                     ; 444CD
     ret                                      ; 444CE
 
-sub_44CF:
-    call sub_44E7                            ; 444CF
+; Looks up the current level (level_lookup_directory) and returns its size bytes from the map header: AH = width, AL = height (in 256-px blocks). [high, reviewed: range_0000_7B9B.json]
+; in:  [12D8h] level id
+; out: AX = width:height; level pointers as level_lookup_directory
+; side effects: none
+; evidence: 444CF call sub_44E7; 444D4-444E0 es=[0x1328]; bx=[0x132a]; mov ah,[es:bx]; mov al,[es:bx+1]
+level_get_size:
+    call level_lookup_directory              ; 444CF
     push es                                  ; 444D2
     push bx                                  ; 444D3
     mov ax,[0x1328]                          ; 444D4
@@ -7243,7 +7615,12 @@ sub_44CF:
     pop es                                   ; 444E5
     ret                                      ; 444E6
 
-sub_44E7:
+; Resolves the current level id [12D8h] (world/vision/sub-area nibbles, minus 1101h) through the bank-9 directory at 9000:0000 / 9000:01E0 (6 entries per world): stores the tileset segment/stream [1320h]/[1330h], [1322h], the map header pointer [1328h]:[132Ah] and the camera-hint table [132Ch]:[132Eh]; sets [1302h]=1. [high, reviewed: range_0000_7B9B.json]
+; in:  [12D8h]
+; out: [1302h], [1320h], [1322h], [1328h], [132Ah], [132Ch], [132Eh]; ES = [1320h]
+; side effects: none
+; evidence: 444F2-4451B ax=[0x12d8]-0x1101; world*6+vision, *4; 4451D mov ax,0x9000; 44522 bx=[es:si+2]; 4453F mov [0x132c],ax; 44546 [0x132e]; 44565-44593 [0x1320],[0x1330],[0x1322],[0x1328],[0x132a]
+level_lookup_directory:
     mov byte [0x1302],0x0                    ; 444E7
     mov di,0x0                               ; 444EC
     mov si,0x1e0                             ; 444EF
@@ -7312,7 +7689,12 @@ loc_4561:
     mov es,ax                                ; 44599
     ret                                      ; 4459B
 
-sub_459C:
+; Resolves the background (SCR1) data pointer for the current level from the bank-9 table at 9000:0090 (indexed like level_lookup_directory; the low nibble is used only for ids >= 7100h) into [1324h]:[1326h]. [high, reviewed: range_0000_7B9B.json]
+; in:  [12D8h]
+; out: [1324h], [1326h], ES
+; side effects: none
+; evidence: 4459C-445FA: mov di,0x90; world*6+vision index; cmp ax,0x7100; mov [0x1324],ax; mov [0x1326],bx
+level_lookup_bg_data:
     mov ax,0x9000                            ; 4459C
     mov es,ax                                ; 4459F
     mov di,0x90                              ; 445A1
@@ -7354,16 +7736,26 @@ loc_45EC:
     mov es,ax                                ; 445FA
     ret                                      ; 445FC
 
-sub_45FD:
-    call sub_4604                            ; 445FD
-    call sub_46D5                            ; 44600
+; Draws the complete foreground (level_draw_scr2_full) and background (level_draw_scr1_full) maps. [high, reviewed: range_0000_7B9B.json]
+; in:  level state
+; out: SCR2 map 1800h, SCR1 map 0800h, tile RAM
+; side effects: none
+; evidence: 445FD call sub_4604; call sub_46D5; ret
+level_draw_both_layers:
+    call level_draw_scr2_full                ; 445FD
+    call level_draw_scr1_full                ; 44600
     ret                                      ; 44603
 
-sub_4604:
-    call sub_44E7                            ; 44604
-    call sub_4669                            ; 44607
+; Draws the full 32x32 foreground map: looks up the level, parses its header, loads its BG palettes (ES:[12E6h] -> ports 20h-2Eh), then fetches 32 tile rows starting at [12D4h]/[12D6h] (map_fetch_tile_row) into the SCR2 map at 1800h with wrap-around. [high, reviewed: range_0000_7B9B.json]
+; in:  [12D4h], [12D6h] tile origin, level data
+; out: SCR2 map 1800h, ports 20h-2Eh, [12D6h] advanced
+; side effects: none
+; evidence: 44604 call sub_44E7; call sub_4669; 4460A mov bx,[0x12e6]; call sub_4A3F; 44640 call sub_484D; 44655 mov [di+0x1800],ax; 44663 cmp si,0x20
+level_draw_scr2_full:
+    call level_lookup_directory              ; 44604
+    call level_parse_map_header              ; 44607
     mov bx,[0x12e6]                          ; 4460A
-    call sub_4A3F                            ; 4460E
+    call load_bg_palettes                    ; 4460E
     rr xor, si, si                           ; 44611
 loc_4613:
     rr xor, di, di                           ; 44613
@@ -7382,7 +7774,7 @@ loc_4613:
     pusha                                    ; 44638
     mov ax,[0x12d4]                          ; 44639
     mov dx,[0x12d6]                          ; 4463C
-    call sub_484D                            ; 44640
+    call map_fetch_tile_row                  ; 44640
     popa                                     ; 44643
     inc word [0x12d6]                        ; 44644
     mov bx,0x1280                            ; 44648
@@ -7404,7 +7796,12 @@ loc_464E:
     jnz short loc_4613                       ; 44666
     ret                                      ; 44668
 
-sub_4669:
+; Parses the level map header at [1328h]:[132Ah]: width/height in blocks ([12F6h]/[12F7h]), pointers to the block map ([12E4h]), palette ([12E6h]), metatile definitions ([12E2h]), tile classification thresholds ([12F4h]/[12F5h]), tileset size [1303h], and derived row strides [12EAh], [12ECh], [12EEh], [12F0h]. [medium, reviewed: range_0000_7B9B.json]
+; in:  [1328h], [132Ah], [1330h], ES = tileset segment
+; out: [12E0h]-[12F7h], [1303h]
+; side effects: none
+; evidence: 44674 mov [0x12f6],al; 4467E [0x12f7]; 44684 [0x12e4]=bx+2; 4468F [0x12ee]=40h; 44699 [0x12f0]; 446A3 [0x12ea]=width*40h; 446B5 [0x12f4]=[es:bx+2]; 446BB [0x12e6]; 446C2 [0x12e2]; 446D1 [0x1303]
+level_parse_map_header:
     push es                                  ; 44669
     push bx                                  ; 4466A
     mov ax,[0x1328]                          ; 4466B
@@ -7445,14 +7842,19 @@ sub_4669:
     mov [0x1303],al                          ; 446D1
     ret                                      ; 446D4
 
-sub_46D5:
-    call sub_459C                            ; 446D5
+; Prepares and draws the background: looks up the BG data (level_lookup_bg_data), sets up its pointers (packed or raw), copies raw BG tiles after the level tileset when needed, then writes 18 rows of 32 entries (horizontal) or 26 columns of 18 entries (vertical, mirrored) into the SCR1 map at 0800h. [high, reviewed: range_0000_7B9B.json]
+; in:  [1302h], [1324h]/[1326h], play_flags bit0
+; out: SCR1 map 0800h, tile RAM after the tileset
+; side effects: none
+; evidence: 446D5 call sub_459C; 446DF/446E5 sub_4793 / sub_4772; 446F2-44718 rep movsw to 2000h+[1303h]*16; 44726 call sub_47CB; mov di,0x800; 44745 cmp si,0x12; 4474B-4476C vertical: di=800h+(1Bh-si)*2, stride 40h, 1Ah columns
+level_draw_scr1_full:
+    call level_lookup_bg_data                ; 446D5
     test byte [0x1302],0x1                   ; 446D8
     jnz short loc_46E5                       ; 446DD
-    call sub_4793                            ; 446DF
+    call bg_set_ptrs_raw                     ; 446DF
     jmp near loc_46E8                        ; 446E2
 loc_46E5:
-    call sub_4772                            ; 446E5
+    call bg_set_ptrs_shared                  ; 446E5
 loc_46E8:
     test byte [0x1302],0x1                   ; 446E8
     jnz short loc_471D                       ; 446ED
@@ -7481,7 +7883,7 @@ loc_471D:
     test byte [play_flags],0x1               ; 4471F
     jnz short loc_474B                       ; 44724
 loc_4726:
-    call sub_47CB                            ; 44726
+    call bg_fetch_tile_row                   ; 44726
     mov di,0x800                             ; 44729
     rr mov, ax, si                           ; 4472C
     mov cl,0x6                               ; 4472E
@@ -7502,7 +7904,7 @@ loc_473A:
     jnz short loc_4726                       ; 44748
     ret                                      ; 4474A
 loc_474B:
-    call sub_47CB                            ; 4474B
+    call bg_fetch_tile_row                   ; 4474B
     mov di,0x800                             ; 4474E
     mov ax,0x1b                              ; 44751
     rr sub, ax, si                           ; 44754
@@ -7522,7 +7924,12 @@ loc_4760:
     jnz short loc_474B                       ; 4476F
     ret                                      ; 44771
 
-sub_4772:
+; Sets the background data pointers when the BG shares the level tileset: [12F8h] = [12E0h], [12FAh] = [12E2h], [12FCh] = [1326h]+2; returns ES = [1320h], BX = [1322h]. [high, reviewed: range_0000_7B9B.json]
+; in:  [12E0h], [12E2h], [1326h], [1320h], [1322h]
+; out: [12F8h], [12FAh], [12FCh], ES, BX
+; side effects: none
+; evidence: 44772-44792 straight moves
+bg_set_ptrs_shared:
     mov ax,[0x12e0]                          ; 44772
     mov [0x12f8],ax                          ; 44775
     mov ax,[0x12e2]                          ; 44778
@@ -7535,7 +7942,12 @@ sub_4772:
     mov bx,[0x1322]                          ; 4478E
     ret                                      ; 44792
 
-sub_4793:
+; Sets the background data pointers from a raw BG header at ES:BX: tiles at BX+8, metatiles after [BX]*16 bytes, block map after ([BX+2]&7FFFh)*32, next area after ([BX+4]&7FFFh)*64. [medium, reviewed: range_0000_7B9B.json]
+; in:  ES:BX = BG header
+; out: [12F8h], [12FAh], [12FCh], [12FEh]
+; side effects: none
+; evidence: 44795 add dx,8; mov [0x12f8],dx; 4479C shl ax,4; [0x12fa]; 447B0 shl ax,5; [0x12fc]; 447C3 shl ax,6; [0x12fe]
+bg_set_ptrs_raw:
     rr mov, dx, bx                           ; 44793
     add dx,byte +0x8                         ; 44795
     mov [0x12f8],dx                          ; 44798
@@ -7558,7 +7970,12 @@ sub_4793:
     mov [0x12fe],ax                          ; 447C7
     ret                                      ; 447CA
 
-sub_47CB:
+; Fetches background tile row SI (32 map entries) into the buffer at 1280h: for 8 metatiles of the BG block map ([12FCh]) reads 4 entries each from the metatile table ([12FAh]), swapping flip bits in vertical mode and adding the tileset size [1303h] for raw BG data. [medium, reviewed: range_0000_7B9B.json]
+; in:  SI = row, [12FCh], [12FAh], [1302h], [1324h], [1303h], play_flags bit0
+; out: RAM 1280h-12BFh (32 words)
+; side effects: none
+; evidence: 447CE mov bx,[0x12fc]; 447E9-447F1 row -> metatile row/offset; 44808 mov al,[es:bx]; shl ax,5; add si,[0x12fa]; 4482B call sub_4A28 if vertical; 44835 add al,[0x1303]; 4483C mov [di],ax
+bg_fetch_tile_row:
     pusha                                    ; 447CB
     rr xor, ax, ax                           ; 447CC
     mov bx,[0x12fc]                          ; 447CE
@@ -7600,7 +8017,7 @@ loc_4821:
     mov ax,[es:si]                           ; 44821
     test byte [play_flags],0x1               ; 44824
     jz short loc_482E                        ; 44829
-    call sub_4A28                            ; 4482B
+    call map_entry_swap_flips                ; 4482B
 loc_482E:
     test byte [0x1302],0x1                   ; 4482E
     jnz short loc_483C                       ; 44833
@@ -7618,7 +8035,12 @@ loc_483C:
     popa                                     ; 4484B
     ret                                      ; 4484C
 
-sub_484D:
+; Fetches 32 consecutive foreground map entries of tile row DX starting at tile column AX into the buffer at 1280h, decoding the block map ([1328h]:[12E4h], 8x8 metatiles per 256-px block) and 4x4-tile metatiles ([1320h]:[12E2h]); in vertical mode the coordinates are transposed and it continues as map_fetch_tile_col, and flip bits are swapped. [high, reviewed: range_0000_7B9B.json]
+; in:  AX = tile column, DX = tile row, level pointers, play_flags bit0
+; out: RAM 1280h-12BFh, [1310h]-[1314h]
+; side effects: none
+; evidence: 44854-44864 vertical: bx=[0x12f7]*20h - ax; jmp loc_4943; 44871/4487B [0x1312]/[0x1314]; 44884 mul [0x12ee]; 44897 mul [0x12ea]; 448CF mov al,[es:bx] (ES=[0x1328]); shl ax,5; add si,[0x12e2]; 448EF call sub_4A28; 448B4 mov word [0x1310],0x20
+map_fetch_tile_row:
     test byte [play_flags],0x1               ; 4484D
     jz short loc_4867                        ; 44852
     mov bh,[0x12f7]                          ; 44854
@@ -7686,7 +8108,7 @@ loc_48E5:
     mov ax,[es:si]                           ; 448E5
     test byte [play_flags],0x1               ; 448E8
     jz short loc_48F2                        ; 448ED
-    call sub_4A28                            ; 448EF
+    call map_entry_swap_flips                ; 448EF
 loc_48F2:
     mov [di],ax                              ; 448F2
     add di,byte +0x2                         ; 448F4
@@ -7707,7 +8129,12 @@ loc_48F2:
 loc_492A:
     ret                                      ; 4492A
 
-sub_492B:
+; Fetches 32 consecutive foreground map entries of tile column AX starting at tile row DX into the buffer at 1280h (metatile stride 8 bytes per row); in vertical mode it transposes and continues as map_fetch_tile_row, and fills the buffer backwards from 12BEh with swapped flip bits. [high, reviewed: range_0000_7B9B.json]
+; in:  AX = tile column, DX = tile row, level pointers, play_flags bit0
+; out: RAM 1280h-12BFh, [1310h]-[1314h]
+; side effects: none
+; evidence: 44932-44940 vertical: dx=[0x12f7]*20h - dx - 1; jmp loc_4867; 44975 shl ax,6 (block row); 499AB add di,0x3e; 449EF add si,8 (next metatile row); 449EC sub di,2 when vertical
+map_fetch_tile_col:
     test byte [play_flags],0x1               ; 4492B
     jz short loc_4943                        ; 44930
     mov bh,[0x12f7]                          ; 44932
@@ -7780,7 +8207,7 @@ loc_49D0:
     mov ax,[es:si]                           ; 449D0
     test byte [play_flags],0x1               ; 449D3
     jz short loc_49DD                        ; 449D8
-    call sub_4A28                            ; 449DA
+    call map_entry_swap_flips                ; 449DA
 loc_49DD:
     mov [di],ax                              ; 449DD
     test byte [play_flags],0x1               ; 449DF
@@ -7809,7 +8236,12 @@ loc_4A1A:
 loc_4A27:
     ret                                      ; 44A27
 
-sub_4A28:
+; Swaps bits 15 and 14 (vertical/horizontal flip) of the map entry in AX, as needed when tiles are rotated for vertical orientation. [high, reviewed: range_0000_7B9B.json]
+; in:  AX = map entry
+; out: AX with bits 14/15 exchanged; CL, CH clobbered
+; side effects: none
+; evidence: 44A28-44A36: shl ax,1; rcl cl,1; shl ax,1; rcl ch,1; shr cl,1; rcr ax,1; shr ch,1; rcr ax,1
+map_entry_swap_flips:
     shl ax,1                                 ; 44A28
     rcl cl,1                                 ; 44A2A
     shl ax,1                                 ; 44A2C
@@ -7820,11 +8252,21 @@ sub_4A28:
     rcr ax,1                                 ; 44A36
     ret                                      ; 44A38
 
-sub_4A39:
+; Writes 8 palette words from ES:BX to the sprite palette ports 30h-3Eh (entry into the shared loop at 4A45 with DX=30h). [high, reviewed: range_0000_7B9B.json]
+; in:  ES:BX = 8 words
+; out: ports 30h-3Eh; BX advanced by 16
+; side effects: none
+; evidence: 44A39 mov dx,0x30; jmp loc_4A45; 44A48-44A50 mov ax,[es:bx]; out dx,ax; inc bx x2; inc dx x2; loop (cx=8)
+load_sprite_palettes:
     mov dx,0x30                              ; 44A39
     jmp near loc_4A45                        ; 44A3C
 
-sub_4A3F:
+; Writes 8 palette words from ES:BX to the background palette ports 20h-2Eh. [high, reviewed: range_0000_7B9B.json]
+; in:  ES:BX = 8 words
+; out: ports 20h-2Eh; BX advanced by 16
+; side effects: none
+; evidence: 44A3F mov dx,0x20; 44A45 mov cx,8; out dx,ax loop. Called with BX=[12E6h] (level palette) by level_draw_scr2_full.
+load_bg_palettes:
     mov dx,0x20                              ; 44A3F
     jmp near loc_4A45                        ; 44A42
 loc_4A45:
@@ -7840,7 +8282,12 @@ loc_4A48:
     ret                                      ; 44A52
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 44A53
 
-sub_4A60:
+; Initialises the camera for a level: zeroes camera position/targets and look-ahead state, stores the level extent ([13B3h] = DH*16 width, [13B2h] = DL*16 height, high bytes of 1/16-px coordinates), sets the look offsets [13AEh]/[13ACh] = 400h, runs one camera_update for the player and snaps the camera to the computed target. [high, reviewed: range_0000_7B9B.json]
+; in:  DH = width, DL = height in 256-px blocks (from level_get_size), player slot 03C0h
+; out: [13A0h]-[13B3h]
+; side effects: none
+; evidence: 44A67-44A76 zero [0x13a0],[0x13a2],[0x13a4],[0x13a6],[0x13b0],[0x13b1]; 44A7B shl dh,4; mov [0x13b3],dh; [0x13b2],dl; 44A89 [0x13ae]=[0x13ac]=400h; 44A97 di=3C0h, bp=0, call sub_4C84; 44A9A-44AA3 [0x13a0]=[0x13a4], [0x13a2]=[0x13a6]
+camera_init:
     push ax                                  ; 44A60
     push cx                                  ; 44A61
     push dx                                  ; 44A62
@@ -7862,7 +8309,7 @@ sub_4A60:
     mov [0x13ac],ax                          ; 44A8F
     rr xor, bp, bp                           ; 44A92
     mov di,0x3c0                             ; 44A94
-    call sub_4C84                            ; 44A97
+    call camera_update                       ; 44A97
     mov ax,[0x13a4]                          ; 44A9A
     mov [0x13a0],ax                          ; 44A9D
     mov ax,[0x13a6]                          ; 44AA0
@@ -7872,7 +8319,12 @@ sub_4A60:
     pop ax                                   ; 44AA8
     ret                                      ; 44AA9
 
-sub_4C84_case0:
+; Horizontal-orientation camera step: computes the target camera from the followed object (DI) minus the look offsets, clamped to the level extent, moves the camera toward it (16 units/step horizontally when far enough, 16 or 32 units vertically), clamps negatives to 0, then calls the edge-fetch routine selected by BP (tbl_4CF0). [high, reviewed: range_0000_7B9B.json]
+; in:  DI = followed object (player), BP = edge routine index 0-3, [13ACh]/[13AEh], [13B2h]/[13B3h]
+; out: [13A0h]/[13A2h] camera, [13A4h]/[13A6h] target, [13A8h]/[13AAh] deltas
+; side effects: calls a scroll_fetch_* routine
+; evidence: 44AB1-44AD9 target x = [di+2]-([0x13ae]+300h) clamped 0..[0x13b3]*256-E00h; 44ADF-44B07 target y with [0x13ac]+80h and 880h; 44B14 cmp ax,0x40; 44B28 add [0x13a0],dx; 44B6F add [0x13a2],dx; 44B95 call [cs:bx+tbl_4CF0]
+camera_follow_horiz:
     pusha                                    ; 44AAA
     rr xor, ax, ax                           ; 44AAB
     mov ds,ax                                ; 44AAD
@@ -7976,7 +8428,12 @@ loc_4B66:
     popa                                     ; 44B9A
     ret                                      ; 44B9B
 
-sub_4C84_case1:
+; Vertical-orientation camera step: as camera_follow_horiz but with axes swapped (camera x follows the object's y mirrored by the level height [13B2h], camera y follows its x), then calls the selected edge-fetch routine. [high, reviewed: range_0000_7B9B.json]
+; in:  DI, BP, [13ACh]/[13AEh], [13B2h]/[13B3h]
+; out: [13A0h]/[13A2h], [13A4h]/[13A6h], [13A8h]/[13AAh]
+; side effects: calls a scroll_fetch_* routine
+; evidence: 44BB1 mov ah,[0x13b2]; sub ax,[di+4] (mirrored y); 44BE7 mov ax,[di+2] for camera y; 44C23 cmp ax,0x180 -> step 32; 44C79 call [cs:bx+tbl_4CF0]
+camera_follow_vert:
     pusha                                    ; 44B9C
     rr xor, ax, ax                           ; 44B9D
     mov ds,ax                                ; 44B9F
@@ -8077,10 +8534,15 @@ loc_4C64:
 
 ; jump table tbl_4C80: 2 words, bound: hint (first use at 44C8F)
 tbl_4C80:
-    dw sub_4C84_case0
-    dw sub_4C84_case1
+    dw camera_follow_horiz
+    dw camera_follow_vert
 
-sub_4C84:
+; Dispatches the camera step by orientation: camera_follow_horiz (play_flags bit0 = 0) or camera_follow_vert. [high, reviewed: range_0000_7B9B.json]
+; in:  play_flags bit0, DI, BP
+; out: as the called routine
+; side effects: none
+; evidence: 44C85-44C8F mov bl,[play_flags]; and bx,1; shl bx,1; call [cs:bx+tbl_4C80]
+camera_update:
     push bx                                  ; 44C84
     mov bl,[play_flags]                      ; 44C85
     and bx,0x1                               ; 44C89
@@ -8089,7 +8551,12 @@ sub_4C84:
     pop bx                                   ; 44C94
     ret                                      ; 44C95
 
-sub_4C96:
+; Eases the camera look offsets [13AEh] (x) and [13ACh] (y) by 4 units per call toward the per-cell values from camera_hint_lookup at the player's position; skipped when play_flags bit0 differs from bit0 of [1399h]. [medium, reviewed: range_0000_7B9B.json]
+; in:  player [3C2h]/[3C4h], play_flags, [1399h]
+; out: [13ACh], [13AEh]
+; side effects: none
+; evidence: 44C9E xor al,[0x1399]; shr al,1; jc skip; 44CAD call sub_42A4; 44CB6-44CCC shl ax,4; and 0x780; sub bx; sign*4; mov [0x13ae],bx; 44CD4-44CEA same for [0x13ac]
+camera_adjust_lookahead:
     pusha                                    ; 44C96
     rr xor, ax, ax                           ; 44C97
     mov ds,ax                                ; 44C99
@@ -8099,7 +8566,7 @@ sub_4C96:
     jc short loc_4CEE                        ; 44CA4
     mov dx,[0x3c2]                           ; 44CA6
     mov ax,[0x3c4]                           ; 44CAA
-    call sub_42A4                            ; 44CAD
+    call camera_hint_lookup                  ; 44CAD
     rr mov, ch, ah                           ; 44CB0
     mov cl,0x4                               ; 44CB2
     rr xor, ah, ah                           ; 44CB4
@@ -8133,13 +8600,18 @@ loc_4CEE:
 
 ; jump table tbl_4CF0: 4 words, bound: hint (first use at 44C79)
 tbl_4CF0:
-    dw sub_4B9C_case0
-    dw sub_4B9C_case1
-    dw sub_4B9C_case2
-    dw sub_4B9C_case3
+    dw scroll_fetch_col_a
+    dw scroll_fetch_row_a
+    dw scroll_fetch_col_b
+    dw scroll_fetch_row_b
 
+; Edge fetch 0: sets [13B4h]=0 and fetches the 32-entry tile column just outside the left or right screen edge (depending on the sign of the x scroll delta [13A8h]) into 1280h via map_fetch_tile_col, recording its tile coordinates in [12D4h]/[12D6h] for the VBlank column writer. [high, reviewed: range_0000_7B9B.json]
+; in:  [13A0h]/[13A2h], [13A8h], BX
+; out: [13B4h]=0, [12D4h], [12D6h], RAM 1280h
+; side effects: none
+; evidence: 44CF8 mov byte [0x13b4],0; 44D01 sub dx,0x40; 44D0C add dx,0xe40 if delta >= 0; 44D1B sar 7; 44D21 mov [0x12d4],dx; 44D28 call sub_492B
 ; dispatch roles: sub_4B9C_case0, sub_4C84_case1_case0
-sub_4B9C_case0:
+scroll_fetch_col_a:
     mov byte [0x13b4],0x0                    ; 44CF8
     mov dx,[0x13a0]                          ; 44CFD
     sub dx,byte +0x40                        ; 44D01
@@ -8158,11 +8630,16 @@ loc_4D10:
     sar dx,cl                                ; 44D1F
     mov [0x12d4],dx                          ; 44D21
     mov [0x12d6],ax                          ; 44D25
-    call sub_492B                            ; 44D28
+    call map_fetch_tile_col                  ; 44D28
     ret                                      ; 44D2B
 
+; Edge fetch 1: sets [13B4h]=1 and fetches the 32-entry tile row just above or below the screen (sign of [13AAh]) into 1280h via map_fetch_tile_row, recording [12D4h]/[12D6h] for the VBlank row writer. [high, reviewed: range_0000_7B9B.json]
+; in:  [13A0h]/[13A2h], [13AAh], BX
+; out: [13B4h]=1, [12D4h], [12D6h], RAM 1280h
+; side effects: none
+; evidence: 44D2C mov byte [0x13b4],1; 44D40 add dx,0x940; 44D5C call sub_484D
 ; dispatch roles: sub_4B9C_case1, sub_4C84_case1_case1
-sub_4B9C_case1:
+scroll_fetch_row_a:
     mov byte [0x13b4],0x1                    ; 44D2C
     mov dx,[0x13a2]                          ; 44D31
     sub dx,byte +0x40                        ; 44D35
@@ -8181,11 +8658,16 @@ loc_4D44:
     sar dx,cl                                ; 44D53
     mov [0x12d4],ax                          ; 44D55
     mov [0x12d6],dx                          ; 44D58
-    call sub_484D                            ; 44D5C
+    call map_fetch_tile_row                  ; 44D5C
     ret                                      ; 44D5F
 
+; Edge fetch 2: like scroll_fetch_col_a with different edge offsets (x-10h, +E40h only when the delta is strictly positive, row rounded by 80h); sets [13B4h]=2. [medium, reviewed: range_0000_7B9B.json]
+; in:  [13A0h]/[13A2h], [13A8h], BX
+; out: [13B4h]=2, [12D4h], [12D6h], RAM 1280h
+; side effects: none
+; evidence: 44D60 mov byte [0x13b4],2; 44D69 sub dx,0x10; 44D72 jng; 44D7F and cx,0x80; 44D92 call sub_492B
 ; dispatch roles: sub_4B9C_case2, sub_4C84_case1_case2
-sub_4B9C_case2:
+scroll_fetch_col_b:
     mov byte [0x13b4],0x2                    ; 44D60
     mov dx,[0x13a0]                          ; 44D65
     sub dx,byte +0x10                        ; 44D69
@@ -8204,11 +8686,16 @@ loc_4D78:
     sar dx,cl                                ; 44D89
     mov [0x12d4],dx                          ; 44D8B
     mov [0x12d6],ax                          ; 44D8F
-    call sub_492B                            ; 44D92
+    call map_fetch_tile_col                  ; 44D92
     ret                                      ; 44D95
 
+; Edge fetch 3: like scroll_fetch_row_a with +940h applied only for strictly positive y delta; sets [13B4h]=3. [medium, reviewed: range_0000_7B9B.json]
+; in:  [13A0h]/[13A2h], [13AAh], BX
+; out: [13B4h]=3, [12D4h], [12D6h], RAM 1280h
+; side effects: none
+; evidence: 44D96 mov byte [0x13b4],3; 44DA8 jng; 44DAA add dx,0x940; 44DC6 call sub_484D
 ; dispatch roles: sub_4B9C_case3, sub_4C84_case1_case3
-sub_4B9C_case3:
+scroll_fetch_row_b:
     mov byte [0x13b4],0x3                    ; 44D96
     mov dx,[0x13a2]                          ; 44D9B
     sub dx,byte +0x40                        ; 44D9F
@@ -8227,11 +8714,16 @@ loc_4DAE:
     sar dx,cl                                ; 44DBD
     mov [0x12d4],ax                          ; 44DBF
     mov [0x12d6],dx                          ; 44DC2
-    call sub_484D                            ; 44DC6
+    call map_fetch_tile_row                  ; 44DC6
     ret                                      ; 44DC9
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 44DCA
 
-sub_03F0_case1:
+; VBlank writer: unless [1384h] != 0, copies the 32 prepared entries at 1280h into the SCR2 map as a horizontal row at tile (x=[12D4h], y=[12D6h]) with horizontal wrap. [high, reviewed: range_0000_7B9B.json]
+; in:  [1384h], [12D4h], [12D6h], RAM 1280h
+; out: SCR2 map 1800h
+; side effects: none
+; evidence: 44DD0 cmp byte [0x1384],0; 44DE3-44DFC addr=((y&1Fh)*32+(x&1Fh))*2+1800h; 44E06-44E14 add si,2; and si,0x3f; loop (cx=20h). tbl_03E8[1] in irq_vblank_gameplay.
+scr2_commit_row:
     cmp byte [0x1384],0x0                    ; 44DD0
     jnz short loc_4E17                       ; 44DD5
     pusha                                    ; 44DD7
@@ -8262,7 +8754,12 @@ loc_4E06:
 loc_4E17:
     ret                                      ; 44E17
 
-sub_03F0_case0_4E18:
+; VBlank writer: unless [1384h] != 0, copies the 32 prepared entries at 1280h into the SCR2 map as a vertical column at tile ([12D4h],[12D6h]) with vertical wrap. [high, reviewed: range_0000_7B9B.json]
+; in:  [1384h], [12D4h], [12D6h], RAM 1280h
+; out: SCR2 map 1800h
+; side effects: none
+; evidence: 44E18 cmp byte [0x1384],0; 44E39 mov bx,0x1800; 44E44-44E52 add si,0x40; and si,0x7ff; loop. tbl_03E8[0].
+scr2_commit_col:
     cmp byte [0x1384],0x0                    ; 44E18
     jnz short loc_4E55                       ; 44E1D
     pusha                                    ; 44E1F
@@ -8291,21 +8788,26 @@ loc_4E55:
     ret                                      ; 44E55
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 44E56
 
-sub_4E60:
+; Damages the player from terrain: unless already invulnerable (flags bit 12), sets invulnerability with timer [3D9h]=100, decrements lives_reserve (health) or sets it to 0 when CL >= 3, redraws the health HUD (C55E) and, unless flags bit 14, applies a knock-back (vx 18h away from facing, vy -17h) and SFX 1. [high, reviewed: range_0000_7B9B.json]
+; in:  CL = terrain attribute (2 or 3), player slot 03C0h
+; out: [3CCh] flags, [3D9h], lives_reserve, [3C6h], [3C8h]
+; side effects: calls C55E (HUD hearts), DD97
+; evidence: 44E66 test bp,0x1000; 44E70 mov byte [0x3d9],0x64; 44E75-44E81 dec al; cmp cl,3; sbb ah,ah; and al,ah; mov [lives_reserve],al; 44E8D mov ax,0xff18; 44EA1 mov word [0x3c8],0x1ef; 44EAB mov ax,1; call DD97. Callers in obj01_update after terrain_attr_at returns cl>=2.
+player_take_damage:
     push ax                                  ; 44E60
     push bp                                  ; 44E61
     mov bp,[0x3cc]                           ; 44E62
     test bp,0x1000                           ; 44E66
     jnz short loc_4EB1                       ; 44E6A
     or bp,0x1000                             ; 44E6C
-    mov byte [0x3d9],0x64                    ; 44E70
-    mov al,[lives_reserve]                   ; 44E75
+    mov byte [player_hurt_timer],0x64        ; 44E70
+    mov al,[hearts]                          ; 44E75
     dec al                                   ; 44E78
     cmp cl,0x3                               ; 44E7A
     rr sbb, ah, ah                           ; 44E7D
     rr and, al, ah                           ; 44E7F
-    mov [lives_reserve],al                   ; 44E81
-    call sub_C55E                            ; 44E84
+    mov [hearts],al                          ; 44E81
+    call hud_draw_hearts                     ; 44E84
     test bp,0x4000                           ; 44E87
     jnz short loc_4EB1                       ; 44E8B
     mov ax,0xff18                            ; 44E8D
@@ -8319,13 +8821,18 @@ loc_4E9E:
     mov word [0x3c8],0x1ef                   ; 44EA1
     mov [0x3cc],bp                           ; 44EA7
     mov ax,0x1                               ; 44EAB
-    call sub_DD97                            ; 44EAE
+    call sound_play                          ; 44EAE
 loc_4EB1:
     pop bp                                   ; 44EB1
     pop ax                                   ; 44EB2
     ret                                      ; 44EB3
 
-sub_4EB4:
+; Copies 256 bytes (16 tiles) from 2000:1840 to tile RAM 3F00h (tiles 1F0h-1FFh, the player's sprite tiles) and 64 bytes (4 tiles) from 7000:61A0 to 3EC0h. [medium, reviewed: range_0000_7B9B.json]
+; in:  none
+; out: tile RAM 3EC0h-3FFFh
+; side effects: none
+; evidence: 44EB5-44EDD: cx=80h, ds=2000h, si=1840h, di=3F00h, rep movsw; cx=20h, ds=7000h, si=61A0h, di=3EC0h. Player sprites use tiles 1F0h-1FFh (player_draw_sprites_horiz).
+load_player_base_tiles:
     pusha                                    ; 44EB4
     mov cx,0x80                              ; 44EB5
     mov ax,0x2000                            ; 44EB8
@@ -8349,7 +8856,12 @@ sub_4EB4:
     ret                                      ; 44EE4
     db 0x90   ; 44EE5
 
-sub_4EE6:
+; Copies 256 bytes from 2000:2440 to tile RAM 3F00h (the player sprite tiles), replacing the current player frame; called on the life-lost path just before random_dissolve_wipe. [medium, reviewed: range_0000_7B9B.json]
+; in:  none
+; out: tile RAM 3F00h-3FFFh
+; side effects: none
+; evidence: 44EE7-44EF9: cx=80h, ds=2000h, si=2440h, di=3F00h, rep movsw. Caller 42B85.
+load_player_alt_frame:
     pusha                                    ; 44EE6
     mov cx,0x80                              ; 44EE7
     mov ax,0x2000                            ; 44EEA
@@ -8365,7 +8877,12 @@ sub_4EE6:
     ret                                      ; 44F00
     db 0x90   ; 44F01
 
-sub_4F02:
+; Initialises the object at DI as the player's shot (type 02): position = player position, size bytes +0Ah/+0Bh = 80h, facing copied from the player, initial vx 58h (negated when facing left) with deceleration F8h. [high, reviewed: range_0000_7B9B.json]
+; in:  DI = free slot, player slot 03C0h
+; out: object at DI: +0 = 0102h, +2/+4, +0Ah/+0Bh, +0Ch, +6/+7
+; side effects: none
+; evidence: 44F04 mov ax,0x102; mov [di],ax; 44F09-44F12 copy [0x3c2]/[0x3c4]; 44F15/44F19 =80h; 44F1D-44F29 bp=[0x3cc]&3 | 100h; 44F2C mov ax,0xf858; neg if facing bit0
+player_shot_init:
     push ax                                  ; 44F02
     push bp                                  ; 44F03
     mov ax,0x102                             ; 44F04
@@ -8392,7 +8909,12 @@ loc_4F39:
     ret                                      ; 44F3E
     db 0x90   ; 44F3F
 
-obj02_update:
+; Player shot (type 02, spawned by player_shot_init): flies out decelerating; when its horizontal speed reverses it switches to return mode (flag 800h) and homes on the player with velocity proportional to the distance times its timer; after 12 return frames it clears the player's shot flags and deletes itself. Ends with velocity integration. [high, reviewed: range_0000_7B9B.json]
+; in:  DI = object, player [3C2h]/[3C4h]
+; out: object +6/+8 velocity, +2/+4 position, +0Ch flags, +14h timer; [3CCh] &= DEFFh; byte +0 = 0 on removal
+; side effects: none
+; evidence: 44F46-44F6C test bp,0x100; vx sign check; and bp,0FEFFh; or bp,0x800; 44F7B-44FA6 (player-obj)*timer>>4 into +8/+6; 44FA9 cmp byte [di+0x14],0xc; and word [0x3cc],0xdeff; mov byte [di],0; 44FB8-44FCD inline 622B integration
+obj02_update_player_shot:
     inc byte [di+0x14]                       ; 44F40
     mov bp,[di+0xc]                          ; 44F43
     test bp,0x100                            ; 44F46
@@ -8458,11 +8980,21 @@ loc_4FB8:
     ret                                      ; 44FD0
     db 0x90   ; 44FD1
 
+; Draw handler for type 02: loads sprite definition 29ECh into BP and jumps to the shared drawer at D092. [high, reviewed: range_0000_7B9B.json]
+; in:  DH,DL screen position (from objects_draw), DI
+; out: sprite entries (via D092)
+; side effects: none
+; evidence: 44FD2 mov bp,0x29ec; jmp near loc_D092
 obj02_draw:
     mov bp,0x29ec                            ; 44FD2
     jmp near loc_D092                        ; 44FD5
 
-sub_4FD8:
+; Updates the facing bits in BP from the held keys in BX: clears bits 0-1, sets bit1 if 'right' (20h) and bit0 if 'left' (80h) is held, and always sets bit2 (walking). [high, reviewed: range_0000_7B9B.json]
+; in:  BX = remapped held keys, BP = player flags
+; out: BP bits 0-2
+; side effects: none
+; evidence: 44FD8 and bp,0xfffc; test bx,0x20 -> or bp,2; test bx,0x80 -> or bp,1; or bp,4. Called from obj01_update when keys A0h are held.
+player_set_facing_from_keys:
     and bp,0xfffc                            ; 44FD8
     test bx,0x20                             ; 44FDC
     jz short loc_4FE6                        ; 44FE0
@@ -8476,7 +9008,12 @@ loc_4FF0:
     ret                                      ; 44FF4
     db 0x90   ; 44FF5
 
-sub_4FF6:
+; Fire button handler: if the player is not busy (flags 2900h clear) and no shot is out ([3D2h] bit8 clear) allocates a slot (B53D/B4F0), initialises it as the player shot, updates the player's state bits and plays SFX 3; if a shot is already active only plays SFX 3. [high, reviewed: range_0000_7B9B.json]
+; in:  BP = player flags, [3D2h]
+; out: new type-02 object, BP |= 2100h, player +9 and +1Ah
+; side effects: plays SFX 3
+; evidence: 44FF9 test bp,0x2900; 44FFF test word [0x3d2],0x100; 45007 call sub_B53D; call sub_B4F0; 45011 call sub_4F02; 45029 or bp,0x2100; 45031 mov ax,3; call DD97
+player_try_fire_shot:
     push ax                                  ; 44FF6
     push di                                  ; 44FF7
     push si                                  ; 44FF8
@@ -8484,11 +9021,11 @@ sub_4FF6:
     jnz short loc_5037                       ; 44FFD
     test word [0x3d2],0x100                  ; 44FFF
     jnz short loc_5031                       ; 45005
-    call sub_B53D                            ; 45007
+    call obj_alloc_from_3c0                  ; 45007
     test di,di                               ; 4500A
     jz short loc_5037                        ; 4500C
-    call sub_B4F0                            ; 4500E
-    call sub_4F02                            ; 45011
+    call obj_clear_slot                      ; 4500E
+    call player_shot_init                    ; 45011
     test bp,0x40                             ; 45014
     jz short loc_501E                        ; 45018
     or bp,0x80                               ; 4501A
@@ -8500,7 +9037,7 @@ loc_501E:
     mov byte [si+0x1a],0x0                   ; 4502D
 loc_5031:
     mov ax,0x3                               ; 45031
-    call sub_DD97                            ; 45034
+    call sound_play                          ; 45034
 loc_5037:
     pop si                                   ; 45037
     pop di                                   ; 45038
@@ -8508,7 +9045,12 @@ loc_5037:
     ret                                      ; 4503A
     db 0x90   ; 4503B
 
-sub_503C:
+; Releases the object the player is holding ([DI+16h]) unless it is type 13h or 08h: clears the player's hold state, places the held object at the player's position, gives it the player's facing and flag 800h (thrown) and plays SFX 6. [medium, reviewed: range_0000_7B9B.json]
+; in:  DI = player, BP = player flags
+; out: held object +2/+4/+0Ch/+10h/+14h, player +12h/+15h/+16h/+1Ah, BP
+; side effects: plays SFX 6
+; evidence: 45044 mov si,[di+0x16]; cmp al,0x13 / 0x8; 45055 and bp,0xfb7f; or bp,0x800; 45067 mov [di+0x16],ax (0); 4506D-45076 copy position; 4508A or ax,0x800; 45092 mov ax,6; call DD97. Called from obj01_update when the fire key is pressed while holding (bp&400h).
+player_throw_held:
     push dx                                  ; 4503C
     push si                                  ; 4503D
     test bp,0x920                            ; 4503E
@@ -8540,12 +9082,17 @@ sub_503C:
     rr or, ax, dx                            ; 4508D
     mov [si+0xc],ax                          ; 4508F
     mov ax,0x6                               ; 45092
-    call sub_DD97                            ; 45095
+    call sound_play                          ; 45095
 loc_5098:
     pop si                                   ; 45098
     pop dx                                   ; 45099
     ret                                      ; 4509A
 
+; Player helper used while [3D2h] bits 1-2 are set: zeroes [3CEh] and the player's vertical velocity/accel bytes, adjusts [3D4h] by the up/down keys and moves vy by -10h (up, unless [3D0h] bit7) or +10h (down), setting [3D2h] bits 4/5. Purpose (climbing/swimming-like mode) not confirmed. [low, reviewed: range_0000_7B9B.json]
+; in:  BX/DX = held/new keys (remapped), [3D0h], [3D2h]
+; out: [3CEh], [3C8h], [3C9h], [3D4h], [3D2h], BP bit4 cleared
+; side effects: none
+; evidence: 4509D-450A3 zero [0x3ce],[0x3c8],[0x3c9]; 450A6 dec byte [0x3d4]; 450AA test bx,0x50; 450CC or word [0x3d2],0x10; sub byte [0x3c8],0x10; 450E3 or [0x3d2],0x20; add byte [0x3c8],0x10; 450F4 and bp,0xffef. Not executed in recorded runs.
 sub_509B:
     rr xor, ax, ax                           ; 4509B
     mov [0x3ce],ax                           ; 4509D
@@ -8577,7 +9124,12 @@ loc_50F4:
     ret                                      ; 450F8
     db 0x90   ; 450F9
 
-sub_50FA:
+; Jump-button logic: on the ground (not jumping and no 88h contact) starts a jump (bp bit4, vy -22h with gravity 1, SFX 4); while jumping with bp bit 400h set, a new press sets bit 20h and resets [di+1Bh]; otherwise when falling (vy >= 0) and bits C0h clear, sets bit 40h with vy/accel 10h/10h and resets [di+18h] (a slowed fall). [medium, reviewed: range_0000_7B9B.json]
+; in:  DX = new keys (800h), BP = flags, DI = player
+; out: BP bits 4/20h/40h, +8/+9 velocity, +0Eh, +18h, +1Bh, [3D2h] bit1 cleared
+; side effects: plays SFX 4
+; evidence: 45101 test dx,0x800; 4510C test al,0x88; 45116 or bp,0x10; 4511A mov ah,1; mov al,0xde; mov [di+8],ax; 45126 mov ax,4; call DD97; 4512F test bp,0x400; 45141 or bp,0x20; 45158 mov ah,0x10; mov al,0x10; or bp,0x40
+player_jump_input:
     push ax                                  ; 450FA
     test bp,0x10                             ; 450FB
     jnz short loc_512F                       ; 450FF
@@ -8594,7 +9146,7 @@ sub_50FA:
     mov [di+0x8],ax                          ; 4511E
     mov word [di+0xe],0x0                    ; 45121
     mov ax,0x4                               ; 45126
-    call sub_DD97                            ; 45129
+    call sound_play                          ; 45129
 loc_512C:
     jmp near loc_5167                        ; 4512C
 loc_512F:
@@ -8622,7 +9174,12 @@ loc_5167:
     ret                                      ; 45168
     db 0x90   ; 45169
 
-obj01_update:
+; Update handler of the player character (type 01, slot 03C0h): reads the remapped keys [1390h]/[1392h], handles fire/throw (4FF6/503C), facing (4FD8), jump (50FA), the 50FA hover/slow-fall states, invulnerability countdown, carrying/hanging from a held object (types 08/13), riding a platform ([DI+0Eh] object is updated first and its motion applied), gravity, and terrain collision through terrain_attr_at with damage on hazard cells (player_take_damage). [medium, reviewed: range_0000_7B9B.json]
+; in:  DI = 03C0h, keys [1390h]/[1392h], terrain map, [3D2h]
+; out: player slot fields, [3D2h], [3CCh]; held/ridden objects
+; side effects: calls 4FF6, 503C, 4FD8, 509B, 50FA, 43E5, 4E60, 5808, DD97 and the ridden object's update handler
+; evidence: 45175 mov bx,[0x1390]; mov dx,[0x1392]; 451EB call sub_4FF6; 451F1 call sub_503C; 45204 call sub_4FD8; 4521C call sub_50FA; 452EF cmp byte [si],8 (hang); 45447 call [es:bx+0x1ea] for the ridden object; 454ED-45557 call sub_43E5; 45524/455C0 call sub_4E60. Read about two thirds of the 1162-byte routine.
+obj01_update_player:
     inc byte [di+0x14]                       ; 4516A
     cmp byte [di+0x1f],0x9                   ; 4516D
     sbb byte [di+0x1f],0x0                   ; 45171
@@ -8667,10 +9224,10 @@ loc_51DF:
     jz short loc_51F4                        ; 451E3
     test bp,0x400                            ; 451E5
     jnz short loc_51F1                       ; 451E9
-    call sub_4FF6                            ; 451EB
+    call player_try_fire_shot                ; 451EB
     jmp near loc_51F4                        ; 451EE
 loc_51F1:
-    call sub_503C                            ; 451F1
+    call player_throw_held                   ; 451F1
 loc_51F4:
     test bx,0xa0                             ; 451F4
     jz short loc_5207                        ; 451F8
@@ -8678,7 +9235,7 @@ loc_51F4:
     jz short loc_5204                        ; 451FE
     mov byte [di+0x1d],0x0                   ; 45200
 loc_5204:
-    call sub_4FD8                            ; 45204
+    call player_set_facing_from_keys         ; 45204
 loc_5207:
     test word [di+0x12],0x4                  ; 45207
     jnz short loc_521F                       ; 4520C
@@ -8686,7 +9243,7 @@ loc_5207:
     jz short loc_521F                        ; 45212
     test word [0x3d2],0x1                    ; 45214
     jnz short loc_521F                       ; 4521A
-    call sub_50FA                            ; 4521C
+    call player_jump_input                   ; 4521C
 loc_521F:
     test bp,0x900                            ; 4521F
     jz short loc_523F                        ; 45223
@@ -8751,7 +9308,7 @@ loc_52A0:
     jnz short loc_52BB                       ; 452B1
     push ax                                  ; 452B3
     mov ax,0x8                               ; 452B4
-    call sub_DD97                            ; 452B7
+    call sound_play                          ; 452B7
     pop ax                                   ; 452BA
 loc_52BB:
     inc al                                   ; 452BB
@@ -8860,7 +9417,7 @@ loc_53A3:
     mov word [di+0x16],0x0                   ; 453B2
     and word [0x3d2],0xfffe                  ; 453B7
     mov ax,0x0                               ; 453BD
-    call sub_DD97                            ; 453C0
+    call sound_play                          ; 453C0
 loc_53C3:
     mov dl,[di+0x1d]                         ; 453C3
     cmp byte [di+0x19],0x41                  ; 453C6
@@ -9001,18 +9558,18 @@ loc_54E3:
     mov ax,[di+0x4]                          ; 454E5
     sub ax,0xc0                              ; 454E8
     rr mov, dx, bp                           ; 454EB
-    call sub_43E5                            ; 454ED
+    call terrain_attr_at                     ; 454ED
     cmp al,0x0                               ; 454F0
     jnz short loc_550B                       ; 454F2
     mov ax,[di+0x4]                          ; 454F4
     rr mov, dx, bp                           ; 454F7
-    call sub_43E5                            ; 454F9
+    call terrain_attr_at                     ; 454F9
     cmp al,0x0                               ; 454FC
     jnz short loc_550B                       ; 454FE
     mov ax,[di+0x4]                          ; 45500
     add ax,0xbc                              ; 45503
     rr mov, dx, bp                           ; 45506
-    call sub_43E5                            ; 45508
+    call terrain_attr_at                     ; 45508
 loc_550B:
     and cl,0x3                               ; 4550B
     test bh,0x3                              ; 4550E
@@ -9023,7 +9580,7 @@ loc_550B:
     mov [di+0x2],ax                          ; 4551C
     cmp cl,0x2                               ; 4551F
     jc short loc_5527                        ; 45522
-    call sub_4E60                            ; 45524
+    call player_take_damage                  ; 45524
 loc_5527:
     cmp byte [di+0x8],0x0                    ; 45527
     jz short loc_555A                        ; 4552B
@@ -9038,13 +9595,13 @@ loc_553C:
     mov dx,[di+0x2]                          ; 4553E
     sub dx,0xb0                              ; 45541
     rr mov, ax, bp                           ; 45545
-    call sub_43E5                            ; 45547
+    call terrain_attr_at                     ; 45547
     cmp al,0x0                               ; 4554A
     jnz short loc_555A                       ; 4554C
     mov dx,[di+0x2]                          ; 4554E
     add dx,0xb0                              ; 45551
     rr mov, ax, bp                           ; 45555
-    call sub_43E5                            ; 45557
+    call terrain_attr_at                     ; 45557
 loc_555A:
     and cl,0x3                               ; 4555A
     test bh,0x4                              ; 4555D
@@ -9067,7 +9624,7 @@ loc_5582:
     or bp,0x8                                ; 45592
     mov byte [di+0x14],0x0                   ; 45596
     mov ax,0x5                               ; 4559A
-    call sub_DD97                            ; 4559D
+    call sound_play                          ; 4559D
 loc_55A0:
     mov [di+0xc],bp                          ; 455A0
     jmp near loc_55BB                        ; 455A3
@@ -9082,7 +9639,7 @@ loc_55A6:
 loc_55BB:
     cmp cl,0x2                               ; 455BB
     jc short loc_55C3                        ; 455BE
-    call sub_4E60                            ; 455C0
+    call player_take_damage                  ; 455C0
 loc_55C3:
     mov [di+0x10],bx                         ; 455C3
     pop ax                                   ; 455C6
@@ -9100,15 +9657,20 @@ loc_55D1:
     rr mov, al, ah                           ; 455E1
     test al,0x88                             ; 455E3
     jz short loc_55EA                        ; 455E5
-    call sub_5808                            ; 455E7
+    call obj_turn_away_y                     ; 455E7
 loc_55EA:
     and word [di+0xc],0x7fff                 ; 455EA
     mov word [di+0xe],0x0                    ; 455EF
     ret                                      ; 455F4
     db 0x90   ; 455F5
 
-; dispatch roles: coll_01_03, coll_01_04, coll_01_05, coll_01_06, coll_01_07, coll_01_17, coll_01_2D, coll_01_2E ...
-coll_01_03:
+; Player-vs-enemy contact (DI = player, SI = enemy; types 03-07,17,2D-2F): unless invulnerable, or holding something while the enemy is not a type-2F projectile, sets invulnerability (timer 100), decrements lives_reserve (health), redraws the HUD hearts and knocks the player back away from the enemy (vx 18h, vy -17h), SFX 1. [high, reviewed: range_0000_7B9B.json]
+; in:  SI = enemy, player [3CCh], [3C2h]
+; out: [3CCh], [3D9h]=64h, lives_reserve, [3C6h], [3C8h]
+; side effects: calls C55E, DD97
+; evidence: 455FA test bp,0x1000; 45600 cmp byte [si],0x2f; 45605 test bp,0x100; 4560F mov byte [0x3d9],0x64; 45614 dec byte [lives_reserve]; 45618 call sub_C55E; 4562C cmp dx,[si+2]; 45640 mov word [0x3c8],0x1ef; 45646 mov ax,1; call DD97
+; dispatch roles: coll_01_03, coll_01_04, coll_01_05, coll_01_06, coll_01_07, coll_01_17, coll_01_2D, coll_01_2E
+coll_01_03_coll_player_hurt_by_enemy:
     mov bp,[0x3cc]                           ; 455F6
     test bp,0x1000                           ; 455FA
     jnz short loc_564C                       ; 455FE
@@ -9118,9 +9680,9 @@ coll_01_03:
     jnz short loc_564C                       ; 45609
 loc_560B:
     or bp,0x1000                             ; 4560B
-    mov byte [0x3d9],0x64                    ; 4560F
-    dec byte [lives_reserve]                 ; 45614
-    call sub_C55E                            ; 45618
+    mov byte [player_hurt_timer],0x64        ; 4560F
+    dec byte [hearts]                        ; 45614
+    call hud_draw_hearts                     ; 45618
     test bp,0x4000                           ; 4561B
     jnz short loc_564C                       ; 4561F
     mov ax,0xff18                            ; 45621
@@ -9136,21 +9698,31 @@ loc_563D:
     mov [0x3c6],ax                           ; 4563D
     mov word [0x3c8],0x1ef                   ; 45640
     mov ax,0x1                               ; 45646
-    call sub_DD97                            ; 45649
+    call sound_play                          ; 45649
 loc_564C:
     mov [0x3cc],bp                           ; 4564C
     ret                                      ; 45650
     db 0x90   ; 45651
 
-; dispatch roles: coll_03_01, coll_04_01, coll_05_01, coll_06_01, coll_07_01, coll_17_01, coll_2D_01, coll_2E_01 ...
-coll_03_01:
+; Swapped-argument wrapper: exchanges DI/SI and calls coll_player_hurt_by_enemy (enemy is the first object). [high, reviewed: range_0000_7B9B.json]
+; in:  DI = enemy, SI = player
+; out: as coll_player_hurt_by_enemy
+; side effects: none
+; evidence: 45652 xchg di,si; call coll_01_03; xchg di,si; ret
+; dispatch roles: coll_03_01, coll_04_01, coll_05_01, coll_06_01, coll_07_01, coll_17_01, coll_2D_01, coll_2E_01
+coll_03_01_coll_enemy_hurts_player:
     xchg di,si                               ; 45652
-    call coll_01_03                          ; 45654
+    call coll_01_03_coll_player_hurt_by_enemy ; 45654
     xchg di,si                               ; 45657
     ret                                      ; 45659
 
+; Player (DI) vs solid object type 12h/30h (SI): resolves overlap within 180h: side contact pushes one of them out and stops the player horizontally; landing on top snaps the player onto it, sets the landing state/SFX 5 and records SI as the ridden object ([DI+0Eh]); hitting it from below stops both vertically. A bit in [SI+1Eh] toggles [3D2h] bit8. [medium, reviewed: range_0000_7B9B.json]
+; in:  DI = player, SI = block
+; out: positions, +6/+8 velocities, +0Ch, +0Eh, +10h/+11h contact bits of both
+; side effects: plays SFX 5 on landing
+; evidence: 45683 cmp ax,0x180 (|dx|); 4569F cmp ax,0x180 (|dy|); 456BA or byte [di+0x11],0x20; 4572C sub ax,0x180; mov [di+4],ax; 45778 mov ax,5; call DD97; 45781 mov [di+0xe],si; 457A1 or bh,0x80
 ; dispatch roles: coll_01_12, coll_01_30
-coll_01_12:
+coll_01_12_coll_player_vs_block:
     test word [si+0xc],0x20                  ; 4565A
     jnz short loc_5688                       ; 4565F
     test word [di+0xc],0x4000                ; 45661
@@ -9264,7 +9836,7 @@ loc_5760:
     or bp,0x8                                ; 45770
     mov byte [di+0x14],0x0                   ; 45774
     mov ax,0x5                               ; 45778
-    call sub_DD97                            ; 4577B
+    call sound_play                          ; 4577B
 loc_577E:
     mov [di+0xc],bp                          ; 4577E
     mov [di+0xe],si                          ; 45781
@@ -9298,7 +9870,12 @@ loc_57BB:
     mov [di+0x4],ax                          ; 457C4
     jmp near loc_579C                        ; 457C7
 
-sub_57CA:
+; Makes the object at SI face and move horizontally away from the object at DI: sets SI's facing bit (2 right / 1 left) and flips the sign of its speed byte [SI+12h] when needed (only if SI is moving horizontally). [high, reviewed: range_0000_7B9B.json]
+; in:  DI, SI objects
+; out: SI +0Ch facing bits, +12h speed sign
+; side effects: none
+; evidence: 457D3 mov ax,[si+2]; sub ax,[di+2]; 457D9 cmp byte [si+6],0; 457E4 or bp,2 / 457F4 or bp,1; neg byte [si+0x12]
+obj_turn_away_x:
     push ax                                  ; 457CA
     push bp                                  ; 457CB
     mov bp,[si+0xc]                          ; 457CC
@@ -9326,7 +9903,12 @@ loc_5801:
     ret                                      ; 45806
     db 0x90   ; 45807
 
-sub_5808:
+; Vertical counterpart of obj_turn_away_x: if SI is moving vertically, makes the sign of its speed byte [SI+12h] point away from DI. [high, reviewed: range_0000_7B9B.json]
+; in:  DI, SI
+; out: SI +12h
+; side effects: none
+; evidence: 45809 cmp byte [si+8],0; 4580F mov ax,[si+4]; sub ax,[di+4]; neg byte [si+0x12]
+obj_turn_away_y:
     push ax                                  ; 45808
     cmp byte [si+0x8],0x0                    ; 45809
     jz short loc_582F                        ; 4580D
@@ -9347,8 +9929,13 @@ loc_582F:
     ret                                      ; 45830
     db 0x90   ; 45831
 
+; Player (DI) vs platform types 18h/26h (SI): for type 18h, when the player's held object is type 14h or the player is within 280h below it, sets player state bits (+12h |= C0h); then resolves overlap like a solid block (side push with obj_turn_away_x, landing records SI as ridden object with SFX 5, bump from below with obj_turn_away_y). [medium, reviewed: range_0000_7B9B.json]
+; in:  DI = player, SI = platform, [3D6h]
+; out: player/platform positions, velocities and contact bits, [DI+0Eh]
+; side effects: calls 57CA, 5808, DD97
+; evidence: 45833 cmp byte [si],0x18; 45838 mov bx,[0x3d6]; cmp byte [bx],0x14; 4585A or word [di+0x12],0xc0; 45877 cmp ax,0x1c0; 458AA call sub_57CA; 45956 call DD97 (5); 45960 mov [di+0xe],si; 45965 call sub_5808
 ; dispatch roles: coll_01_18, coll_01_26
-coll_01_18:
+coll_01_18_coll_player_vs_platform:
     pusha                                    ; 45832
     cmp byte [si],0x18                       ; 45833
     jnz short loc_585F                       ; 45836
@@ -9403,7 +9990,7 @@ loc_589B:
     shl ax,1                                 ; 458A4
     rr cmp, ax, bx                           ; 458A6
     jnl short loc_58E8                       ; 458A8
-    call sub_57CA                            ; 458AA
+    call obj_turn_away_x                     ; 458AA
     cmp cx,byte +0x0                         ; 458AD
     jl short loc_58CD                        ; 458B0
     mov ax,[si+0x2]                          ; 458B2
@@ -9463,7 +10050,7 @@ loc_593B:
     or bp,0x8                                ; 4594B
     mov byte [di+0x14],0x0                   ; 4594F
     mov ax,0x5                               ; 45953
-    call sub_DD97                            ; 45956
+    call sound_play                          ; 45956
 loc_5959:
     mov [di+0xc],bp                          ; 45959
     or byte [si+0x11],0x80                   ; 4595C
@@ -9472,7 +10059,7 @@ loc_5963:
     popa                                     ; 45963
     ret                                      ; 45964
 loc_5965:
-    call sub_5808                            ; 45965
+    call obj_turn_away_y                     ; 45965
     cmp dl,0x0                               ; 45968
     jg short loc_5983                        ; 4596B
     or bh,0x80                               ; 4596D
@@ -9487,7 +10074,12 @@ loc_5983:
     ret                                      ; 45984
     db 0x90   ; 45985
 
-coll_01_19:
+; Player (DI) inside the vertical column of object type 19h (SI, top [SI+18h], bottom [SI+1Ah], >= 280h tall, |dx| < 140h): sets player flag 8000h, limits upward speed to -1Ch and gives upward acceleration (-1), pulls the player toward the column centre near the top, plays SFX 8 every 32 frames; when the player holds a type-14h object it instead caps vy at 8 and moves the column top. [medium, reviewed: range_0000_7B9B.json]
+; in:  DI = player, SI = column object
+; out: player +0Ch bit15, +2/+4, +8/+9, +0Eh; SI +18h, +8
+; side effects: plays SFX 8
+; evidence: 45998 cmp ax,0x280; 459AA cmp ax,0x140; 459C3 or word [di+0xc],0x8000; 459E3 cmp byte [di+8],0xe4 clamp; 459F9 mov al,0xff; mov [di+9],al; 45A1F sar ax,3; add [di+2],ax; 45A3C mov ax,8; call DD97; 45A5D mov word [si+8],0xff00
+coll_01_19_coll_player_in_updraft:
     pusha                                    ; 45986
     test word [di+0x12],0xc0                 ; 45987
     jnz short loc_59AF                       ; 4598C
@@ -9573,7 +10165,7 @@ loc_5A2A:
     cmp al,0x0                               ; 45A38
     jnz short loc_5A42                       ; 45A3A
     mov ax,0x8                               ; 45A3C
-    call sub_DD97                            ; 45A3F
+    call sound_play                          ; 45A3F
 loc_5A42:
     popa                                     ; 45A42
     ret                                      ; 45A43
@@ -9594,7 +10186,12 @@ loc_5A5D:
     popa                                     ; 45A62
     ret                                      ; 45A63
 
-coll_01_27:
+; Player (DI) vs pushable object type 27h (SI): when pressing against its side, gives it the player's horizontal speed (flag 1000h), moves both together if it is on the ground, else pushes the player out; landing on top records it as ridden object (SFX 5); from below both stop vertically. [medium, reviewed: range_0000_7B9B.json]
+; in:  DI = player, SI = object 27h
+; out: positions, velocities, contact bits; SI +0Ch |= 1000h, +1Eh = 10h; DI +0Eh
+; side effects: plays SFX 5
+; evidence: 45A7A add bp,0x180 (side range); 45ABA mov byte [si+0x1e],0x10; 45AC2 or word [si+0xc],0x1000; 45AC7-45ACC mov ax,[di+6]; xor ah,ah; mov [si+6],ax; 45AF8 add ax,[si+0x18]; 45BA3 call DD97 (5); 45BA9 mov [di+0xe],si
+coll_01_27_coll_player_vs_pushable:
     test word [di+0xc],0x4000                ; 45A64
     jnz short loc_5A9A                       ; 45A69
     mov ax,[si+0x4]                          ; 45A6B
@@ -9719,7 +10316,7 @@ loc_5B88:
     or bp,0x8                                ; 45B98
     mov byte [di+0x14],0x0                   ; 45B9C
     mov ax,0x5                               ; 45BA0
-    call sub_DD97                            ; 45BA3
+    call sound_play                          ; 45BA3
 loc_5BA6:
     mov [di+0xc],bp                          ; 45BA6
     mov [di+0xe],si                          ; 45BA9
@@ -9754,7 +10351,12 @@ loc_5BE3:
     jmp near loc_5BC4                        ; 45BEF
     db 0x60,0x61,0xC3,0x90   ; 45BF2
 
-obj01_draw_case1_5BF6:
+; Chooses the player's animation while holding something ([DI+15h]=1): picks an animation id (11h-17h, +20h in vertical mode) and frame from the state flags (hurt timer, throw timer [1Bh], hanging from type 08, landing, airborne, walking) and stores them in [139Ah]/[139Ch] for player_upload_anim_frame. [high, reviewed: range_0000_7B9B.json]
+; in:  player slot 03C0h, play_flags bit0
+; out: [139Ah] = animation id, [139Ch] = frame*256
+; side effects: none
+; evidence: 45C0C cmp byte [di+0x19],0x41; 45C12 cmp byte [di+0x1b],0; 45C18 cmp byte [si],8; si=0x10..0x17; 45CA2 mov [0x139c],ax; 45CAA sbb ax,ax; and ax,0x20; 45CB1 mov [0x139a],si. tbl_5F07[1].
+obj01_player_anim_select_carrying:
     pusha                                    ; 45BF6
     rr xor, ax, ax                           ; 45BF7
     mov ds,ax                                ; 45BF9
@@ -9838,7 +10440,12 @@ loc_5C9E:
     ret                                      ; 45CBA
     db 0x90   ; 45CBB
 
-obj01_draw_case0_5CBC:
+; Chooses the player's animation in the normal state ([DI+15h]=0): animation id 0-0Ah (+20h vertical) and frame from the player's state bits (hurt, [12h] bits 1/2, landing, grabbing, shot out, slow-fall, 8000h lift, airborne, walking, idle), stored in [139Ah]/[139Ch]. [high, reviewed: range_0000_7B9B.json]
+; in:  player slot 03C0h, play_flags bit0
+; out: [139Ah], [139Ch]
+; side effects: none
+; evidence: 45CD2 cmp byte [di+0x19],0x41; 45CD8-45D0C tests on cx/bp; si=0..0Ah; 45D8C mov [0x139c],ax; 45D9B mov [0x139a],si. tbl_5F07[0]; also called directly by load_gameplay_sprite_tiles.
+obj01_player_anim_select_normal:
     pusha                                    ; 45CBC
     rr xor, ax, ax                           ; 45CBD
     mov ds,ax                                ; 45CBF
@@ -9936,7 +10543,12 @@ loc_5D88:
     ret                                      ; 45DA4
     db 0x90   ; 45DA5
 
-sub_5DA6:
+; Copies the player's current animation frame (16 tiles, 256 bytes) from bank 2 into tile RAM 3F00h: source = 2000:[8000:[139Ah]*2] + [139Ch]. [high, reviewed: range_0000_7B9B.json]
+; in:  [139Ah] animation id, [139Ch] frame offset
+; out: tile RAM 3F00h-3FFFh
+; side effects: none
+; evidence: 45DAD-45DD1: bx=[0x139a]*2; es=8000h; si=[es:bx]; add si,[0x139c]; ds=2000h; cx=80h; di=3F00h; rep movsw. Called from irq_vblank_gameplay on odd frames.
+player_upload_anim_frame:
     pusha                                    ; 45DA6
     push ds                                  ; 45DA7
     push es                                  ; 45DA8
@@ -9963,7 +10575,12 @@ sub_5DA6:
     popa                                     ; 45DD9
     ret                                      ; 45DDA
 
-obj01_draw_case0_5DDB:
+; Emits the player's 4x4 sprite block (32x32 px, tiles 1F0h-1FFh, palette 7, priority bit) at the screen position DH,DL (offset -10h,-14h), mirrored with the H-flip bit when facing left (BP bit0). [high, reviewed: range_0000_7B9B.json]
+; in:  DH,DL screen position, BP = player flags, [1382h]
+; out: 16 sprite entries, [1382h] += 40h
+; side effects: none
+; evidence: 45DE5 add word [0x1382],0x40; 45DF0 mov si,0x2ff0; 45DF8-45E2C 4 rows x 4; 45E32 mov si,0x6ff0 (bit14 H-flip) with sub ah,8. tbl_5F0B[0].
+obj01_player_draw_sprites_horiz:
     sub dh,0x10                              ; 45DDB
     sub dl,0x14                              ; 45DDE
     mov bx,[0x1382]                          ; 45DE1
@@ -10029,7 +10646,12 @@ loc_5E3A:
     loop loc_5E3A                            ; 45E6E
     ret                                      ; 45E70
 
-obj01_draw_case1_5E71:
+; Vertical-orientation player sprite block: 4x4 sprites at DH-0Dh, DL-10h, using V-flip (AFF0h) instead of H-flip when facing left. [high, reviewed: range_0000_7B9B.json]
+; in:  DH,DL, BP, [1382h]
+; out: 16 sprite entries, [1382h] += 40h
+; side effects: none
+; evidence: 45E7B add word [0x1382],0x40; 45E86 mov si,0x2ff0; 45EC8 mov si,0xaff0; sub al,8. tbl_5F0B[1].
+obj01_player_draw_sprites_vert:
     sub dh,0xd                               ; 45E71
     sub dl,0x10                              ; 45E74
     mov bx,[0x1382]                          ; 45E77
@@ -10097,16 +10719,21 @@ loc_5ED0:
 
 ; jump table tbl_5F07: 2 words, bound: mask (first use at 45F3C)
 tbl_5F07:
-    dw obj01_draw_case0_5CBC
-    dw obj01_draw_case1_5BF6
+    dw obj01_player_anim_select_normal
+    dw obj01_player_anim_select_carrying
 
 ; jump table tbl_5F0B: 2 words, bound: mask (first use at 45F30)
 tbl_5F0B:
-    dw obj01_draw_case0_5DDB
-    dw obj01_draw_case1_5E71
+    dw obj01_player_draw_sprites_horiz
+    dw obj01_player_draw_sprites_vert
     db 0x90   ; 45F0F
 
-obj01_draw:
+; Draw handler of the player: skips drawing on alternate 8-frame phases while invulnerable (blink), draws the sprite block for the current orientation (tbl_5F0B) and then selects the next animation (tbl_5F07 by [DI+15h]). [high, reviewed: range_0000_7B9B.json]
+; in:  DH,DL, player slot 03C0h, play_flags bit0
+; out: sprite entries, [139Ah]/[139Ch]
+; side effects: none
+; evidence: 45F16 test bp,0x1000; mov al,[di+0x19]; and al,8; 45F30 call [cs:bx+tbl_5F0B]; 45F3C call [cs:bx+tbl_5F07]
+obj01_draw_player:
     mov di,0x3c0                             ; 45F10
     mov bp,[di+0xc]                          ; 45F13
     test bp,0x1000                           ; 45F16
@@ -10128,7 +10755,12 @@ loc_5F26:
     ret                                      ; 45F41
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 45F42
 
-sub_5F50:
+; Horizontal terrain check for a moving object: probes three points (y-A0h, y, y+A0h) just ahead of it in its x direction with terrain_attr_at; on a solid cell snaps x to the 8-px grid centre and, for a hazard cell (attr >= 2), sets object flag 1000h. Stores the contact bits in [DI+10h]. [high, reviewed: range_0000_7B9B.json]
+; in:  DI = object (+2,+4,+6,+10h)
+; out: DI +2, +0Ch bit12, +10h; BX
+; side effects: none
+; evidence: 45F5C mov ch,1; mov ax,0xc0 (0xff40, ch=2 when moving left); 45F72/45F7E/45F8D call sub_43E5; 45F95 and ax,0xff80; add ax,0x40; 45FA4 cmp cl,2; or word [di+0xc],0x1000
+obj_check_wall_terrain:
     mov bx,[di+0x10]                         ; 45F50
     cmp byte [di+0x6],0x0                    ; 45F53
     jz short loc_5F90                        ; 45F57
@@ -10143,18 +10775,18 @@ loc_5F68:
     mov ax,[di+0x4]                          ; 45F6A
     add ax,0xa0                              ; 45F6D
     rr mov, dx, bp                           ; 45F70
-    call sub_43E5                            ; 45F72
+    call terrain_attr_at                     ; 45F72
     cmp al,0x0                               ; 45F75
     jnz short loc_5F90                       ; 45F77
     mov ax,[di+0x4]                          ; 45F79
     rr mov, dx, bp                           ; 45F7C
-    call sub_43E5                            ; 45F7E
+    call terrain_attr_at                     ; 45F7E
     cmp al,0x0                               ; 45F81
     jnz short loc_5F90                       ; 45F83
     mov ax,[di+0x4]                          ; 45F85
     sub ax,0xa0                              ; 45F88
     rr mov, dx, bp                           ; 45F8B
-    call sub_43E5                            ; 45F8D
+    call terrain_attr_at                     ; 45F8D
 loc_5F90:
     test bh,0x3                              ; 45F90
     jz short loc_5FAE                        ; 45F93
@@ -10170,7 +10802,12 @@ loc_5FAE:
     mov [di+0x10],bx                         ; 45FAE
     ret                                      ; 45FB1
 
-sub_5FB2:
+; Clears the player's holding state: [3D5h]=0, held-object pointer [3D6h]=0, player flag bits 9, 10 and 14 cleared, [3D2h] bit0 cleared. [high, reviewed: range_0000_7B9B.json]
+; in:  none
+; out: [3D5h], [3D6h], [3CCh], [3D2h]
+; side effects: none
+; evidence: 45FB4 mov [0x3d5],al; mov [0x3d6],ax; 45FBA and word [0x3cc],0xb9ff; 45FC0 and word [0x3d2],0xfffe
+player_clear_held:
     rr xor, ax, ax                           ; 45FB2
     mov [0x3d5],al                           ; 45FB4
     mov [0x3d6],ax                           ; 45FB7
@@ -10178,7 +10815,12 @@ sub_5FB2:
     and word [0x3d2],0xfffe                  ; 45FC0
     ret                                      ; 45FC6
 
-sub_5FC7:
+; Turns the object at DI into type 0Dh with cleared flags, vx 0, vy 0 with gravity 1 and timer 0. [high, reviewed: range_0000_7B9B.json]
+; in:  DI
+; out: DI +0 = 0Dh, +0Ch, +6, +8 = 0100h, +14h
+; side effects: none
+; evidence: 45FC7 mov byte [di],0xd; xor ax,ax; mov [di+0xc],ax; mov [di+6],ax; mov ah,1; mov [di+8],ax; mov [di+0x14],al
+obj_convert_to_type0d:
     mov byte [di],0xd                        ; 45FC7
     rr xor, ax, ax                           ; 45FCA
     mov [di+0xc],ax                          ; 45FCC
@@ -10188,6 +10830,11 @@ sub_5FC7:
     mov [di+0x14],al                         ; 45FD7
     ret                                      ; 45FDA
 
+; Object SI state helper: if [SI+14h] = 2 resets its timer [SI+1Ch]; if [SI+14h] = 0 and (SI is type 21h or its timer >= 100) sets [SI+14h] = 1 and resets the timer. Meaning of the states not established. [medium, reviewed: range_0000_7B9B.json]
+; in:  SI = object
+; out: SI +14h, +1Ch
+; side effects: none
+; evidence: 45FDD mov al,[si+0x14]; cmp al,2; 45FE8 cmp byte [si],0x21; 45FED cmp word [si+0x1c],0x64; 45FF5 mov [si+0x14],al (1); 45FF8 mov word [si+0x1c],0
 sub_5FDB:
     push ax                                  ; 45FDB
     push cx                                  ; 45FDC
@@ -10210,6 +10857,11 @@ loc_5FFD:
     pop ax                                   ; 45FFE
     ret                                      ; 45FFF
 
+; Object SI state helper: if [SI+14h] = 0, sets it to 1 and ORs bit [SI+1Eh] into the word flag set [13D4h]; if 0 or 2, resets the timer [SI+1Ch]. Meaning of [13D4h] not established. [medium, reviewed: range_0000_7B9B.json]
+; in:  SI = object
+; out: SI +14h, +1Ch; [13D4h]
+; side effects: none
+; evidence: 46002 mov al,[si+0x14]; 4600D mov al,1; mov [si+0x14],al; 46012-4601A mov ax,1; mov cl,[si+0x1e]; shl ax,cl; or [0x13d4],ax; 4601E mov word [si+0x1c],0
 sub_6000:
     push ax                                  ; 46000
     push cx                                  ; 46001
@@ -10231,7 +10883,12 @@ loc_6023:
     pop ax                                   ; 46024
     ret                                      ; 46025
 
-sub_6026:
+; Changes the object at DI to type AL and resets its state (flags, vx, timer; vy 0 with gravity 1). If it had flag 20h, or it is within 170h of the player on both axes, sets [DI+1Eh]=3 and [3D2h] bit8. [high, reviewed: range_0000_7B9B.json]
+; in:  DI = object, AL = new type, player position
+; out: DI +0, +0Ch, +6, +8, +14h, +1Eh; [3D2h]
+; side effects: none
+; evidence: 46029 mov [di],al; 4602B test word [di+0xc],0x20; 46036-46043 zero fields, mov ah,1; mov [di+8],ax; 46051/46061 cmp ax,0x170; 46066 mov byte [di+0x1e],3; or word [0x3d2],0x100
+obj_change_type_reset:
     push ax                                  ; 46026
     push bx                                  ; 46027
     push dx                                  ; 46028
@@ -10268,7 +10925,12 @@ loc_6070:
     pop ax                                   ; 46072
     ret                                      ; 46073
 
-sub_6074:
+; Shot (DI) captures object SI (used for blocks, DL = 13h): unless SI is supported from above (contact 80h) or flagged 20h, records its type in [3DEh] (except types 12h/0Dh), changes it to type DL, marks it grabbed (flag 400h), sets the player's holding state ([3CCh] bits, [3D6h]=SI, [3D5h]=1), plays SFX 0Ah, spawns an effect at the shot via D4A0 and deletes the shot. [high, reviewed: range_0000_7B9B.json]
+; in:  DI = shot, SI = target, DL = new type
+; out: SI +0/+0Eh/+10h/+14h/+0Ch, [3DEh], [3CCh], [3D5h], [3D6h], DI +0 = 0
+; side effects: calls DD97, D4A0
+; evidence: 4607C test al,0x80; 46089 cmp al,0x12 / 0xd; 46091 mov [0x3de],al; 46094 mov [si],dl; 460A1 or word [si+0xc],0x400; 460AC or word [0x3cc],0x600; 460B2 mov [0x3d6],si; 460BB mov ax,0xa; call DD97; 460CA call sub_D4A0; 460CD mov byte [di],0
+shot_grab_object:
     push ax                                  ; 46074
     push cx                                  ; 46075
     push dx                                  ; 46076
@@ -10296,11 +10958,11 @@ loc_6094:
     mov [0x3d6],si                           ; 460B2
     mov byte [0x3d5],0x1                     ; 460B6
     mov ax,0xa                               ; 460BB
-    call sub_DD97                            ; 460BE
+    call sound_play                          ; 460BE
     mov ax,[di+0x2]                          ; 460C1
     mov dx,[di+0x4]                          ; 460C4
     mov cx,0x1                               ; 460C7
-    call sub_D4A0                            ; 460CA
+    call spawn_sparkle_effect                ; 460CA
     mov byte [di],0x0                        ; 460CD
 loc_60D0:
     pop dx                                   ; 460D0
@@ -10308,7 +10970,12 @@ loc_60D0:
     pop ax                                   ; 460D2
     ret                                      ; 460D3
 
-sub_60D4:
+; Shot (DI) captures enemy SI: stores the enemy's original type in [SI+1Eh] and [3DEh], changes it to type DL (09h = grabbed enemy), marks it grabbed, sets the player's holding state, plays SFX 0Ah, spawns an effect via D4A0, deletes the shot and increments the word counter [13C0h] (saturating at 99). [high, reviewed: range_0000_7B9B.json]
+; in:  DI = shot, SI = enemy, DL = new type
+; out: SI +0/+14h/+0Ch/+1Eh, [3DEh], [3CCh], [3D5h], [3D6h], [13C0h], DI +0 = 0
+; side effects: calls DD97, D4A0
+; evidence: 460D7 mov al,[si]; mov [si+0x1e],al; mov [si],dl; 460E7 mov [0x3de],al; 460F6 mov [0x3d6],si; 46102 call DD97 (0Ah); 4610E call sub_D4A0; 46111 mov byte [di],0; 46114-4611D cmp ax,0x63; adc ax,0; mov [0x13c0],ax
+shot_grab_enemy:
     push ax                                  ; 460D4
     push cx                                  ; 460D5
     push dx                                  ; 460D6
@@ -10323,11 +10990,11 @@ sub_60D4:
     mov [0x3d6],si                           ; 460F6
     mov byte [0x3d5],0x1                     ; 460FA
     mov ax,0xa                               ; 460FF
-    call sub_DD97                            ; 46102
+    call sound_play                          ; 46102
     mov ax,[di+0x2]                          ; 46105
     mov dx,[di+0x4]                          ; 46108
     mov cx,0x1                               ; 4610B
-    call sub_D4A0                            ; 4610E
+    call spawn_sparkle_effect                ; 4610E
     mov byte [di],0x0                        ; 46111
     mov ax,[0x13c0]                          ; 46114
     cmp ax,0x63                              ; 46117
@@ -10338,7 +11005,12 @@ sub_60D4:
     pop ax                                   ; 46122
     ret                                      ; 46123
 
-sub_6124:
+; Proximity test between objects DI and SI: returns CF=1 if |dy| <= CX and |dx| < BX, else CF=0. [high, reviewed: range_0000_7B9B.json]
+; in:  DI, SI objects, CX = y range, BX = x range
+; out: CF; AX, DX clobbered
+; side effects: none
+; evidence: 46124-46131 |[di+4]-[si+4]| cmp cx; ja -> clc; 46133-46140 |[di+2]-[si+2]| cmp bx; jc -> stc
+obj_within_box:
     mov ax,[di+0x4]                          ; 46124
     sub ax,[si+0x4]                          ; 46127
     cwd                                      ; 4612A
@@ -10360,7 +11032,12 @@ loc_6144:
     stc                                      ; 46144
     ret                                      ; 46145
 
-sub_6146:
+; Terrain handling for walking objects: probes ahead in the x direction (y+90h); on a wall reverses facing and the speed byte [DI+12h]; probes below (x-C0h, x+B0h) when moving vertically and on landing snaps y to the grid, clears flags 30h and sets vy 0 with gravity 1; hazard cells set flag 1000h. [high, reviewed: range_0000_7B9B.json]
+; in:  DI = object
+; out: DI +2/+4 (snapped), +8, +0Ch, +10h, +12h
+; side effects: none
+; evidence: 4614C cmp byte [di+6],0; 4616B call sub_43E5; 4617B-4618E flip facing; neg byte [di+0x12]; 461B8/461C8 call sub_43E5 (ch=4); 461D0 and word [di+4],0xff80; 461E2 mov word [di+8],0x100; 4619B/461EF or word [di+0xc],0x1000
+obj_walk_terrain:
     mov bx,[di+0x10]                         ; 46146
     mov bx,[di+0x10]                         ; 46149
     cmp byte [di+0x6],0x0                    ; 4614C
@@ -10376,7 +11053,7 @@ loc_6161:
     mov ax,[di+0x4]                          ; 46163
     add ax,0x90                              ; 46166
     rr mov, dx, bp                           ; 46169
-    call sub_43E5                            ; 4616B
+    call terrain_attr_at                     ; 4616B
 loc_616E:
     test bh,0x3                              ; 4616E
     jz short loc_61A0                        ; 46171
@@ -10408,13 +11085,13 @@ loc_61A0:
     mov dx,[di+0x2]                          ; 461AF
     sub dx,0xc0                              ; 461B2
     rr mov, ax, bp                           ; 461B6
-    call sub_43E5                            ; 461B8
+    call terrain_attr_at                     ; 461B8
     cmp al,0x0                               ; 461BB
     jnz short loc_61CB                       ; 461BD
     mov dx,[di+0x2]                          ; 461BF
     add dx,0xb0                              ; 461C2
     rr mov, ax, bp                           ; 461C6
-    call sub_43E5                            ; 461C8
+    call terrain_attr_at                     ; 461C8
 loc_61CB:
     test bh,0x4                              ; 461CB
     jz short loc_61F4                        ; 461CE
@@ -10432,7 +11109,12 @@ loc_61F4:
     mov [di+0x10],bx                         ; 461F4
     ret                                      ; 461F7
 
-sub_61F8:
+; Deletes the object at DI and, if its spawn index [DI+15h] is 0-1Fh, clears that bit in the spawn masks [13C8h] (0-15) / [13CAh] (16-31). [medium, reviewed: range_0000_7B9B.json]
+; in:  DI = object
+; out: [13C8h] or [13CAh], DI +0 = 0
+; side effects: none
+; evidence: 461FA mov cl,[di+0x15]; cmp cl,0xff; 46205 cmp cl,0x10; shl ax,cl; not ax; and [0x13c8],ax; 4621A sub cl,0x10; and [0x13ca],ax; 46225 mov byte [di],0
+obj_delete_clear_spawn_bit:
     push ax                                  ; 461F8
     push cx                                  ; 461F9
     mov cl,[di+0x15]                         ; 461FA
@@ -10458,7 +11140,12 @@ loc_6225:
     pop ax                                   ; 46229
     ret                                      ; 4622A
 
-sub_622B:
+; Integrates object motion: vx (byte +6) += ax (byte +7), x += sign-extended vx; vy (byte +8) += ay (byte +9), y += sign-extended vy. [high, reviewed: range_0000_7B9B.json]
+; in:  DI = object
+; out: DI +2, +4, +6, +8
+; side effects: none
+; evidence: 4622B-46240: mov ax,[di+6]; add al,ah; mov [di+6],ax; cbw; add [di+2],ax; same for +8/+4
+obj_apply_velocity:
     mov ax,[di+0x6]                          ; 4622B
     rr add, al, ah                           ; 4622E
     mov [di+0x6],ax                          ; 46230
@@ -10471,7 +11158,12 @@ sub_622B:
     add [di+0x4],ax                          ; 46240
     ret                                      ; 46243
 
-sub_6244:
+; Copies CX tiles (CX*16 bytes) from AX:SI to 0:DI with rep movsw, then restores DS=0. [high, reviewed: range_0000_7B9B.json]
+; in:  AX = source segment, SI = source, DI = destination, CX = tile count
+; out: RAM at DI
+; side effects: DS reset to 0, ES=0
+; evidence: 46244 mov ds,ax; shl cx,3; xor ax,ax; mov es,ax; rep movsw; mov ds,ax
+copy_tiles_to_ram:
     mov ds,ax                                ; 46244
     shl cx,byte 0x3                          ; 46246
     rr xor, ax, ax                           ; 46249
@@ -10483,7 +11175,12 @@ sub_6244:
     db 0x60,0xB9,0x60,0x00,0xB8,0x00,0x70,0x8E,0xD8,0xBE,0x00,0x7B,0x33,0xC0,0x8E,0xC0   ; 46254
     db 0xBF,0x30,0x3B,0xF3,0xA5,0x33,0xC0,0x8E,0xD8,0x61,0xC3,0x00,0x7B,0x00,0x83,0x90   ; 46264
 
-sub_6274:
+; Animated tile set: copies 256 bytes (16 tiles) from bank 7 into tile RAM 3B30h; source = word table at 4000:626F (by orientation) + ((frame>>4)&7)*256, i.e. an 8-step animation advancing every 16 frames. [high, reviewed: range_0000_7B9B.json]
+; in:  [138Eh] frame counter, play_flags bit0
+; out: tile RAM 3B30h-3C2Fh
+; side effects: none
+; evidence: 46279 mov dx,[0x138e]; shr dx,4; and dx,7; shl dx,8; 46298 mov si,[cs:bx+0x626f]; ds=7000h; cx=80h; di=3B30h; rep movsw
+anim_tiles_update:
     pusha                                    ; 46274
     rr xor, ax, ax                           ; 46275
     mov ds,ax                                ; 46277
@@ -10513,7 +11210,12 @@ sub_6274:
     db 0xA0,0x41,0x17,0x00,0xA0,0x19,0xA0,0x49,0x2D,0x00,0xA0,0x21,0xA0,0x51,0x2E,0x00   ; 462C1
     db 0xA0,0x29,0xA0,0x59,0x03,0x00,0xA0,0x01,0xA0,0x31,0x03,0x00,0xA0,0x01,0xA0,0x31   ; 462D1
 
-sub_62E1:
+; Animates the captured-enemy graphics: finds the record for the grabbed enemy type [3DEh] in the 7-entry table at 4000:62B1 (6 bytes each), takes its bank-7 source for the current orientation and copies frame ((frame>>3)&7) (256 bytes) into tile RAM 3C30h (tiles 1C3h+, used by the captured-enemy draw). [high, reviewed: range_0000_7B9B.json]
+; in:  [3DEh], [138Eh], play_flags bit0
+; out: tile RAM 3C30h-3D2Fh
+; side effects: none
+; evidence: 462E6 mov dl,[0x3de]; 462EF mov ax,[cs:bx+0x62b1]; cmp al,dl; add bx,6; 46313 shr dx,3; and dx,7; 4632D mov di,0x3c30; rep movsw. obj09_draw uses tile 1C3h when [DI+1Eh]=[3DEh].
+held_enemy_anim_update:
     pusha                                    ; 462E1
     rr xor, ax, ax                           ; 462E2
     mov ds,ax                                ; 462E4
@@ -10552,7 +11254,12 @@ loc_62FD:
     popa                                     ; 46336
     ret                                      ; 46337
 
-sub_6338:
+; Animates one tile (16 bytes) at tile RAM 28E0h from bank 7 offset ((frame&30h) + orientation*40h); called by the gameplay VBlank only when progress_code&FF00h = 3600h. [high, reviewed: range_0000_7B9B.json]
+; in:  [138Eh], play_flags bit0
+; out: tile RAM 28E0h-28EFh
+; side effects: none
+; evidence: 4633D and ax,0x30; 46348 shl ax,6; ds=7000h; cx=8; di=28E0h; rep movsw; caller 40437 after cmp ax,0x3600
+anim_tile_28e0_w3v6:
     pusha                                    ; 46338
     rr xor, ax, ax                           ; 46339
     mov ds,ax                                ; 4633B
@@ -10578,23 +11285,28 @@ sub_6338:
 
 ; jump table tbl_636B: 10 words, bound: adjacent (first use at 46683)
 tbl_636B:
-    dw sub_6670_case0
-    dw sub_6670_case1
-    dw sub_6670_case2
-    dw sub_6670_case3
-    dw sub_663C_case0
+    dw mscript_op0_wait
+    dw mscript_op1_patrol_x
+    dw mscript_op2_patrol_y
+    dw mscript_op3_shoot
+    dw mscript_nop
 
 ; jump table tbl_6375: 5 words, bound: adjacent (first use at 46668)
 tbl_6375:
-    dw sub_663C_case0
-    dw sub_663C_case1
-    dw sub_663C_case2
-    dw sub_663C_case3
-    dw sub_663C_case0
+    dw mscript_nop
+    dw mscript_op1_init
+    dw mscript_op2_init
+    dw mscript_op3_init
+    dw mscript_nop
     db 0x90   ; 4637F
 
+; Script opcode 3 init: stores the trigger range arg (+4)<<4 in [DI+18h], remembers this command in [DI+1Ah], and immediately advances to and initialises the following command (which then runs until the player comes within range). [high, reviewed: range_0000_7B9B.json]
+; in:  DI, ES:SI
+; out: DI +18h, +1Ah, +16h
+; side effects: calls the next init handler
+; evidence: 46381 mov ax,[es:si+4]; shl ax,4; mov [di+0x18],ax; mov [di+0x1a],si; 4638F-463A4 next command; call [cs:bx+tbl_6375]
 ; dispatch roles: sub_663C_case3, sub_6670_case0_case3, sub_6670_case8
-sub_663C_case3:
+mscript_op3_init:
     pusha                                    ; 46380
     mov ax,[es:si+0x4]                       ; 46381
     mov cl,0x4                               ; 46385
@@ -10613,7 +11325,12 @@ sub_663C_case3:
     ret                                      ; 463AA
     db 0x90   ; 463AB
 
-sub_6670_case3:
+; Script opcode 3 per frame: fires up to arg +3 projectiles, one every arg +2 frames, by calling AB82 (spawns a type-2Fh projectile at the object's position in its facing direction, SFX 16h); then while the player is within [DI+18h] waits arg +6 frames, turns toward the player and starts a new burst; when the player leaves the range it swaps back to the command saved in [DI+1Ah]. [high, reviewed: range_0000_7B9B.json]
+; in:  DI, ES:SI, player position
+; out: DI +0Ch facing, +14h, +16h, +1Ah, +1Eh, +1Fh
+; side effects: spawns projectiles via AB82
+; evidence: 463AD mov al,[di+0x1e]; shr x2; cmp al,[es:si+3]; 463C2 cmp al,[es:si+2]; 463D1 call sub_AB82; add byte [di+0x1e],4; 463FC cmp ax,[di+0x18]; 4640B mov dx,[es:si+6]; 4641C-4642D face player; 4643D-46443 swap [di+0x1a]/[di+0x16]. AB82 writes type 2Fh, vx +/-10h.
+mscript_op3_shoot:
     pusha                                    ; 463AC
     mov al,[di+0x1e]                         ; 463AD
     shr al,1                                 ; 463B0
@@ -10628,7 +11345,7 @@ sub_6670_case3:
     mov ax,[di+0x2]                          ; 463C8
     mov dx,[di+0x4]                          ; 463CB
     mov cx,[di+0xc]                          ; 463CE
-    call sub_AB82                            ; 463D1
+    call spawn_obj2f_projectile              ; 463D1
     add byte [di+0x1e],0x4                   ; 463D4
     mov byte [di+0x1f],0x0                   ; 463D8
     mov byte [di+0x14],0x0                   ; 463DC
@@ -10680,8 +11397,13 @@ loc_6432:
     popa                                     ; 46446
     ret                                      ; 46447
 
+; Script opcode 2 init: vy and speed byte [DI+12h] = arg byte +0, vx 0, sets flag 10h, timer 0. [high, reviewed: range_0000_7B9B.json]
+; in:  DI, ES:SI
+; out: DI +8, +12h, +6, +0Ch bit4, +1Ch
+; side effects: none
+; evidence: 46449 mov al,[es:si]; mov [di+8],al; mov [di+0x12],al; mov byte [di+6],0; or word [di+0xc],0x10; mov word [di+0x1c],0
 ; dispatch roles: sub_663C_case2, sub_6670_case0_case2, sub_6670_case7
-sub_663C_case2:
+mscript_op2_init:
     push ax                                  ; 46448
     mov al,[es:si]                           ; 46449
     mov [di+0x8],al                          ; 4644C
@@ -10692,7 +11414,12 @@ sub_663C_case2:
     pop ax                                   ; 46460
     ret                                      ; 46461
 
-sub_6670_case2:
+; Script opcode 2 per frame: patrols vertically between y bounds (bytes +2/+4) at speed [DI+12h] with a pause of byte +0Bh frames at each turn; same far-from-player removal (arg +6) and command duration (arg +8) as the horizontal patrol. [high, reviewed: range_0000_7B9B.json]
+; in:  DI, ES:SI, player position
+; out: DI +8, +12h, +13h, [DI+16h]
+; side effects: may call obj_kill_with_burst / next init
+; evidence: 46468 mov bp,[di+4]; 46488 mov ax,[es:si+4]; shl ax,cl; cmp bp,ax; 46492 neg dl; 4649B mov al,[es:si+0xb]; 464E5 cmp ax,[es:si+6]; 464FA call sub_79A6; 464FF next command
+mscript_op2_patrol_y:
     pusha                                    ; 46462
     mov cl,0x4                               ; 46463
     mov dl,[di+0x12]                         ; 46465
@@ -10759,7 +11486,7 @@ loc_64F8:
     popa                                     ; 464F8
     ret                                      ; 464F9
 loc_64FA:
-    call sub_79A6                            ; 464FA
+    call obj_kill_with_burst                 ; 464FA
     popa                                     ; 464FD
     ret                                      ; 464FE
 loc_64FF:
@@ -10775,8 +11502,13 @@ loc_64FF:
     ret                                      ; 4651A
     db 0x90   ; 4651B
 
+; Script opcode 1 init: sets vx and the speed byte [DI+12h] to arg byte +0 (direction randomised from player x + frame counter when byte +0Ah = 0), vy 0, facing bits from the sign, timer 0. [high, reviewed: range_0000_7B9B.json]
+; in:  DI, ES:SI = command, [3C2h], [138Eh]
+; out: DI +6, +12h, +8, +0Ch facing, +1Ch
+; side effects: none
+; evidence: 4651D mov al,[es:si]; 46520 cmp byte [es:si+0xa],0; 46527-46533 dx=[0x3c2]+[0x138e]; shr dx,1; jc; neg al; 46535 mov [di+6],al; mov [di+0x12],al; 4654F-46554 facing bits; 46557 mov word [di+0x1c],0
 ; dispatch roles: sub_663C_case1, sub_6670_case0_case1, sub_6670_case6
-sub_663C_case1:
+mscript_op1_init:
     push dx                                  ; 4651C
     mov al,[es:si]                           ; 4651D
     cmp byte [es:si+0xa],0x0                 ; 46520
@@ -10803,7 +11535,12 @@ loc_6535:
     pop dx                                   ; 4655C
     ret                                      ; 4655D
 
-sub_6670_case1:
+; Script opcode 1 per frame: patrols horizontally between x bounds (bytes +2 and +4, in pixels) at speed [DI+12h], pausing [es:si+0Bh] frames at each turn and updating facing; removes the object (obj_kill_with_burst) when the player is farther than arg +6 (Manhattan distance/16); after arg +8 frames advances to the next command. [high, reviewed: range_0000_7B9B.json]
+; in:  DI, ES:SI, player position
+; out: DI +6, +0Ch, +12h, +13h; [DI+16h]
+; side effects: may call obj_kill_with_burst or a next-command init
+; evidence: 46566 mov bp,[di+2]; 4658B mov ax,[es:si+4]; shl ax,4; cmp bp,ax; 4659F neg dl; 465A8 mov al,[es:si+0xb]; mov [di+0x13],al; 465E0-46606 distance vs [es:si+6]; 46637 call sub_79A6; 4660C cmp [es:si+8],[di+0x1c]
+mscript_op1_patrol_x:
     pusha                                    ; 4655E
     mov cl,0x4                               ; 4655F
     rr xor, dx, dx                           ; 46561
@@ -10888,11 +11625,16 @@ loc_661B:
     popa                                     ; 46635
     ret                                      ; 46636
 loc_6637:
-    call sub_79A6                            ; 46637
+    call obj_kill_with_burst                 ; 46637
     popa                                     ; 4663A
     ret                                      ; 4663B
 
-sub_6670_case0:
+; Script opcode 0 (per frame): waits until the object timer [DI+1Ch] reaches arg*4 (byte +3; 0 = no wait), then advances [DI+16h] to the next command ([es:si+0Eh] + [13C6h]) and runs that command's init handler (tbl_6375). [high, reviewed: range_0000_7B9B.json]
+; in:  DI, ES:SI = command, [13C6h] script base
+; out: [DI+16h]
+; side effects: calls an init handler
+; evidence: 4663E mov al,[es:si+3]; shl x2; cmp ax,[di+0x1c]; 4664F mov ax,[es:si+0xe]; add ax,[0x13c6]; mov [di+0x16],ax; 46668 call [cs:bx+tbl_6375]
+mscript_op0_wait:
     rr xor, ax, ax                           ; 4663C
     mov al,[es:si+0x3]                       ; 4663E
     test ax,ax                               ; 46642
@@ -10915,12 +11657,22 @@ loc_664F:
 loc_666D:
     ret                                      ; 4666D
 
+; Single RET used as the no-op entry (opcodes 4+) of both movement-script tables. [high, reviewed: range_0000_7B9B.json]
+; in:  none
+; out: none
+; side effects: none
+; evidence: 4666E ret; referenced by tbl_636B[4..] and tbl_6375[0],[4]
 ; dispatch roles: sub_663C_case0, sub_663C_case4, sub_6670_case0_case0, sub_6670_case0_case4, sub_6670_case4, sub_6670_case5, sub_6670_case9
-sub_663C_case0:
+mscript_nop:
     ret                                      ; 4666E
     db 0x90   ; 4666F
 
-sub_6670:
+; Per-frame movement-script interpreter for enemies/movers: the current command is at [13C4h]:[DI+16h]; its opcode byte (+1) selects the per-frame handler from tbl_636B (0 wait, 1 patrol x, 2 patrol y, 3 attack-when-near, others no-op). [high, reviewed: range_0000_7B9B.json]
+; in:  DI = object, [13C4h] script segment, [DI+16h] command pointer
+; out: as the op handlers
+; side effects: ES = [13C4h]
+; evidence: 46673 mov ax,[0x13c4]; mov es,ax; 46678 mov si,[di+0x16]; 4667D mov bl,[es:si+1]; 46683 call [cs:bx+tbl_636B]
+mscript_run:
     push ax                                  ; 46670
     push bx                                  ; 46671
     push si                                  ; 46672
@@ -10937,7 +11689,12 @@ sub_6670:
     ret                                      ; 4668B
     db 0xC3,0x90,0xC3,0x90   ; 4668C
 
-obj1B_update:
+; Type 1Bh is a delayed spawner: counts its timer [DI+1Ch] up and, once it exceeds [DI+14h]*4, turns into the object type stored in [DI+1Eh] (flags byte 1). [high, reviewed: range_0000_7B9B.json]
+; in:  DI
+; out: DI +0/+1 (new type), +1Ch, +1Eh=0; byte+1 bit1 set
+; side effects: none
+; evidence: 46690 or byte [di+1],2; inc word [di+0x1c]; 46699 mov al,[di+0x14]; shl x2; cmp ax,[di+0x1c]; 466A6 mov al,[di+0x1e]; mov ah,1; mov [di],ax. Created by the lvlXX_spawn routines with [1Eh] = 03,04,05,07,12h,17h.
+obj1b_update_delayed_spawn:
     or byte [di+0x1],0x2                     ; 46690
     inc word [di+0x1c]                       ; 46694
     rr xor, ax, ax                           ; 46697
@@ -10954,7 +11711,12 @@ loc_66A6:
     mov byte [di+0x1e],0x0                   ; 466AD
     ret                                      ; 466B1
 
-obj1B_draw:
+; Draw handler of the delayed spawner: four sprites of tile 1E7h placed symmetrically around the position with offsets from the sine table at 4000:B5CA, wobbling faster in the last 100 and 50 frames before the spawn. [high, reviewed: range_0000_7B9B.json]
+; in:  DH,DL, DI +14h, +1Ch, [138Eh]
+; out: 4 sprite entries, [1382h] += 10h
+; side effects: none
+; evidence: 466B2 cmp word [0x1382],0x17e8; 466C4 mov bp,0x29e7; 466D9 cmp ax,0x64; 466E0 cmp ax,0x32; 466EF mov ax,[cs:bx-0x4a36]; four [si],bp stores
+obj1b_draw_spawn_sparkle:
     cmp word [0x1382],0x17e8                 ; 466B2
     jc short loc_66BB                        ; 466B8
     ret                                      ; 466BA
@@ -11004,7 +11766,12 @@ loc_66E7:
     mov [si+0x2],dx                          ; 46724
     ret                                      ; 46727
 
-coll_02_1B:
+; Shot (DI) touches a delayed spawner (SI): the spawner immediately becomes its target type [SI+1Eh] and the collision callback for (shot type, new type) is fetched from the bank-7 callback matrix (B870h + row*80h + col*2 with ES=7000h from objects_collide) and called. [medium, reviewed: range_0000_7B9B.json]
+; in:  DI = shot, SI = spawner, ES = 7000h
+; out: SI +0
+; side effects: calls the matrix callback
+; evidence: 4672A mov ah,[di]; shr ax,1 (type*80h); 46730 mov bl,[si+0x1e]; mov [si],bl; 46739 mov ax,[es:bx-0x4790] (=B870h); call ax
+coll_02_1B_coll_shot_vs_spawner:
     rr xor, ax, ax                           ; 46728
     mov ah,[di]                              ; 4672A
     shr ax,1                                 ; 4672C
@@ -11021,13 +11788,23 @@ loc_6744:
     ret                                      ; 46744
     db 0x90   ; 46745
 
-coll_1B_02:
+; Swapped-argument wrapper of coll_shot_vs_spawner. [high, reviewed: range_0000_7B9B.json]
+; in:  DI = spawner, SI = shot
+; out: as coll_shot_vs_spawner
+; side effects: none
+; evidence: 46746 xchg di,si; call coll_02_1B; xchg di,si; ret
+coll_1B_02_coll_spawner_vs_shot:
     xchg di,si                               ; 46746
-    call coll_02_1B                          ; 46748
+    call coll_02_1B_coll_shot_vs_spawner     ; 46748
     xchg di,si                               ; 4674B
     ret                                      ; 4674D
 
-sub_674E:
+; Copies 240h bytes (36 tiles) from 7000:61E0 to tile RAM 3860h (tile 186h), the tiles drawn by obj03_draw. [high, reviewed: range_0000_7B9B.json]
+; in:  none
+; out: tile RAM 3860h-3A9Fh
+; side effects: none
+; evidence: 4674F cx=120h words; ds=7000h; si=61E0h; di=3860h; rep movsw. obj03_draw uses bp=186h.
+load_obj03_tiles:
     pusha                                    ; 4674E
     mov cx,0x120                             ; 4674F
     mov ax,0x7000                            ; 46752
@@ -11043,8 +11820,13 @@ sub_674E:
     ret                                      ; 46768
     db 0x90   ; 46769
 
+; Level spawn routine (shared by lvl00/2B/2C/2D): places a delayed spawner (type 1Bh) at tile coordinates AX,DX (<<4) that becomes type 03 after CH*4 frames, with size 80h, gravity 1 and facing right. [high, reviewed: range_0000_7B9B.json]
+; in:  DI = slot, AX/DX = position (px), CH = delay
+; out: DI +0 = 011Bh, +2/+4, +1Eh=3, +14h, +0Ah/+0Bh, +9, +0Ch|=2
+; side effects: none
+; evidence: 4676C shl ax,4; shl dx,4; 46776 mov al,0x1b; mov ah,1; 4677C mov byte [di+0x1e],3; mov [di+0x14],ch
 ; dispatch roles: lvl00_spawn, lvl2B_spawn, lvl2C_spawn, lvl2D_spawn
-lvl00_spawn:
+lvl00_spawn_obj03_delayed:
     mov cl,0x4                               ; 4676A
     shl ax,cl                                ; 4676C
     shl dx,cl                                ; 4676E
@@ -11062,7 +11844,12 @@ lvl00_spawn:
     ret                                      ; 46794
     db 0x90   ; 46795
 
-obj03_update:
+; Type 03 enemy: runs its movement script (mscript_run), applies velocity unless pausing ([DI+13h]) and handles walls/floor with obj_walk_terrain (gravity flag 10h set). [high, reviewed: range_0000_7B9B.json]
+; in:  DI
+; out: object fields
+; side effects: none
+; evidence: 467A0 or word [di+0xc],0x10; 467AB call sub_6670; 467AE cmp byte [di+0x13],0; call sub_622B; 467B7 jmp sub_6146
+obj03_update_script_walker:
     or byte [di+0x1],0x2                     ; 46796
     inc byte [di+0x14]                       ; 4679A
     inc word [di+0x1c]                       ; 4679D
@@ -11071,13 +11858,18 @@ obj03_update:
     jl short loc_67AB                        ; 467A7
     mov al,0x18                              ; 467A9
 loc_67AB:
-    call sub_6670                            ; 467AB
+    call mscript_run                         ; 467AB
     cmp byte [di+0x13],0x0                   ; 467AE
     jnz short loc_67B7                       ; 467B2
-    call sub_622B                            ; 467B4
+    call obj_apply_velocity                  ; 467B4
 loc_67B7:
-    jmp near sub_6146                        ; 467B7
+    jmp near obj_walk_terrain                ; 467B7
 
+; Draw handler for type 03: if sprite space remains, uses tile base 186h with attributes 2800h and jumps to the orientation-specific drawer from tbl_D31E. [high, reviewed: range_0000_7B9B.json]
+; in:  DH,DL, DI, play_flags bit0
+; out: sprite entries (via D31E table)
+; side effects: none
+; evidence: 467BA cmp word [0x1382],0x17d4; mov bp,0x186; or bp,0x2800; jmp [cs:bx+tbl_D31E]
 obj03_draw:
     cmp word [0x1382],0x17d4                 ; 467BA
     jc short loc_67C3                        ; 467C0
@@ -11091,20 +11883,35 @@ loc_67C3:
     jmp [cs:bx+tbl_D31E]                     ; 467D4
     db 0x90   ; 467D9
 
+; Swapped-argument wrapper of coll_shot_grabs_enemy (enemy first). [high, reviewed: range_0000_7B9B.json]
+; in:  DI = enemy, SI = shot
+; out: as coll_shot_grabs_enemy
+; side effects: none
+; evidence: 467DA xchg di,si; call coll_02_03; xchg di,si; ret
 ; dispatch roles: coll_03_02, coll_04_02, coll_2E_02
-coll_03_02:
+coll_03_02_coll_enemy_grabbed_by_shot:
     xchg di,si                               ; 467DA
-    call coll_02_03                          ; 467DC
+    call coll_02_03_coll_shot_grabs_enemy    ; 467DC
     xchg di,si                               ; 467DF
     ret                                      ; 467E1
 
+; Shot (type 02) hits a grabbable enemy (types 03, 04, 2Eh): calls shot_grab_enemy with DL=09h so the enemy becomes a type-09 captured enemy. [high, reviewed: range_0000_7B9B.json]
+; in:  DI = shot, SI = enemy
+; out: as shot_grab_enemy
+; side effects: as shot_grab_enemy
+; evidence: 467E2 mov dl,9; call sub_60D4; ret
 ; dispatch roles: coll_02_03, coll_02_04, coll_02_2E
-coll_02_03:
+coll_02_03_coll_shot_grabs_enemy:
     mov dl,0x9                               ; 467E2
-    call sub_60D4                            ; 467E4
+    call shot_grab_enemy                     ; 467E4
     ret                                      ; 467E7
 
-sub_67E8:
+; Copies 36 tiles (240h bytes) from 7000:6420 to the tile RAM address in AX (allocated by lvl01_tick for type 04 graphics). [high, reviewed: range_0000_7B9B.json]
+; in:  AX = destination address
+; out: tile RAM at AX
+; side effects: DS left at 7000h (caller resets)
+; evidence: 467E8 mov di,ax; mov cx,0x120; ds=7000h; si=6420h; rep movsw
+load_obj04_tiles:
     rr mov, di, ax                           ; 467E8
     mov cx,0x120                             ; 467EA
     mov ax,0x7000                            ; 467ED
@@ -11115,7 +11922,12 @@ sub_67E8:
     rep movsw                                ; 467F9
     ret                                      ; 467FB
 
-lvl01_tick:
+; Level tick: if the type-04 tile slot [1410h] is still empty and 36 tiles can be allocated above tile 96h, takes them from the allocator ([1396h] -= 24h), stores the base in [1410h] and loads the graphics (load_obj04_tiles). [high, reviewed: range_0000_7B9B.json]
+; in:  [1410h], [1396h]
+; out: [1396h], [1410h], tile RAM
+; side effects: none
+; evidence: 467FC cmp word [0x1410],0; 46807 sub ax,0x24; cmp ax,0x96; 46812 mov [0x1396],ax; mov [0x1410],ax; shl ax,4; add ax,0x2000; call sub_67E8. obj04_draw uses bp=[1410h].
+lvl01_tick_alloc_obj04_gfx:
     cmp word [0x1410],byte +0x0              ; 467FC
     jnz short loc_6827                       ; 46801
     push ax                                  ; 46803
@@ -11131,7 +11943,7 @@ loc_6811:
     mov [0x1410],ax                          ; 46815
     shl ax,byte 0x4                          ; 46818
     add ax,0x2000                            ; 4681B
-    call sub_67E8                            ; 4681E
+    call load_obj04_tiles                    ; 4681E
     rr xor, ax, ax                           ; 46821
     mov ds,ax                                ; 46823
     popa                                     ; 46825
@@ -11139,7 +11951,12 @@ loc_6811:
 loc_6827:
     ret                                      ; 46827
 
-lvl01_spawn:
+; Level spawn routine: delayed spawner at tile AX,DX that becomes type 04 after CH*4 frames (size 80h, flags 12h). [high, reviewed: range_0000_7B9B.json]
+; in:  DI, AX, DX, CH
+; out: DI +0=011Bh, +2/+4, +1Eh=4, +14h, +0Ah/+0Bh, +0Ch|=12h
+; side effects: none
+; evidence: 46834 mov al,0x1b; 4683A mov byte [di+0x1e],4; 46849 or word [di+0xc],0x12
+lvl01_spawn_obj04_delayed:
     mov cl,0x4                               ; 46828
     shl ax,cl                                ; 4682A
     shl dx,cl                                ; 4682C
@@ -11156,8 +11973,13 @@ lvl01_spawn:
     ret                                      ; 4684E
     db 0x90   ; 4684F
 
+; Type 04 (also type 17h) enemy: always faces the player, plays SFX 0Ch every 64 frames while on screen (byte+1 bit0), runs its movement script and applies velocity unless pausing; no terrain or gravity handling. [high, reviewed: range_0000_7B9B.json]
+; in:  DI, player x
+; out: DI +0Ch facing, velocities/position
+; side effects: plays SFX 0Ch
+; evidence: 46860-46875 facing from [0x3c2] vs [di+2]; 4687B test byte [di+1],1; and al,0x3f; mov ax,0xc; call DD97; 46890 call sub_6670; 46899 jmp sub_622B
 ; dispatch roles: obj04_update, obj17_update
-obj04_update:
+obj04_update_script_flyer:
     or byte [di+0x1],0x2                     ; 46850
     inc byte [di+0x14]                       ; 46854
     inc word [di+0x1c]                       ; 46857
@@ -11182,16 +12004,21 @@ loc_6878:
     cmp al,0x0                               ; 46886
     jnz short loc_6890                       ; 46888
     mov ax,0xc                               ; 4688A
-    call sub_DD97                            ; 4688D
+    call sound_play                          ; 4688D
 loc_6890:
-    call sub_6670                            ; 46890
+    call mscript_run                         ; 46890
     cmp byte [di+0x13],0x0                   ; 46893
     jnz short loc_689C                       ; 46897
-    jmp near sub_622B                        ; 46899
+    jmp near obj_apply_velocity              ; 46899
 loc_689C:
     ret                                      ; 4689C
     db 0x90   ; 4689D
 
+; Draw handler for type 04: tile base from the allocated slot [1410h] with attributes 2800h, via the orientation-specific drawer table tbl_D31E. [high, reviewed: range_0000_7B9B.json]
+; in:  DH,DL, DI, [1410h]
+; out: sprite entries
+; side effects: none
+; evidence: 4689E cmp word [0x1382],0x17d4; mov bp,[0x1410]; or bp,0x2800; jmp [cs:bx+tbl_D31E]
 obj04_draw:
     cmp word [0x1382],0x17d4                 ; 4689E
     jc short loc_68A7                        ; 468A4
@@ -11204,7 +12031,12 @@ loc_68A7:
     shl bx,1                                 ; 468B7
     jmp [cs:bx+tbl_D31E]                     ; 468B9
 
-sub_68BE:
+; Copies 36 tiles from 7000:6660 to the tile RAM address in AX (type 05/06 graphics, slot [1416h]). [high, reviewed: range_0000_7B9B.json]
+; in:  AX = destination
+; out: tile RAM at AX
+; side effects: DS left at 7000h
+; evidence: 468BE mov di,ax; cx=120h; ds=7000h; si=6660h; rep movsw
+load_obj05_tiles:
     rr mov, di, ax                           ; 468BE
     mov cx,0x120                             ; 468C0
     mov ax,0x7000                            ; 468C3
@@ -11215,8 +12047,13 @@ sub_68BE:
     rep movsw                                ; 468CF
     ret                                      ; 468D1
 
+; Level tick (lvl04/lvl24): allocates 36 tiles for the type 05/06 graphics into slot [1416h] if empty and loads them (load_obj05_tiles). [high, reviewed: range_0000_7B9B.json]
+; in:  [1416h], [1396h]
+; out: [1396h], [1416h], tile RAM
+; side effects: none
+; evidence: 468D2 cmp word [0x1416],0; 468DD sub ax,0x24; 468EB mov [0x1416],ax; 468F4 call sub_68BE. obj05_draw uses bp=[1416h].
 ; dispatch roles: lvl04_tick, lvl24_tick
-lvl04_tick:
+lvl04_tick_alloc_obj05_gfx:
     cmp word [0x1416],byte +0x0              ; 468D2
     jnz short loc_68FD                       ; 468D7
     push ax                                  ; 468D9
@@ -11232,7 +12069,7 @@ loc_68E7:
     mov [0x1416],ax                          ; 468EB
     shl ax,byte 0x4                          ; 468EE
     add ax,0x2000                            ; 468F1
-    call sub_68BE                            ; 468F4
+    call load_obj05_tiles                    ; 468F4
     rr xor, ax, ax                           ; 468F7
     mov ds,ax                                ; 468F9
     popa                                     ; 468FB
@@ -11240,12 +12077,22 @@ loc_68E7:
 loc_68FD:
     ret                                      ; 468FD
 
-lvl24_spawn:
-    call lvl04_spawn                         ; 468FE
+; Level spawn routine: like lvl04_spawn_obj05_delayed but sets [DI+1Fh]=1, which enables the terrain-bounce code in obj05_update_script_mover. [high, reviewed: range_0000_7B9B.json]
+; in:  DI, AX, DX, CH
+; out: as lvl04 spawn + DI +1Fh = 1
+; side effects: none
+; evidence: 468FE call lvl04_spawn; mov byte [di+0x1f],1; 4694E cmp byte [di+0x1f],0 in obj05_update
+lvl24_spawn_obj05_bouncing:
+    call lvl04_spawn_obj05_delayed           ; 468FE
     mov byte [di+0x1f],0x1                   ; 46901
     ret                                      ; 46905
 
-lvl04_spawn:
+; Level spawn routine: delayed spawner at tile AX,DX that becomes type 05 after CH*4 frames (size C0h, flags 12h). [high, reviewed: range_0000_7B9B.json]
+; in:  DI, AX, DX, CH
+; out: DI +0=011Bh, +2/+4, +1Eh=5, +14h, +0Ah/+0Bh=C0h, +0Ch
+; side effects: none
+; evidence: 46912 mov al,0x1b; 46918 mov byte [di+0x1e],5; 4691F mov byte [di+0xb],0xc0
+lvl04_spawn_obj05_delayed:
     mov cl,0x4                               ; 46906
     shl ax,cl                                ; 46908
     shl dx,cl                                ; 4690A
@@ -11262,7 +12109,12 @@ lvl04_spawn:
     or word [di+0xc],0x2                     ; 4692C
     ret                                      ; 46931
 
-obj05_update:
+; Type 05 object: runs its movement script and applies velocity; when [DI+1Fh] != 0 it also probes terrain ahead horizontally and vertically and reverses direction (facing and speed byte) on new wall or floor/ceiling contact. [medium, reviewed: range_0000_7B9B.json]
+; in:  DI
+; out: DI fields
+; side effects: none
+; evidence: 46942 call sub_6670; 4694B call sub_622B; 4694E cmp byte [di+0x1f],0; 46974/46993 call sub_43E5; 469A8-469BB flip facing; neg byte [di+0x12]; 469CA neg byte [di+0x12]
+obj05_update_script_mover:
     or byte [di+0x1],0x2                     ; 46932
     inc byte [di+0x14]                       ; 46936
     inc word [di+0x1c]                       ; 46939
@@ -11270,10 +12122,10 @@ obj05_update:
     jl short loc_6942                        ; 4693E
     mov al,0x18                              ; 46940
 loc_6942:
-    call sub_6670                            ; 46942
+    call mscript_run                         ; 46942
     cmp byte [di+0x13],0x0                   ; 46945
     jnz short loc_694E                       ; 46949
-    call sub_622B                            ; 4694B
+    call obj_apply_velocity                  ; 4694B
 loc_694E:
     cmp byte [di+0x1f],0x0                   ; 4694E
     jnz short loc_6955                       ; 46952
@@ -11292,7 +12144,7 @@ loc_696D:
     rr add, bp, ax                           ; 4696D
     mov ax,[di+0x4]                          ; 4696F
     rr mov, dx, bp                           ; 46972
-    call sub_43E5                            ; 46974
+    call terrain_attr_at                     ; 46974
 loc_6977:
     cmp byte [di+0x8],0x0                    ; 46977
     jz short loc_6996                        ; 4697B
@@ -11306,7 +12158,7 @@ loc_698C:
     rr add, bp, ax                           ; 4698C
     mov dx,[di+0x2]                          ; 4698E
     rr mov, ax, bp                           ; 46991
-    call sub_43E5                            ; 46993
+    call terrain_attr_at                     ; 46993
 loc_6996:
     rr mov, ax, bx                           ; 46996
     not al                                   ; 46998
@@ -11339,7 +12191,12 @@ loc_69CD:
     ret                                      ; 469D0
     db 0x90   ; 469D1
 
-obj06_update:
+; Type 06 = a type-05 object weighed down by a block (set by coll_block_vs_obj05): falls with gravity and terrain handling while something rests on it; once nothing is on top (no 80h contact) it flies back to its home y [DI+1Ah] at 8 units/frame and then reverts to type 05 with its saved velocities ([1Eh]/[1Fh]). [medium, reviewed: range_0000_7B9B.json]
+; in:  DI
+; out: DI +0, +4, +6, +8, +0Ch
+; side effects: none
+; evidence: 469D9 test word [di+0xc],0x800; 469E0 mov ax,[di+0x1a]; sub ax,[di+4]; cmp ax,0x40; 469F9 shl dx,3; mov [di+8],dl; 46A03 mov byte [di],5; 46A0E-46A17 restore +6/+8 from +1Eh/+1Fh; 46A23 call sub_6146; 46A2B test al,0x80; or word [di+0xc],0x800
+obj06_update_weighted:
     or byte [di+0x1],0x2                     ; 469D2
     inc byte [di+0x14]                       ; 469D6
     test word [di+0xc],0x800                 ; 469D9
@@ -11359,7 +12216,7 @@ obj06_update:
     mov cl,0x3                               ; 469F9
     shl dx,cl                                ; 469FB
     mov [di+0x8],dl                          ; 469FD
-    jmp near sub_622B                        ; 46A00
+    jmp near obj_apply_velocity              ; 46A00
 loc_6A03:
     mov byte [di],0x5                        ; 46A03
     mov ax,[di+0x1a]                         ; 46A06
@@ -11372,8 +12229,8 @@ loc_6A03:
     and word [di+0xc],0xf7ff                 ; 46A1A
     ret                                      ; 46A1F
 loc_6A20:
-    call sub_622B                            ; 46A20
-    call sub_6146                            ; 46A23
+    call obj_apply_velocity                  ; 46A20
+    call obj_walk_terrain                    ; 46A23
     mov ax,[di+0x10]                         ; 46A26
     rr or, al, ah                            ; 46A29
     test al,0x80                             ; 46A2B
@@ -11383,8 +12240,13 @@ loc_6A34:
     ret                                      ; 46A34
     db 0x90   ; 46A35
 
+; Block-type object (DI: types 12h,13h,15h,27h) vs weighted mover type 06 (SI): if SI is above, it is set on top of the block; if SI is below, the block is placed on it (block rides SI, SI clears its return flag and gets vy 0/accel 2); on side contact the block stops and is pushed out. [medium, reviewed: range_0000_7B9B.json]
+; in:  DI = block, SI = obj06
+; out: positions, velocities, contact bits, DI +0Eh, DI +13h
+; side effects: none
+; evidence: 46A45 cmp ax,0x180; 46A58 cmp ax,0x190; 46A63 cmp byte [di],0x13; 46A77 sub ax,0x180; mov [si+4],ax; 46A94 and word [si+0xc],0xf7ff; 46AB5 mov ah,2; mov [si+8],ax; 46ABA mov [di+0xe],si
 ; dispatch roles: coll_12_06, coll_13_06, coll_15_06, coll_27_06
-coll_12_06:
+coll_12_06_coll_block_vs_obj06:
     mov ax,[si+0x2]                          ; 46A36
     sub ax,[di+0x2]                          ; 46A39
     rr mov, cx, ax                           ; 46A3C
@@ -11465,13 +12327,23 @@ loc_6AE6:
     or byte [di+0x11],0x20                   ; 46AF3
     ret                                      ; 46AF7
 
+; Swapped-argument wrapper of coll_block_vs_obj06. [high, reviewed: range_0000_7B9B.json]
+; in:  DI = obj06, SI = block
+; out: as coll_block_vs_obj06
+; side effects: none
+; evidence: 46AF8 xchg di,si; call coll_12_06; xchg di,si; ret
 ; dispatch roles: coll_06_12, coll_06_13, coll_06_15, coll_06_27
-coll_06_12:
+coll_06_12_coll_obj06_vs_block:
     xchg di,si                               ; 46AF8
-    call coll_12_06                          ; 46AFA
+    call coll_12_06_coll_block_vs_obj06      ; 46AFA
     xchg di,si                               ; 46AFD
     ret                                      ; 46AFF
 
+; Draw handler for types 05/06: tile base from slot [1416h] with attributes 2800h via tbl_D31E. [high, reviewed: range_0000_7B9B.json]
+; in:  DH,DL, DI, [1416h]
+; out: sprite entries
+; side effects: none
+; evidence: 46B00 cmp word [0x1382],0x17d4; mov bp,[0x1416]; or bp,0x2800; jmp [cs:bx+tbl_D31E]
 ; dispatch roles: obj05_draw, obj06_draw
 obj05_draw:
     cmp word [0x1382],0x17d4                 ; 46B00
@@ -11485,7 +12357,12 @@ loc_6B09:
     shl bx,1                                 ; 46B19
     jmp [cs:bx+tbl_D31E]                     ; 46B1B
 
-sub_6B20:
+; Physics for stackable objects (used by blocks): if resting on another object ([DI+0Eh]) it first runs that object's update handler, then follows its vertical motion and (unless flag 1000h) its horizontal motion, dropping off when contact is lost; otherwise falls with gravity (terminal vy 18h). Then checks walls and floor with terrain_attr_at, snapping to the grid and landing. [high, reviewed: range_0000_7B9B.json]
+; in:  DI = object, [DI+0Eh] support object
+; out: DI +2/+4/+6/+8/+0Ch/+0Eh/+10h
+; side effects: calls the supporting object's update handler
+; evidence: 46B21 mov si,[di+0xe]; 46B3E call [es:bx+0x1ea] (ES=8000h); 46B59-46B6F follow si position/velocity; 46B8A mov word [di+0xe],0; 46BA7 cmp al,0x18 clamp; 46BE3-46C31 call sub_43E5 x5; 46C4F and word [di+4],0xff80; add 0x40
+obj_ride_or_fall:
     pusha                                    ; 46B20
     mov si,[di+0xe]                          ; 46B21
     test si,si                               ; 46B24
@@ -11575,18 +12452,18 @@ loc_6BD9:
     mov ax,[di+0x4]                          ; 46BDB
     sub ax,0xa0                              ; 46BDE
     rr mov, dx, bp                           ; 46BE1
-    call sub_43E5                            ; 46BE3
+    call terrain_attr_at                     ; 46BE3
     cmp al,0x0                               ; 46BE6
     jnz short loc_6C01                       ; 46BE8
     mov ax,[di+0x4]                          ; 46BEA
     rr mov, dx, bp                           ; 46BED
-    call sub_43E5                            ; 46BEF
+    call terrain_attr_at                     ; 46BEF
     cmp al,0x0                               ; 46BF2
     jnz short loc_6C01                       ; 46BF4
     mov ax,[di+0x4]                          ; 46BF6
     add ax,0xa0                              ; 46BF9
     rr mov, dx, bp                           ; 46BFC
-    call sub_43E5                            ; 46BFE
+    call terrain_attr_at                     ; 46BFE
 loc_6C01:
     cmp byte [di+0x8],0x0                    ; 46C01
     jz short loc_6C34                        ; 46C05
@@ -11601,13 +12478,13 @@ loc_6C16:
     mov dx,[di+0x2]                          ; 46C18
     sub dx,0xb0                              ; 46C1B
     rr mov, ax, bp                           ; 46C1F
-    call sub_43E5                            ; 46C21
+    call terrain_attr_at                     ; 46C21
     cmp al,0x0                               ; 46C24
     jnz short loc_6C34                       ; 46C26
     mov dx,[di+0x2]                          ; 46C28
     add dx,0xb0                              ; 46C2B
     rr mov, ax, bp                           ; 46C2F
-    call sub_43E5                            ; 46C31
+    call terrain_attr_at                     ; 46C31
 loc_6C34:
     test bh,0x3                              ; 46C34
     jz short loc_6C4A                        ; 46C37
@@ -11634,7 +12511,12 @@ loc_6C69:
     popa                                     ; 46C70
     ret                                      ; 46C71
 
-sub_6C72:
+; Copies 9 tiles (90h bytes) from 7000:6F60 to the tile RAM address in AX (block graphics, slot [1400h]). [high, reviewed: range_0000_7B9B.json]
+; in:  AX
+; out: tile RAM at AX
+; side effects: DS left at 7000h
+; evidence: 46C72 mov di,ax; mov cx,0x48; si=6F60h; rep movsw
+load_obj12_tiles:
     rr mov, di, ax                           ; 46C72
     mov cx,0x48                              ; 46C74
     mov ax,0x7000                            ; 46C77
@@ -11645,7 +12527,12 @@ sub_6C72:
     rep movsw                                ; 46C83
     ret                                      ; 46C85
 
-lvl02_tick:
+; Level tick: allocates 9 tiles for the plain block graphics into slot [1400h] if empty and loads them (load_obj12_tiles). [high, reviewed: range_0000_7B9B.json]
+; in:  [1400h], [1396h]
+; out: [1396h], [1400h], tile RAM
+; side effects: none
+; evidence: 46C86 cmp word [0x1400],0; 46C91 sub ax,9; 46C9F mov [0x1400],ax; 46CA8 call sub_6C72. obj12_draw uses [1400h] when [DI+1Fh]=0.
+lvl02_tick_alloc_obj12_gfx:
     cmp word [0x1400],byte +0x0              ; 46C86
     jnz short loc_6CB1                       ; 46C8B
     push ax                                  ; 46C8D
@@ -11661,7 +12548,7 @@ loc_6C9B:
     mov [0x1400],ax                          ; 46C9F
     shl ax,byte 0x4                          ; 46CA2
     add ax,0x2000                            ; 46CA5
-    call sub_6C72                            ; 46CA8
+    call load_obj12_tiles                    ; 46CA8
     rr xor, ax, ax                           ; 46CAB
     mov ds,ax                                ; 46CAD
     popa                                     ; 46CAF
@@ -11669,7 +12556,12 @@ loc_6C9B:
 loc_6CB1:
     ret                                      ; 46CB1
 
-lvl02_spawn:
+; Level spawn routine: places a type-12h block directly (no spawner) at tile AX,DX with size C0h, gravity 1, flag 10h, ground-contact bits 44h and variant [1Fh]=0. [high, reviewed: range_0000_7B9B.json]
+; in:  DI, AX, DX
+; out: DI +0 = 0112h, +2/+4, +0Ah/+0Bh, +9, +0Ch, +10h/+11h = 44h, +1Fh = 0
+; side effects: none
+; evidence: 46CBE mov al,0x12; mov ah,1; mov [di],ax; 46CD5 mov al,0x44; mov [di+0x11],al; mov [di+0x10],al
+lvl02_spawn_obj12_block:
     mov cl,0x4                               ; 46CB2
     shl ax,cl                                ; 46CB4
     shl dx,cl                                ; 46CB6
@@ -11688,7 +12580,12 @@ lvl02_spawn:
     mov byte [di+0x1f],0x0                   ; 46CDD
     ret                                      ; 46CE1
 
-sub_6CE2:
+; Copies 27 tiles (1B0h bytes) from 7000:6FF0 to the tile RAM address in AX (three 9-tile block variants, slot [1408h]). [high, reviewed: range_0000_7B9B.json]
+; in:  AX
+; out: tile RAM at AX
+; side effects: DS left at 7000h
+; evidence: 46CE2 mov di,ax; mov cx,0xd8; si=6FF0h; rep movsw. obj12_draw adds (variant-1)*9 to [1408h].
+load_obj12_variant_tiles:
     rr mov, di, ax                           ; 46CE2
     mov cx,0xd8                              ; 46CE4
     mov ax,0x7000                            ; 46CE7
@@ -11699,7 +12596,12 @@ sub_6CE2:
     rep movsw                                ; 46CF3
     ret                                      ; 46CF5
 
-lvl1A_tick:
+; Level tick: allocates 27 tiles for the block variants into slot [1408h] if empty and loads them (load_obj12_variant_tiles). [high, reviewed: range_0000_7B9B.json]
+; in:  [1408h], [1396h]
+; out: [1396h], [1408h], tile RAM
+; side effects: none
+; evidence: 46CF6 cmp word [0x1408],0; 46D01 sub ax,0x1b; 46D0F mov [0x1408],ax; 46D18 call sub_6CE2
+lvl1a_tick_alloc_obj12v_gfx:
     cmp word [0x1408],byte +0x0              ; 46CF6
     jnz short loc_6D21                       ; 46CFB
     push ax                                  ; 46CFD
@@ -11715,7 +12617,7 @@ loc_6D0B:
     mov [0x1408],ax                          ; 46D0F
     shl ax,byte 0x4                          ; 46D12
     add ax,0x2000                            ; 46D15
-    call sub_6CE2                            ; 46D18
+    call load_obj12_variant_tiles            ; 46D18
     rr xor, ax, ax                           ; 46D1B
     mov ds,ax                                ; 46D1D
     popa                                     ; 46D1F
@@ -11723,7 +12625,12 @@ loc_6D0B:
 loc_6D21:
     ret                                      ; 46D21
 
-lvl1A_spawn:
+; Level spawn routine: delayed spawner that becomes a type-12h block after BP*4 frames, with block variant [1Fh] = (CH&3) clamped to 1..3 (selects the [1408h] graphics). [high, reviewed: range_0000_7B9B.json]
+; in:  DI, AX, DX, BP = delay, CH = variant
+; out: DI +0=011Bh, +2/+4, +1Eh=12h, +14h, +1Fh, +10h/+11h=44h
+; side effects: none
+; evidence: 46D2E mov al,0x1b; 46D34 mov byte [di+0x1e],0x12; 46D38 mov ax,bp; mov [di+0x14],al; 46D56-46D5F and ch,3; cmp ch,3; adc ch,0; mov [di+0x1f],ch
+lvl1a_spawn_obj12_delayed:
     mov cl,0x4                               ; 46D22
     shl ax,cl                                ; 46D24
     shl dx,cl                                ; 46D26
@@ -11749,11 +12656,16 @@ lvl1A_spawn:
     ret                                      ; 46D62
     db 0x90   ; 46D63
 
-obj12_update:
+; Type 12h block: falls/rides via obj_ride_or_fall; on newly gaining floor contact (bits 44h) it is re-initialised as a resting block (obj_change_type_reset with 12h) and plays SFX 29h (landing). [high, reviewed: range_0000_7B9B.json]
+; in:  DI
+; out: DI fields
+; side effects: plays SFX 29h
+; evidence: 46D6B or word [di+0xc],0x10; 46D70 call sub_6B20; 46D78 test dl,0x44; 46D85 mov al,0x12; call sub_6026; 46D93 mov ax,0x29; jmp sub_DD97
+obj12_update_block:
     or byte [di+0x1],0x2                     ; 46D64
     inc byte [di+0x14]                       ; 46D68
     or word [di+0xc],0x10                    ; 46D6B
-    call sub_6B20                            ; 46D70
+    call obj_ride_or_fall                    ; 46D70
     mov ax,[di+0x10]                         ; 46D73
     rr mov, dx, ax                           ; 46D76
     test dl,0x44                             ; 46D78
@@ -11763,17 +12675,22 @@ obj12_update:
     test al,0x44                             ; 46D81
     jz short loc_6D99                        ; 46D83
     mov al,0x12                              ; 46D85
-    call sub_6026                            ; 46D87
+    call obj_change_type_reset               ; 46D87
     test al,0x4                              ; 46D8A
     jz short loc_6D93                        ; 46D8C
     mov word [di+0xe],0x0                    ; 46D8E
 loc_6D93:
     mov ax,0x29                              ; 46D93
-    jmp near sub_DD97                        ; 46D96
+    jmp near sound_play                      ; 46D96
 loc_6D99:
     ret                                      ; 46D99
 
-obj13_update:
+; Type 13h = block just grabbed by the player's shot: for 12 frames homes toward a point 170h above the player, then snaps there; checks the terrain above; on contact (BH & B8h) a type-13h block returns to its original position as a type-12h block and the player's hold is cleared, otherwise (or when flagged 800h, or after frame 12) it becomes type 14h (carried). [medium, reviewed: range_0000_7B9B.json]
+; in:  DI, player slot 03C0h
+; out: DI +0, +2/+4, +6/+8, +10h, +12h, +14h; player +0Ch
+; side effects: may call player_clear_held
+; evidence: 46DA6 cmp bl,0xc; 46DB3 sub dx,0x170; imul; sar 5; 46DED-46DFC snap to player x, y-178h; 46E14/46E40 call sub_43E5; 46E46 test bh,0xb8; 46E53 mov byte [di],0x14; 46E66 mov byte [di],0x12; restore [di+0x18]/[di+0x1a]; call sub_5FB2
+obj13_update_block_grabbed:
     or byte [di+0x1],0x2                     ; 46D9A
     mov si,0x3c0                             ; 46D9E
     mov bl,[di+0x14]                         ; 46DA1
@@ -11810,7 +12727,7 @@ loc_6DB0:
     pop cx                                   ; 46DE0
     mov [di+0x6],al                          ; 46DE1
     mov [di+0x14],bl                         ; 46DE4
-    call sub_622B                            ; 46DE7
+    call obj_apply_velocity                  ; 46DE7
     jmp near loc_6E06                        ; 46DEA
 loc_6DED:
     mov ax,[0x3c2]                           ; 46DED
@@ -11827,7 +12744,7 @@ loc_6E06:
     mov ax,[di+0x4]                          ; 46E0B
     sub ax,0xa0                              ; 46E0E
     mov dx,[di+0x2]                          ; 46E11
-    call sub_43E5                            ; 46E14
+    call terrain_attr_at                     ; 46E14
     test al,al                               ; 46E17
     jnz short loc_6E43                       ; 46E19
     mov ax,[di+0x4]                          ; 46E1B
@@ -11845,7 +12762,7 @@ loc_6E3A:
     add dx,0xa0                              ; 46E3A
 loc_6E3E:
     rr mov, ax, bp                           ; 46E3E
-    call sub_43E5                            ; 46E40
+    call terrain_attr_at                     ; 46E40
 loc_6E43:
     mov [di+0x10],bx                         ; 46E43
     test bh,0xb8                             ; 46E46
@@ -11870,7 +12787,7 @@ loc_6E61:
     mov [di+0x6],ax                          ; 46E77
     mov ah,0x1                               ; 46E7A
     mov [di+0x8],ax                          ; 46E7C
-    call sub_5FB2                            ; 46E7F
+    call player_clear_held                   ; 46E7F
     ret                                      ; 46E82
     db 0x90   ; 46E83
 loc_6E84:
@@ -11883,13 +12800,13 @@ loc_6E84:
     mov dx,[di+0x2]                          ; 46E94
     sub dx,0xa0                              ; 46E97
     rr mov, ax, bp                           ; 46E9B
-    call sub_43E5                            ; 46E9D
+    call terrain_attr_at                     ; 46E9D
     cmp al,0x0                               ; 46EA0
     jnz short loc_6EB0                       ; 46EA2
     mov dx,[di+0x2]                          ; 46EA4
     add dx,0xa0                              ; 46EA7
     rr mov, ax, bp                           ; 46EAB
-    call sub_43E5                            ; 46EAD
+    call terrain_attr_at                     ; 46EAD
 loc_6EB0:
     test bh,0x8                              ; 46EB0
     jz short loc_6EC6                        ; 46EB3
@@ -11915,18 +12832,18 @@ loc_6EDC:
     mov ax,[di+0x4]                          ; 46EDE
     sub ax,0x90                              ; 46EE1
     rr mov, dx, bp                           ; 46EE4
-    call sub_43E5                            ; 46EE6
+    call terrain_attr_at                     ; 46EE6
     cmp al,0x0                               ; 46EE9
     jnz short loc_6F04                       ; 46EEB
     mov ax,[di+0x4]                          ; 46EED
     rr mov, dx, bp                           ; 46EF0
-    call sub_43E5                            ; 46EF2
+    call terrain_attr_at                     ; 46EF2
     cmp al,0x0                               ; 46EF5
     jnz short loc_6F04                       ; 46EF7
     mov ax,[di+0x4]                          ; 46EF9
     add ax,0xa0                              ; 46EFC
     rr mov, dx, bp                           ; 46EFF
-    call sub_43E5                            ; 46F01
+    call terrain_attr_at                     ; 46F01
 loc_6F04:
     test bh,0x3                              ; 46F04
     jz short loc_6F24                        ; 46F07
@@ -11945,7 +12862,12 @@ loc_6F24:
     ret                                      ; 46F28
     db 0x90   ; 46F29
 
-obj14_update:
+; Type 14h = block carried above the player: follows the player (x, y-178h) and checks terrain above/ahead, pushing both out of walls (shared code at 6E84); flag 20h turns it back into a resting block (type 12h), flag 800h turns it into a thrown block (type 15h) with vx +/-20h by facing. [high, reviewed: range_0000_7B9B.json]
+; in:  DI, player slot 03C0h
+; out: DI +0, +2/+4, +6, +8, +10h; player position on wall contact
+; side effects: none
+; evidence: 46F3B test bp,0x20; 46F41 test bp,0x800; 46F4D-46F5C follow [si+2], [si+4]-178h; jmp loc_6E84; 46F62 mov al,0x12; call sub_6026; 46F6D mov byte [di],0x15; mov al,0x20; neg if facing left
+obj14_update_block_carried:
     or byte [di+0x1],0x2                     ; 46F2A
     mov bp,[di+0xc]                          ; 46F2E
     mov word [di+0x6],0x0                    ; 46F31
@@ -11965,7 +12887,7 @@ obj14_update:
     jmp near loc_6E84                        ; 46F5F
 loc_6F62:
     mov al,0x12                              ; 46F62
-    call sub_6026                            ; 46F64
+    call obj_change_type_reset               ; 46F64
     mov word [di+0x10],0x0                   ; 46F67
     ret                                      ; 46F6C
 loc_6F6D:
@@ -11981,11 +12903,16 @@ loc_6F7C:
     ret                                      ; 46F84
     db 0x90   ; 46F85
 
-obj15_update:
+; Type 15h = thrown block: moves (obj_apply_velocity) with wall checks (obj_check_wall_terrain); on hitting a wall, or 4 frames after its counter [13h] has started, it becomes a resting block (type 12h) with vy 0/gravity 2 and plays SFX 29h. [high, reviewed: range_0000_7B9B.json]
+; in:  DI
+; out: DI +0, +8, +13h
+; side effects: plays SFX 29h
+; evidence: 46F8D call sub_622B; call sub_5F50; 46F93 test byte [di+0x11],3; 46F99-46FA5 counter [di+0x13]; cmp al,4; 46FAA mov al,0x12; call sub_6026; 46FB4 mov ah,2; mov [di+8],ax; mov ax,0x29; call DD97
+obj15_update_block_thrown:
     or byte [di+0x1],0x2                     ; 46F86
     inc byte [di+0x14]                       ; 46F8A
-    call sub_622B                            ; 46F8D
-    call sub_5F50                            ; 46F90
+    call obj_apply_velocity                  ; 46F8D
+    call obj_check_wall_terrain              ; 46F90
     test byte [di+0x11],0x3                  ; 46F93
     jnz short loc_6FAA                       ; 46F97
     mov al,[di+0x13]                         ; 46F99
@@ -11998,17 +12925,22 @@ obj15_update:
     ret                                      ; 46FA9
 loc_6FAA:
     mov al,0x12                              ; 46FAA
-    call sub_6026                            ; 46FAC
+    call obj_change_type_reset               ; 46FAC
     rr xor, ax, ax                           ; 46FAF
     mov [di+0x13],al                         ; 46FB1
     mov ah,0x2                               ; 46FB4
     mov [di+0x8],ax                          ; 46FB6
     mov ax,0x29                              ; 46FB9
-    call sub_DD97                            ; 46FBC
+    call sound_play                          ; 46FBC
     ret                                      ; 46FBF
 
+; Draw handler for block types 12h-15h: variant 0 uses tile slot [1400h] with attributes 2800h, variants 1-3 use [1408h] + (variant-1)*9 with attributes 2400h; drawn by D1A1. [high, reviewed: range_0000_7B9B.json]
+; in:  DH,DL, DI +1Fh, [1400h], [1408h]
+; out: sprite entries
+; side effects: none
+; evidence: 46FC9 mov al,[di+0x1f]; 46FD0 mov bp,[0x1400]; or bp,0x2800; jmp sub_D1A1; 46FDB mov bp,[0x1408]; dec al; mul 9; or bp,0x2400
 ; dispatch roles: obj12_draw, obj13_draw, obj14_draw, obj15_draw
-obj12_draw:
+obj12_draw_block:
     cmp word [0x1382],0x17d4                 ; 46FC0
     jc short loc_6FC9                        ; 46FC6
     ret                                      ; 46FC8
@@ -12018,7 +12950,7 @@ loc_6FC9:
     jnz short loc_6FDB                       ; 46FCE
     mov bp,[0x1400]                          ; 46FD0
     or bp,0x2800                             ; 46FD4
-    jmp near sub_D1A1                        ; 46FD8
+    jmp near draw_sprites_3x3                ; 46FD8
 loc_6FDB:
     mov bp,[0x1408]                          ; 46FDB
     dec al                                   ; 46FDF
@@ -12026,19 +12958,29 @@ loc_6FDB:
     mul cl                                   ; 46FE3
     rr add, bp, ax                           ; 46FE5
     or bp,0x2400                             ; 46FE7
-    jmp near sub_D1A1                        ; 46FEB
+    jmp near draw_sprites_3x3                ; 46FEB
 
-coll_12_02:
+; Swapped-argument wrapper of coll_shot_grabs_block. [high, reviewed: range_0000_7B9B.json]
+; in:  DI = block, SI = shot
+; out: as coll_shot_grabs_block
+; side effects: none
+; evidence: 46FEE xchg di,si; call coll_02_12; xchg di,si; ret
+coll_12_02_coll_block_grabbed_by_shot:
     xchg di,si                               ; 46FEE
-    call coll_02_12                          ; 46FF0
+    call coll_02_12_coll_shot_grabs_block    ; 46FF0
     xchg di,si                               ; 46FF3
     ret                                      ; 46FF5
 
-coll_02_12:
+; Shot (DI) hits a resting block (SI, only when [SI+1Eh]=0): grabs it as type 13h (shot_grab_object), remembers its original position in [SI+18h]/[SI+1Ah] and continues at AC04 with CL=[SI+1Eh]. [medium, reviewed: range_0000_7B9B.json]
+; in:  DI = shot, SI = block
+; out: SI +0 = 13h, +18h, +1Ah; holding state
+; side effects: continues into AC04 (outside this range)
+; evidence: 46FF6 cmp byte [si+0x1e],0; 46FFC mov dl,0x13; call sub_6074; 47001-4700A save position; 47010 jmp loc_AC04
+coll_02_12_coll_shot_grabs_block:
     cmp byte [si+0x1e],0x0                   ; 46FF6
     jnz short loc_7013                       ; 46FFA
     mov dl,0x13                              ; 46FFC
-    call sub_6074                            ; 46FFE
+    call shot_grab_object                    ; 46FFE
     mov ax,[si+0x2]                          ; 47001
     mov [si+0x18],ax                         ; 47004
     mov dx,[si+0x4]                          ; 47007
@@ -12048,8 +12990,13 @@ coll_02_12:
 loc_7013:
     ret                                      ; 47013
 
+; Block vs block (types 12h/13h): when overlapping vertically within 180h, the upper one is placed exactly on top of the lower one (same type: snapped and records its support in +0Eh), gets contact bits (40h below, 80h above), loses flag 20h and gets vy 0/gravity 1. [high, reviewed: range_0000_7B9B.json]
+; in:  DI, SI = blocks
+; out: positions, +0Eh, +11h, +0Ch, +8 of both
+; side effects: none
+; evidence: 4702A cmp ax,0x180; 47044 cmp ax,0x180; 4704F cmp al,[si]; 4705B sub ax,0x180; mov [di+4],ax; 47073 mov [di+0xe],si; 4707C or byte [di+0x11],0x40; 4708B mov ah,1; mov [di+8],ax
 ; dispatch roles: coll_12_12, coll_12_13, coll_13_12
-coll_12_12:
+coll_12_12_coll_block_stack:
     mov ax,[di+0x4]                          ; 47014
     mov dx,[si+0x4]                          ; 47017
     and ax,0xfff0                            ; 4701A
@@ -12130,8 +13077,13 @@ loc_70C2:
     ret                                      ; 470D2
     db 0x90   ; 470D3
 
+; Thrown block (type 15h, DI) vs block/pushable (12h/27h, SI): stops the thrown block horizontally, starts its settle counter [13h] and pushes it out 180h to the side away from SI, setting side-contact bits on both. [high, reviewed: range_0000_7B9B.json]
+; in:  DI = thrown block, SI = other
+; out: DI +2, +6, +13h, +11h; SI +11h
+; side effects: none
+; evidence: 470EC cmp ax,0x180; 47110 mov [di+6],ax (0); 47115 cmp al,1; adc al,0; 47127 add ax,0x180; mov [di+2],ax; 4713B sub ax,0x180
 ; dispatch roles: coll_15_12, coll_15_27
-coll_15_12:
+coll_15_12_coll_thrown_block_vs_block:
     mov ax,[di+0x2]                          ; 470D4
     mov dx,[si+0x2]                          ; 470D7
     and ax,0xfff0                            ; 470DA
@@ -12210,25 +13162,45 @@ loc_7161:
     mov [si+0x8],ax                          ; 4717A
     ret                                      ; 4717D
 
+; Swapped-argument wrapper of coll_thrown_block_vs_block. [high, reviewed: range_0000_7B9B.json]
+; in:  DI = block, SI = thrown block
+; out: as coll_thrown_block_vs_block
+; side effects: none
+; evidence: 4717E xchg di,si; call coll_15_12; xchg di,si; ret
 ; dispatch roles: coll_12_15, coll_27_15
-coll_12_15:
+coll_12_15_coll_block_vs_thrown_block:
     xchg di,si                               ; 4717E
-    call coll_15_12                          ; 47180
+    call coll_15_12_coll_thrown_block_vs_block ; 47180
     xchg di,si                               ; 47183
     ret                                      ; 47185
 
-; dispatch roles: coll_13_03, coll_13_04, coll_13_2D, coll_13_2E, coll_13_2F, coll_14_03, coll_14_04, coll_14_2D ...
-coll_13_03:
-    jmp near sub_79D0                        ; 47186
+; Held/thrown block (types 13h-15h, DI) vs enemy types 03/04/2Dh-2Fh (SI): destroys the enemy with a defeat burst (tail-jump to obj_kill_with_burst_si). [high, reviewed: range_0000_7B9B.json]
+; in:  DI, SI
+; out: SI becomes type 3Eh, new type-16h burst
+; side effects: as obj_kill_with_burst_si
+; evidence: 47186 jmp near sub_79D0
+; dispatch roles: coll_13_03, coll_13_04, coll_13_2D, coll_13_2E, coll_13_2F, coll_14_03, coll_14_04, coll_14_2D
+coll_13_03_coll_block_kills_second:
+    jmp near obj_kill_with_burst_si          ; 47186
     db 0x90   ; 47189
 
-; dispatch roles: coll_03_13, coll_03_14, coll_03_15, coll_04_13, coll_04_14, coll_04_15, coll_2D_13, coll_2D_14 ...
-coll_03_13:
-    jmp near sub_79A6                        ; 4718A
+; Enemy (DI) vs held/thrown block (13h-15h): destroys the enemy (tail-jump to obj_kill_with_burst). [high, reviewed: range_0000_7B9B.json]
+; in:  DI, SI
+; out: DI becomes type 3Eh, new burst
+; side effects: as obj_kill_with_burst
+; evidence: 4718A jmp near sub_79A6
+; dispatch roles: coll_03_13, coll_03_14, coll_03_15, coll_04_13, coll_04_14, coll_04_15, coll_2D_13, coll_2D_14
+coll_03_13_coll_block_kills_first:
+    jmp near obj_kill_with_burst             ; 4718A
     db 0x90   ; 4718D
 
+; Enemy (DI: types 03,04,2Dh,2Eh) vs block/pushable (SI: 12h/27h): if the block is falling (flag 10h) or a type-27h block is moving, the enemy is destroyed; otherwise the enemy turns around (facing and speed byte); for enemy types 03/07, when the block lies lower than the enemy, the enemy instead gets vy -20h (hops onto it). [medium, reviewed: range_0000_7B9B.json]
+; in:  DI = enemy, SI = block
+; out: DI +0Ch, +12h, +8 or destroyed
+; side effects: may call obj_kill_with_burst
+; evidence: 4718E test word [si+0xc],0x10; 47195 cmp byte [si],0x27; cmp byte [si+6],0; 471A2 cmp al,3 / 7; 471C4-471D9 flip facing; neg al; 471E2 jmp sub_79A6; 47225 mov byte [di+8],0xe0
 ; dispatch roles: coll_03_12, coll_03_27, coll_04_12, coll_04_27, coll_2D_12, coll_2D_27, coll_2E_12, coll_2E_27
-coll_03_12:
+coll_03_12_coll_enemy_vs_block:
     test word [si+0xc],0x10                  ; 4718E
     jnz short loc_71E2                       ; 47193
     cmp byte [si],0x27                       ; 47195
@@ -12268,7 +13240,7 @@ loc_71DF:
     pop ax                                   ; 471E0
     ret                                      ; 471E1
 loc_71E2:
-    jmp near sub_79A6                        ; 471E2
+    jmp near obj_kill_with_burst             ; 471E2
 loc_71E5:
     mov ax,[si+0x4]                          ; 471E5
     cmp ax,[di+0x4]                          ; 471E8
@@ -12303,15 +13275,25 @@ loc_7225:
     mov byte [di+0x8],0xe0                   ; 47225
     ret                                      ; 47229
 
+; Swapped-argument wrapper of coll_enemy_vs_block. [high, reviewed: range_0000_7B9B.json]
+; in:  DI = block, SI = enemy
+; out: as coll_enemy_vs_block
+; side effects: none
+; evidence: 4722A xchg di,si; call coll_03_12; xchg di,si; ret
 ; dispatch roles: coll_12_03, coll_12_04, coll_12_2D, coll_12_2E, coll_27_03, coll_27_04, coll_27_2D, coll_27_2E
-coll_12_03:
+coll_12_03_coll_block_vs_enemy:
     xchg di,si                               ; 4722A
-    call coll_03_12                          ; 4722C
+    call coll_03_12_coll_enemy_vs_block      ; 4722C
     xchg di,si                               ; 4722F
     ret                                      ; 47231
 
+; Block (DI: 12h,13h,27h) vs mover type 05 (SI): vertical-dominant overlap reverses SI's vertical speed away from the block; if the block comes to rest on top of SI (new 80h contact), SI saves its home y and velocities and becomes type 06 (weighted), and the block rides it; side overlap turns SI around and sets side-contact bits. [medium, reviewed: range_0000_7B9B.json]
+; in:  DI = block, SI = obj05
+; out: SI +0 = 06, +1Ah, +1Eh/+1Fh, +8, +12h, +0Ch; DI +0Eh, +4
+; side effects: none
+; evidence: 4724A cmp ax,0x180; 47271 cmp byte [si+8],0; neg al; 472A8 test al,0x80; 472AC mov [si+0x1a],ax; 472B8 mov [si+0x1e],ax; 472BB mov byte [si],6; 472BE mov [di+0xe],si; 472C1 mov word [si+8],0x100
 ; dispatch roles: coll_12_05, coll_13_05, coll_27_05
-coll_12_05:
+coll_12_05_coll_block_vs_obj05:
     mov ax,[si+0x2]                          ; 47232
     mov dx,[di+0x2]                          ; 47235
     and ax,0xfff0                            ; 47238
@@ -12451,14 +13433,24 @@ loc_735C:
     ret                                      ; 47366
     db 0x90   ; 47367
 
+; Swapped-argument wrapper of coll_block_vs_obj05. [high, reviewed: range_0000_7B9B.json]
+; in:  DI = obj05, SI = block
+; out: as coll_block_vs_obj05
+; side effects: none
+; evidence: 47368 xchg di,si; call coll_12_05; xchg di,si; ret
 ; dispatch roles: coll_05_12, coll_05_13, coll_05_27
-coll_05_12:
+coll_05_12_coll_obj05_vs_block:
     xchg di,si                               ; 47368
-    call coll_12_05                          ; 4736A
+    call coll_12_05_coll_block_vs_obj05      ; 4736A
     xchg di,si                               ; 4736D
     ret                                      ; 4736F
 
-coll_15_05:
+; Thrown block (type 15h, DI) vs mover type 05 (SI): vertical overlap reverses SI's vertical speed and sets stacking contact bits (block placed on top when above); side overlap turns SI around, stops the thrown block (starting its settle counter) and pushes it out to the side. [medium, reviewed: range_0000_7B9B.json]
+; in:  DI = thrown block, SI = obj05
+; out: DI +2/+4/+6/+13h/+11h; SI +12h/+0Ch/+11h
+; side effects: none
+; evidence: 47389 cmp ax,0x180; 473B2-473D3 neg al; mov [si+0x12],al; 473E6 sub ax,0x180; mov [di+4],ax; 47435 mov [di+6],ax (0); 47438 cmp al,1; adc al,0
+coll_15_05_coll_thrown_block_vs_obj05:
     pusha                                    ; 47370
     mov ax,[si+0x2]                          ; 47371
     mov dx,[di+0x2]                          ; 47374
@@ -12578,13 +13570,23 @@ loc_745C:
     ret                                      ; 4746E
     db 0xC3   ; 4746F
 
-coll_05_15:
+; Swapped-argument wrapper of coll_thrown_block_vs_obj05. [high, reviewed: range_0000_7B9B.json]
+; in:  DI = obj05, SI = thrown block
+; out: as coll_thrown_block_vs_obj05
+; side effects: none
+; evidence: 47470 xchg di,si; call coll_15_05; xchg di,si; ret
+coll_05_15_coll_obj05_vs_thrown_block:
     xchg di,si                               ; 47470
-    call coll_15_05                          ; 47472
+    call coll_15_05_coll_thrown_block_vs_obj05 ; 47472
     xchg di,si                               ; 47475
     ret                                      ; 47477
 
-sub_7478:
+; Copies 18 tiles (120h bytes) from 7000:71A0 to the tile RAM address in AX (type-08 graphics, slot [1404h]). [high, reviewed: range_0000_7B9B.json]
+; in:  AX
+; out: tile RAM at AX
+; side effects: DS left at 7000h
+; evidence: 47478 mov di,ax; mov cx,0x90; si=71A0h; rep movsw
+load_obj08_tiles:
     rr mov, di, ax                           ; 47478
     mov cx,0x90                              ; 4747A
     mov ax,0x7000                            ; 4747D
@@ -12595,7 +13597,12 @@ sub_7478:
     rep movsw                                ; 47489
     ret                                      ; 4748B
 
-lvl03_tick:
+; Level tick: allocates 18 tiles for the type-08 graphics into slot [1404h] if empty and loads them (load_obj08_tiles). [high, reviewed: range_0000_7B9B.json]
+; in:  [1404h], [1396h]
+; out: [1396h], [1404h], tile RAM
+; side effects: none
+; evidence: 4748C cmp word [0x1404],0; 47497 sub ax,0x12; 474A5 mov [0x1404],ax; 474AE call sub_7478. obj08_draw uses [1404h].
+lvl03_tick_alloc_obj08_gfx:
     cmp word [0x1404],byte +0x0              ; 4748C
     jnz short loc_74B7                       ; 47491
     push ax                                  ; 47493
@@ -12611,7 +13618,7 @@ loc_74A1:
     mov [0x1404],ax                          ; 474A5
     shl ax,byte 0x4                          ; 474A8
     add ax,0x2000                            ; 474AB
-    call sub_7478                            ; 474AE
+    call load_obj08_tiles                    ; 474AE
     rr xor, ax, ax                           ; 474B1
     mov ds,ax                                ; 474B3
     popa                                     ; 474B5
@@ -12619,7 +13626,12 @@ loc_74A1:
 loc_74B7:
     ret                                      ; 474B7
 
-lvl03_spawn:
+; Level spawn routine: places a type-08 object directly at tile AX,DX (size A0h, flag 10h) with its hang point [18h]/[1Ah] = (x, y+180h). [high, reviewed: range_0000_7B9B.json]
+; in:  DI, AX, DX
+; out: DI +0 = 0108h, +2/+4, +18h, +1Ah, +0Ah/+0Bh, +0Ch
+; side effects: none
+; evidence: 474C4 mov [di+0x18],ax; 474C7 add dx,0x180; mov [di+0x1a],dx; 474CE mov al,8; mov ah,1; mov [di],ax
+lvl03_spawn_obj08:
     mov cl,0x4                               ; 474B8
     shl ax,cl                                ; 474BA
     shl dx,cl                                ; 474BC
@@ -12636,14 +13648,19 @@ lvl03_spawn:
     or word [di+0xc],0x10                    ; 474DC
     ret                                      ; 474E1
 
-obj08_update:
+; Type 08 scripted mover that the player can hang from: runs its movement script and velocity, keeps its hang point [18h]/[1Ah] at (x, y+180h) (obj01_update moves a hanging player toward this point), and times out its 'touched' flags 1000h/2000h (set by coll_carrier_vs_player) after 10h/40h frames. [medium, reviewed: range_0000_7B9B.json]
+; in:  DI
+; out: DI +2/+4/+6/+8, +18h, +1Ah, +0Ch bits 12-13
+; side effects: none
+; evidence: 474EC call sub_6670; 474F5 call sub_622B; 474F8-47504 mov [di+0x18],x; add ax,0x180; mov [di+0x1a],ax; 47507 test word [di+0xc],0x3000; 4751B and word [di+0xc],0xefff; 47521 and word [di+0xc],0xdfff. obj01_update 452EF-45329 homes the player to [si+18h]/[si+1Ah] when the held object is type 08.
+obj08_update_carrier:
     or byte [di+0x1],0x2                     ; 474E2
     inc byte [di+0x14]                       ; 474E6
     inc word [di+0x1c]                       ; 474E9
-    call sub_6670                            ; 474EC
+    call mscript_run                         ; 474EC
     cmp byte [di+0x13],0x0                   ; 474EF
     jnz short loc_74F8                       ; 474F3
-    call sub_622B                            ; 474F5
+    call obj_apply_velocity                  ; 474F5
 loc_74F8:
     mov ax,[di+0x2]                          ; 474F8
     mov [di+0x18],ax                         ; 474FB
@@ -12667,7 +13684,7 @@ loc_7521:
 loc_7527:
     push dx                                  ; 47527
     mov bp,0x29aa                            ; 47528
-    call sub_D1A1                            ; 4752B
+    call draw_sprites_3x3                    ; 4752B
     pop dx                                   ; 4752E
     mov bx,[0x1382]                          ; 4752F
     add word [0x1382],byte +0xc              ; 47533
@@ -12708,6 +13725,11 @@ loc_757B:
     ret                                      ; 47588
     db 0x90   ; 47589
 
+; Draw handler for type 08: while flagged 1000h (and the player is not hanging, [3CCh] bit14) it bobs using the sine table at B5CA; normally draws with tile slot [1404h] via D29B; when flagged 400h (grabbed) it draws sprite def 29AAh via D1A1 plus a 3-sprite strip from [1404h] (+9 on alternate 16-frame phases), horizontal or vertical layout. [medium, reviewed: range_0000_7B9B.json]
+; in:  DH,DL, DI, [1404h], [3CCh], play_flags
+; out: sprite entries
+; side effects: none
+; evidence: 4758A cmp word [0x1382],0x17c8; 47593 test word [di+0xc],0x1000; 475AF mov ax,[cs:bx-0x4a36]; 475CD mov bp,[0x1404]; jmp loc_D29B; 47527-47586 bp=29AAh call sub_D1A1, 3 sprites
 obj08_draw:
     cmp word [0x1382],0x17c8                 ; 4758A
     jc short loc_7593                        ; 47590
@@ -12741,35 +13763,55 @@ loc_75D8:
     jmp near loc_7527                        ; 475D8
     db 0x90   ; 475DB
 
-coll_08_01:
+; Type 08 (DI) touched by the player: if not already flagged, sets flags 3000h, resets its timer and plays SFX 9. [high, reviewed: range_0000_7B9B.json]
+; in:  DI = obj08
+; out: DI +0Ch |= 3000h, +14h = 0
+; side effects: plays SFX 9
+; evidence: 475DC test word [di+0xc],0x3000; 475E3 mov byte [di+0x14],0; or word [di+0xc],0x3000; 475EC mov ax,9; call DD97
+coll_08_01_coll_carrier_vs_player:
     test word [di+0xc],0x3000                ; 475DC
     jnz short loc_75F2                       ; 475E1
     mov byte [di+0x14],0x0                   ; 475E3
     or word [di+0xc],0x3000                  ; 475E7
     mov ax,0x9                               ; 475EC
-    call sub_DD97                            ; 475EF
+    call sound_play                          ; 475EF
 loc_75F2:
     ret                                      ; 475F2
     db 0x90   ; 475F3
 
-coll_01_08:
+; Player (DI) touches type 08 (SI): same as coll_carrier_vs_player applied to SI. [high, reviewed: range_0000_7B9B.json]
+; in:  SI = obj08
+; out: SI +0Ch |= 3000h, +14h = 0
+; side effects: plays SFX 9
+; evidence: 475F4 test word [si+0xc],0x3000; 475FF or word [si+0xc],0x3000; 47604 mov ax,9; call DD97
+coll_01_08_coll_player_vs_carrier:
     test word [si+0xc],0x3000                ; 475F4
     jnz short loc_760A                       ; 475F9
     mov byte [si+0x14],0x0                   ; 475FB
     or word [si+0xc],0x3000                  ; 475FF
     mov ax,0x9                               ; 47604
-    call sub_DD97                            ; 47607
+    call sound_play                          ; 47607
 loc_760A:
     ret                                      ; 4760A
     db 0x90   ; 4760B
 
-coll_08_02:
+; Swapped-argument wrapper of coll_shot_latches_carrier. [high, reviewed: range_0000_7B9B.json]
+; in:  DI = obj08, SI = shot
+; out: as coll_shot_latches_carrier
+; side effects: none
+; evidence: 4760C xchg di,si; call coll_02_08; xchg di,si; ret
+coll_08_02_coll_carrier_vs_shot:
     xchg di,si                               ; 4760C
-    call coll_02_08                          ; 4760E
+    call coll_02_08_coll_shot_latches_carrier ; 4760E
     xchg di,si                               ; 47611
     ret                                      ; 47613
 
-coll_02_08:
+; Player shot (DI) hits a type-08 object (SI): the player latches onto it: player flags updated (|= 4680h, &= DEBFh), player velocity zeroed, [3D6h] = SI and [3D5h] = 1 (holding), SI flagged 1400h with timer reset, the shot is deleted, SFX 0Ah. [high, reviewed: range_0000_7B9B.json]
+; in:  DI = shot, SI = obj08
+; out: [3CCh], [3C6h], [3C8h], [3D8h], [3D5h], [3D6h], SI +0Ch/+14h, DI +0 = 0
+; side effects: plays SFX 0Ah
+; evidence: 47614 and word [0x3cc],0xdebf; 4761A or word [0x3cc],0x4680; 47620 or word [si+0xc],0x1400; 47627-4762D zero [0x3c6],[0x3c8],[0x3d8]; 47633 mov [di],al; 47635 mov [0x3d6],si; 4763E mov ax,0xa; call DD97
+coll_02_08_coll_shot_latches_carrier:
     and word [0x3cc],0xdebf                  ; 47614
     or word [0x3cc],0x4680                   ; 4761A
     or word [si+0xc],0x1400                  ; 47620
@@ -12782,11 +13824,16 @@ coll_02_08:
     mov [0x3d6],si                           ; 47635
     mov byte [0x3d5],0x1                     ; 47639
     mov ax,0xa                               ; 4763E
-    call sub_DD97                            ; 47641
+    call sound_play                          ; 47641
     ret                                      ; 47644
     db 0x90   ; 47645
 
-sub_7646:
+; Copies 9 tiles (90h bytes) from 7000:0110 to tile RAM 3AA0h (tile 1AAh), the default graphics drawn by obj09_draw_captured_enemy. [high, reviewed: range_0000_7B9B.json]
+; in:  none
+; out: tile RAM 3AA0h-3B2Fh
+; side effects: none
+; evidence: 47647 mov cx,0x48; ds=7000h; si=0x110; di=0x3aa0; rep movsw. obj09_draw uses bp=1AAh.
+load_held_enemy_tiles:
     pusha                                    ; 47646
     mov cx,0x48                              ; 47647
     mov ax,0x7000                            ; 4764A
@@ -12802,7 +13849,12 @@ sub_7646:
     ret                                      ; 47660
     db 0x90   ; 47661
 
-obj09_update:
+; Type 09 = enemy just captured by the player's shot: for 12 frames homes toward the player (velocity = distance*frame>>4), then until frame 32 sits on the player (x = player x, y following the player's vy) checking the terrain above; afterwards, or on overhead contact, when the player's flag 20h is set or its own flag 800h, it becomes type 0Ah (carried) and clears player flag 200h. [high, reviewed: range_0000_7B9B.json]
+; in:  DI, player slot 03C0h
+; out: DI +0, +2/+4, +6/+8, +10h, +14h; [3CCh]
+; side effects: none
+; evidence: 4766E cmp bl,0xc; 47675-4769E imul cx; sar 4; mov [di+8]/[di+6]; 476A4 jmp sub_622B; 476AA cmp bl,0x20; 476D0/476E0 call sub_43E5; 476E6 test word [0x3cc],0x20; 47708 mov byte [di],0xa; and word [si+0xc],0xfdff
+obj09_update_enemy_grabbed:
     or byte [di+0x1],0x2                     ; 47662
     mov si,0x3c0                             ; 47666
     mov bl,[di+0x14]                         ; 47669
@@ -12834,7 +13886,7 @@ obj09_update:
     pop cx                                   ; 4769D
     mov [di+0x6],al                          ; 4769E
     mov [di+0x14],bl                         ; 476A1
-    jmp near sub_622B                        ; 476A4
+    jmp near obj_apply_velocity              ; 476A4
 loc_76A7:
     mov [di+0x14],bl                         ; 476A7
     cmp bl,0x20                              ; 476AA
@@ -12851,13 +13903,13 @@ loc_76A7:
     mov dx,[di+0x2]                          ; 476C7
     sub dx,0xa0                              ; 476CA
     rr mov, ax, bp                           ; 476CE
-    call sub_43E5                            ; 476D0
+    call terrain_attr_at                     ; 476D0
     cmp al,0x0                               ; 476D3
     jnz short loc_76E3                       ; 476D5
     mov dx,[di+0x2]                          ; 476D7
     add dx,0xa0                              ; 476DA
     rr mov, ax, bp                           ; 476DE
-    call sub_43E5                            ; 476E0
+    call terrain_attr_at                     ; 476E0
 loc_76E3:
     mov [di+0x10],bx                         ; 476E3
     test word [0x3cc],0x20                   ; 476E6
@@ -12878,7 +13930,12 @@ loc_7708:
     ret                                      ; 47710
     db 0x90   ; 47711
 
-sub_7712:
+; Positions a carried enemy above the player: x = player x, y eased toward the player's head (bobbing on the sine table unless its original type is 2Dh), checks the terrain above and ahead with terrain_attr_at, pushes player and object out of walls, and sets flag 1000h on hazard cells. [high, reviewed: range_0000_7B9B.json]
+; in:  DI = carried object, player slot 03C0h
+; out: DI +2/+4/+0Ch/+10h; player x on wall contact
+; side effects: none
+; evidence: 47719 mov ax,[si+2]; mov [di+2],ax; 47731/47741 call sub_43E5; 4776E cmp ax,0x178; 47788 cmp ax,0x130; 477A0 cmp byte [di+0x1e],0x2d; 477B3 mov ax,[cs:bx-0x4a36]; 477C0 sub ax,0x150; 47809-47821 snap player and object x; 4782C or word [di+0xc],0x1000
+held_enemy_follow_player:
     pusha                                    ; 47712
     mov bx,[di+0x10]                         ; 47713
     mov si,0x3c0                             ; 47716
@@ -12890,13 +13947,13 @@ sub_7712:
     mov dx,[di+0x2]                          ; 47728
     sub dx,0xa0                              ; 4772B
     rr mov, ax, bp                           ; 4772F
-    call sub_43E5                            ; 47731
+    call terrain_attr_at                     ; 47731
     cmp al,0x0                               ; 47734
     jnz short loc_7744                       ; 47736
     mov dx,[di+0x2]                          ; 47738
     add dx,0xa0                              ; 4773B
     rr mov, ax, bp                           ; 4773F
-    call sub_43E5                            ; 47741
+    call terrain_attr_at                     ; 47741
 loc_7744:
     mov ax,[si+0x2]                          ; 47744
     mov [di+0x2],ax                          ; 47747
@@ -12965,18 +14022,18 @@ loc_77DC:
     mov ax,[di+0x4]                          ; 477DE
     sub ax,0x60                              ; 477E1
     rr mov, dx, bp                           ; 477E4
-    call sub_43E5                            ; 477E6
+    call terrain_attr_at                     ; 477E6
     cmp al,0x0                               ; 477E9
     jnz short loc_7804                       ; 477EB
     mov ax,[di+0x4]                          ; 477ED
     rr mov, dx, bp                           ; 477F0
-    call sub_43E5                            ; 477F2
+    call terrain_attr_at                     ; 477F2
     cmp al,0x0                               ; 477F5
     jnz short loc_7804                       ; 477F7
     mov ax,[di+0x4]                          ; 477F9
     add ax,0xa0                              ; 477FC
     rr mov, dx, bp                           ; 477FF
-    call sub_43E5                            ; 47801
+    call terrain_attr_at                     ; 47801
 loc_7804:
     test bh,0x3                              ; 47804
     jz short loc_7831                        ; 47807
@@ -12998,7 +14055,12 @@ loc_7831:
     popa                                     ; 47834
     ret                                      ; 47835
 
-obj0A_update:
+; Type 0Ah = captured enemy carried by the player: velocity zeroed, follows the player (held_enemy_follow_player); flag 20h turns it into type 0Ch (dropped, vy 8/gravity 1), flag 800h into type 0Bh (thrown, vx +/-20h by facing). A carried type-2Dh enemy is destroyed after 200 frames or on a ceiling bump while the player is in state [3D0h] bit3, which also ends the hold. [high, reviewed: range_0000_7B9B.json]
+; in:  DI, player
+; out: DI +0, +6/+8, +10h, +14h; player [3C8h], [3CCh], [3D2h]
+; side effects: may call obj_kill_with_burst, player_clear_held
+; evidence: 4783D zero [di+6],[di+8]; 47845 test bp,0x20 -> mov byte [di],0xc; 4784B test bp,0x800 -> mov byte [di],0xb; mov al,0x20; neg if facing left; 47854 call sub_7712; 47857 cmp byte [di+0x1e],0x2d; 4788C cmp byte [di+0x14],0xc8; 478B1 call sub_79A6; call sub_5FB2
+obj0a_update_enemy_carried:
     mov bp,[di+0xc]                          ; 47836
     or byte [di+0x1],0x2                     ; 47839
     rr xor, ax, ax                           ; 4783D
@@ -13009,7 +14071,7 @@ obj0A_update:
     test bp,0x800                            ; 4784B
     jnz short loc_7874                       ; 4784F
     inc byte [di+0x14]                       ; 47851
-    call sub_7712                            ; 47854
+    call held_enemy_follow_player            ; 47854
     cmp byte [di+0x1e],0x2d                  ; 47857
     jz short loc_788C                        ; 4785B
     ret                                      ; 4785D
@@ -13043,14 +14105,14 @@ loc_788C:
     sub bp,byte +0xc                         ; 4789A
     mov dx,[di+0x2]                          ; 4789D
     rr mov, ax, bp                           ; 478A0
-    call sub_43E5                            ; 478A2
+    call terrain_attr_at                     ; 478A2
     test bh,0x8                              ; 478A5
     jz short loc_78CA                        ; 478A8
     test byte [0x3d0],0x8                    ; 478AA
     jz short loc_78CA                        ; 478AF
 loc_78B1:
-    call sub_79A6                            ; 478B1
-    call sub_5FB2                            ; 478B4
+    call obj_kill_with_burst                 ; 478B1
+    call player_clear_held                   ; 478B4
     rr xor, ax, ax                           ; 478B7
     mov ah,0x1                               ; 478B9
     mov [0x3c8],ax                           ; 478BB
@@ -13060,36 +14122,51 @@ loc_78CA:
     ret                                      ; 478CA
     db 0x90   ; 478CB
 
-obj0B_update:
+; Type 0Bh = thrown captured enemy: flies with wall checks (obj_check_wall_terrain); on hitting a wall or after 96 frames it is destroyed with a defeat burst. [high, reviewed: range_0000_7B9B.json]
+; in:  DI
+; out: DI fields
+; side effects: may call obj_kill_with_burst
+; evidence: 478D3 call sub_5F50; 478D6 test byte [di+0x11],3; 478DC cmp byte [di+0x14],0x60; 478E2 jmp sub_622B; 478E5 jmp sub_79A6
+obj0b_update_enemy_thrown:
     or byte [di+0x1],0x2                     ; 478CC
     inc byte [di+0x14]                       ; 478D0
-    call sub_5F50                            ; 478D3
+    call obj_check_wall_terrain              ; 478D3
     test byte [di+0x11],0x3                  ; 478D6
     jnz short loc_78E5                       ; 478DA
     cmp byte [di+0x14],0x60                  ; 478DC
     ja short loc_78E5                        ; 478E0
-    jmp near sub_622B                        ; 478E2
+    jmp near obj_apply_velocity              ; 478E2
 loc_78E5:
-    jmp near sub_79A6                        ; 478E5
+    jmp near obj_kill_with_burst             ; 478E5
 
-obj0C_update:
+; Type 0Ch = dropped captured enemy: falls (vy capped at 18h) with terrain handling; on landing it is destroyed with a defeat burst. [high, reviewed: range_0000_7B9B.json]
+; in:  DI
+; out: DI fields
+; side effects: may call obj_kill_with_burst
+; evidence: 478EF cmp byte [di+8],0x18 clamp; 478F9 call sub_622B; call sub_6146; 478FF test byte [di+0x11],4; 47906 jmp sub_79A6
+obj0c_update_enemy_dropped:
     or byte [di+0x1],0x2                     ; 478E8
     inc byte [di+0x14]                       ; 478EC
     cmp byte [di+0x8],0x18                   ; 478EF
     jl short loc_78F9                        ; 478F3
     mov byte [di+0x8],0x18                   ; 478F5
 loc_78F9:
-    call sub_622B                            ; 478F9
-    call sub_6146                            ; 478FC
+    call obj_apply_velocity                  ; 478F9
+    call obj_walk_terrain                    ; 478FC
     test byte [di+0x11],0x4                  ; 478FF
     jnz short loc_7906                       ; 47903
     ret                                      ; 47905
 loc_7906:
-    jmp near sub_79A6                        ; 47906
+    jmp near obj_kill_with_burst             ; 47906
     db 0x90   ; 47909
 
+; Draw handler for captured-enemy types 09h-0Ch: when its original type [DI+1Eh] equals the animated type [3DEh] it uses the animated tiles at 1C3h (held_enemy_anim_update) via D118, otherwise the static tiles at 1AAh via D1A1. [high, reviewed: range_0000_7B9B.json]
+; in:  DH,DL, DI +1Eh, [3DEh]
+; out: sprite entries
+; side effects: none
+; evidence: 4790A cmp word [0x1382],0x17b8; 47913 mov al,[di+0x1e]; cmp al,[0x3de]; 4791C mov bp,0x1c3; jmp loc_D118; 47926 mov bp,0x1aa; jmp sub_D1A1
 ; dispatch roles: obj09_draw, obj0A_draw, obj0B_draw, obj0C_draw
-obj09_draw:
+obj09_draw_captured_enemy:
     cmp word [0x1382],0x17b8                 ; 4790A
     jc short loc_7913                        ; 47910
     ret                                      ; 47912
@@ -13103,50 +14180,85 @@ loc_7913:
 loc_7926:
     mov bp,0x1aa                             ; 47926
     or bp,0x2800                             ; 47929
-    jmp near sub_D1A1                        ; 4792D
+    jmp near draw_sprites_3x3                ; 4792D
 
+; Enemy (03,04,2Dh,2Eh) vs carried captured enemy (0Ah), either order: both objects are destroyed with defeat bursts and the player's hold is cleared. [high, reviewed: range_0000_7B9B.json]
+; in:  DI, SI
+; out: both become type 3Eh + bursts; holding state
+; side effects: calls 79A6, 79D0, player_clear_held
+; evidence: 47930 call sub_79A6; call sub_79D0; jmp sub_5FB2
 ; dispatch roles: coll_03_0A, coll_04_0A, coll_0A_03, coll_0A_04, coll_0A_2D, coll_0A_2E, coll_2D_0A, coll_2E_0A
-coll_03_0A:
-    call sub_79A6                            ; 47930
-    call sub_79D0                            ; 47933
-    jmp near sub_5FB2                        ; 47936
+coll_03_0A_coll_enemy_vs_held_enemy:
+    call obj_kill_with_burst                 ; 47930
+    call obj_kill_with_burst_si              ; 47933
+    jmp near player_clear_held               ; 47936
     db 0x90   ; 47939
 
-; dispatch roles: coll_03_0B, coll_03_0C, coll_04_0B, coll_04_0C, coll_0B_03, coll_0B_04, coll_0B_2D, coll_0B_2E ...
-coll_03_0B:
+; Enemy vs thrown/dropped captured enemy (0Bh/0Ch), either order: if their x positions are within 120h both are destroyed with defeat bursts. [high, reviewed: range_0000_7B9B.json]
+; in:  DI, SI
+; out: both destroyed
+; side effects: calls 79A6, 79D0
+; evidence: 4793D mov ax,[di+2]; sub ax,[si+2]; add ax,0x120; cmp ax,0x240; ja skip; call sub_79A6; call sub_79D0
+; dispatch roles: coll_03_0B, coll_03_0C, coll_04_0B, coll_04_0C, coll_0B_03, coll_0B_04, coll_0B_2D, coll_0B_2E
+coll_03_0B_coll_enemy_vs_thrown_enemy:
     mov ax,[di+0x2]                          ; 4793A
     sub ax,[si+0x2]                          ; 4793D
     add ax,0x120                             ; 47940
     cmp ax,0x240                             ; 47943
     ja short loc_794E                        ; 47946
-    call sub_79A6                            ; 47948
-    call sub_79D0                            ; 4794B
+    call obj_kill_with_burst                 ; 47948
+    call obj_kill_with_burst_si              ; 4794B
 loc_794E:
     ret                                      ; 4794E
     db 0x90   ; 4794F
 
+; Carried captured enemy (0Ah, DI) touches an object of type 05, 06, 29h or 2Fh: the carried enemy is destroyed with a burst and the player's hold is cleared. [high, reviewed: range_0000_7B9B.json]
+; in:  DI = carried enemy
+; out: DI destroyed; holding state
+; side effects: calls 79A6, player_clear_held
+; evidence: 47950 call sub_79A6; jmp sub_5FB2
 ; dispatch roles: coll_0A_05, coll_0A_06, coll_0A_29, coll_0A_2F
-coll_0A_05:
-    call sub_79A6                            ; 47950
-    jmp near sub_5FB2                        ; 47953
+coll_0A_05_coll_held_enemy_destroyed:
+    call obj_kill_with_burst                 ; 47950
+    jmp near player_clear_held               ; 47953
 
+; Swapped counterpart of coll_held_enemy_destroyed: the second object (SI, the carried/grabbed enemy) is destroyed and the player's hold is cleared. [high, reviewed: range_0000_7B9B.json]
+; in:  SI = carried enemy
+; out: SI destroyed; holding state
+; side effects: calls 79D0, player_clear_held
+; evidence: 47956 call sub_79D0; jmp sub_5FB2
 ; dispatch roles: coll_05_0A, coll_06_0A, coll_29_09, coll_29_0A, coll_2F_0A
-coll_05_0A:
-    call sub_79D0                            ; 47956
-    jmp near sub_5FB2                        ; 47959
+coll_05_0A_coll_held_enemy_destroyed_b:
+    call obj_kill_with_burst_si              ; 47956
+    jmp near player_clear_held               ; 47959
 
-; dispatch roles: coll_0B_05, coll_0B_06, coll_0B_12, coll_0B_18, coll_0B_26, coll_0B_27, coll_0B_29, coll_0B_2F ...
-coll_0B_05:
-    call sub_79A6                            ; 4795C
+; Generic callback: destroys the first object (DI) with a defeat burst (e.g. a thrown enemy hitting types 05, 06, 12h, 18h, 26h, 27h, 29h, 2Fh). [high, reviewed: range_0000_7B9B.json]
+; in:  DI
+; out: DI destroyed
+; side effects: calls obj_kill_with_burst
+; evidence: 4795C call sub_79A6; ret
+; dispatch roles: coll_0B_05, coll_0B_06, coll_0B_12, coll_0B_18, coll_0B_26, coll_0B_27, coll_0B_29, coll_0B_2F
+coll_0B_05_coll_destroy_first:
+    call obj_kill_with_burst                 ; 4795C
     ret                                      ; 4795F
 
-; dispatch roles: coll_05_0B, coll_05_0C, coll_06_0B, coll_06_0C, coll_12_0B, coll_12_0C, coll_12_2F, coll_14_2F ...
-coll_05_0B:
-    call sub_79D0                            ; 47960
+; Generic callback: destroys the second object (SI) with a defeat burst. [high, reviewed: range_0000_7B9B.json]
+; in:  SI
+; out: SI destroyed
+; side effects: calls obj_kill_with_burst_si
+; evidence: 47960 call sub_79D0; ret
+; dispatch roles: coll_05_0B, coll_05_0C, coll_06_0B, coll_06_0C, coll_12_0B, coll_12_0C, coll_12_2F, coll_14_2F
+coll_05_0B_coll_destroy_second:
+    call obj_kill_with_burst_si              ; 47960
     ret                                      ; 47963
     db 0xC3,0x90   ; 47964
 
-sub_7966:
+; Copies 9 tiles (90h bytes) from 7000:0080 to tile RAM 3E30h (tile 1E3h), the defeat-burst graphics used by obj16_draw. [high, reviewed: range_0000_7B9B.json]
+; in:  none
+; out: tile RAM 3E30h-3EBFh
+; side effects: none
+; evidence: 47967 mov cx,0x48; si=0x80; di=0x3e30; rep movsw. obj16_draw uses bp=1E3h.
+load_burst_tiles:
     pusha                                    ; 47966
     mov cx,0x48                              ; 47967
     mov ax,0x7000                            ; 4796A
@@ -13162,7 +14274,12 @@ sub_7966:
     ret                                      ; 47980
     db 0x90   ; 47981
 
-sub_7982:
+; Deletes the object at DI if its Manhattan distance to the player is C00h (192 px) or more. [high, reviewed: range_0000_7B9B.json]
+; in:  DI, player [3C2h]/[3C4h]
+; out: DI +0 = 0 when far
+; side effects: none
+; evidence: 47982-4799A |dx|+|dy|; 4799C cmp ax,0xc00; jc; mov byte [di],0
+obj_delete_if_far:
     mov ax,[0x3c2]                           ; 47982
     sub ax,[di+0x2]                          ; 47985
     cwd                                      ; 47988
@@ -13183,47 +14300,62 @@ loc_79A4:
     ret                                      ; 479A4
     db 0x90   ; 479A5
 
-sub_79A6:
+; Defeats the object at DI: changes it to type 3Eh with timer 0 and spawns a type-16h defeat burst at its position (slot from B585), which is discarded if far from the player. [high, reviewed: range_0000_7B9B.json]
+; in:  DI
+; out: DI +0 = 3Eh, +1Ch = 0; new type-16h object
+; side effects: calls B585, B4F0, obj_delete_if_far
+; evidence: 479A7 mov byte [di],0x3e; 479AA mov word [di+0x1c],0; 479B5 call sub_B585; 479BC call sub_B4F0; 479C5 mov al,0x16; mov ah,1; mov [di],ax; 479CB call sub_7982
+obj_kill_with_burst:
     pusha                                    ; 479A6
     mov byte [di],0x3e                       ; 479A7
     mov word [di+0x1c],0x0                   ; 479AA
     mov ax,[di+0x2]                          ; 479AF
     mov dx,[di+0x4]                          ; 479B2
-    call sub_B585                            ; 479B5
+    call obj_alloc_low_slot                  ; 479B5
     test di,di                               ; 479B8
     jz short loc_79CE                        ; 479BA
-    call sub_B4F0                            ; 479BC
+    call obj_clear_slot                      ; 479BC
     mov [di+0x2],ax                          ; 479BF
     mov [di+0x4],dx                          ; 479C2
     mov al,0x16                              ; 479C5
     mov ah,0x1                               ; 479C7
     mov [di],ax                              ; 479C9
-    call sub_7982                            ; 479CB
+    call obj_delete_if_far                   ; 479CB
 loc_79CE:
     popa                                     ; 479CE
     ret                                      ; 479CF
 
-sub_79D0:
+; Same as obj_kill_with_burst for the object at SI (second collision partner). [high, reviewed: range_0000_7B9B.json]
+; in:  SI
+; out: SI +0 = 3Eh, +1Ch = 0; new type-16h object
+; side effects: calls B585, B4F0, obj_delete_if_far
+; evidence: 479D1 mov byte [si],0x3e; 479DF call sub_B585; 479EF mov al,0x16; 479F5 call sub_7982
+obj_kill_with_burst_si:
     pusha                                    ; 479D0
     mov byte [si],0x3e                       ; 479D1
     mov word [si+0x1c],0x0                   ; 479D4
     mov ax,[si+0x2]                          ; 479D9
     mov dx,[si+0x4]                          ; 479DC
-    call sub_B585                            ; 479DF
+    call obj_alloc_low_slot                  ; 479DF
     test di,di                               ; 479E2
     jz short loc_79F8                        ; 479E4
-    call sub_B4F0                            ; 479E6
+    call obj_clear_slot                      ; 479E6
     mov [di+0x2],ax                          ; 479E9
     mov [di+0x4],dx                          ; 479EC
     mov al,0x16                              ; 479EF
     mov ah,0x1                               ; 479F1
     mov [di],ax                              ; 479F3
-    call sub_7982                            ; 479F5
+    call obj_delete_if_far                   ; 479F5
 loc_79F8:
     popa                                     ; 479F8
     ret                                      ; 479F9
 
-obj16_update:
+; Type 16h defeat burst: plays SFX 7 on its 3rd frame and deletes itself after 31 frames. [high, reviewed: range_0000_7B9B.json]
+; in:  DI
+; out: DI +14h; DI +0 = 0 at the end
+; side effects: plays SFX 7
+; evidence: 479FE mov al,[di+0x14]; inc al; cmp al,0x1f; 47A0A cmp al,3; mov ax,7; call DD97; 47A15 mov byte [di],0
+obj16_update_defeat_burst:
     or byte [di+0x1],0x2                     ; 479FA
     mov al,[di+0x14]                         ; 479FE
     inc al                                   ; 47A01
@@ -13233,7 +14365,7 @@ obj16_update:
     cmp al,0x3                               ; 47A0A
     jnz short loc_7A14                       ; 47A0C
     mov ax,0x7                               ; 47A0E
-    call sub_DD97                            ; 47A11
+    call sound_play                          ; 47A11
 loc_7A14:
     ret                                      ; 47A14
 loc_7A15:
@@ -13241,7 +14373,12 @@ loc_7A15:
     ret                                      ; 47A18
     db 0x90   ; 47A19
 
-obj16_draw:
+; Draw handler for the defeat burst: two sprites (tile 1E7h, base 1E3h) flying apart diagonally from the centre as the timer grows, then continues in the shared drawer at CDB6 with a size derived from the timer. [medium, reviewed: range_0000_7B9B.json]
+; in:  DH,DL, DI +14h
+; out: sprite entries, [1382h]
+; side effects: none
+; evidence: 47A1A cmp word [0x1382],0x17d0; 47A23 mov bp,0x1e3; or bp,0x2c00; 47A33-47A5E two entries at dx -/+ (timer>>2); 47A6D jmp loc_CDB6
+obj16_draw_defeat_burst:
     cmp word [0x1382],0x17d0                 ; 47A1A
     jc short loc_7A23                        ; 47A20
     ret                                      ; 47A22
@@ -13276,7 +14413,12 @@ loc_7A23:
     shr cl,1                                 ; 47A6B
     jmp near loc_CDB6                        ; 47A6D
 
-sub_7A70:
+; Copies 36 tiles from 7000:7340 to the tile RAM address in AX (type-07 graphics, slot [1412h]). [high, reviewed: range_0000_7B9B.json]
+; in:  AX
+; out: tile RAM at AX
+; side effects: DS left at 7000h
+; evidence: 47A70 mov di,ax; mov cx,0x120; si=7340h; rep movsw. obj07_draw (47BFB) uses [1412h].
+load_obj07_tiles:
     rr mov, di, ax                           ; 47A70
     mov cx,0x120                             ; 47A72
     mov ax,0x7000                            ; 47A75
@@ -13287,7 +14429,12 @@ sub_7A70:
     rep movsw                                ; 47A81
     ret                                      ; 47A83
 
-sub_7A84:
+; Copies 36 tiles from 7000:6D20 to the tile RAM address in AX (type-17h graphics, slot [1414h]). [high, reviewed: range_0000_7B9B.json]
+; in:  AX
+; out: tile RAM at AX
+; side effects: DS left at 7000h
+; evidence: 47A84 mov di,ax; mov cx,0x120; si=6D20h; rep movsw. obj07_draw (47C04) uses [1414h] for type 17h.
+load_obj17_tiles:
     rr mov, di, ax                           ; 47A84
     mov cx,0x120                             ; 47A86
     mov ax,0x7000                            ; 47A89
@@ -13298,7 +14445,12 @@ sub_7A84:
     rep movsw                                ; 47A95
     ret                                      ; 47A97
 
-sub_7A98:
+; Copies 16 tiles (100h bytes) from 7000:11A0 to the tile RAM address in AX (slot [140Ah], used by the type 0Dh-0Fh draw handler at 809E). [high, reviewed: range_0000_7B9B.json]
+; in:  AX
+; out: tile RAM at AX
+; side effects: DS left at 7000h
+; evidence: 47A98 mov di,ax; mov cx,0x80; si=11A0h; rep movsw; 48128 or bp,[0x140a] inside obj0D_draw
+load_obj0d_tiles:
     rr mov, di, ax                           ; 47A98
     mov cx,0x80                              ; 47A9A
     mov ax,0x7000                            ; 47A9D
@@ -13309,8 +14461,13 @@ sub_7A98:
     rep movsw                                ; 47AA9
     ret                                      ; 47AAB
 
+; Level tick (lvl05/lvl1F): allocates and loads the type-07 graphics (36 tiles, slot [1412h]) and the type 0Dh-0Fh graphics (16 tiles, slot [140Ah]) if not yet loaded. [high, reviewed: range_0000_7B9B.json]
+; in:  [1412h], [140Ah], [1396h]
+; out: [1396h], [1412h], [140Ah], tile RAM
+; side effects: none
+; evidence: 47AAC cmp word [0x1412],0; 47AB7 sub ax,0x24; 47ACE call sub_7A70; 47AD7 cmp word [0x140a],0; 47AE2 sub ax,0x10; 47AF9 call sub_7A98
 ; dispatch roles: lvl05_tick, lvl1F_tick
-lvl05_tick:
+lvl05_tick_alloc_obj07_gfx:
     cmp word [0x1412],byte +0x0              ; 47AAC
     jnz short loc_7AD7                       ; 47AB1
     push ax                                  ; 47AB3
@@ -13326,7 +14483,7 @@ loc_7AC1:
     mov [0x1412],ax                          ; 47AC5
     shl ax,byte 0x4                          ; 47AC8
     add ax,0x2000                            ; 47ACB
-    call sub_7A70                            ; 47ACE
+    call load_obj07_tiles                    ; 47ACE
     rr xor, ax, ax                           ; 47AD1
     mov ds,ax                                ; 47AD3
     popa                                     ; 47AD5
@@ -13347,7 +14504,7 @@ loc_7AEC:
     mov [0x140a],ax                          ; 47AF0
     shl ax,byte 0x4                          ; 47AF3
     add ax,0x2000                            ; 47AF6
-    call sub_7A98                            ; 47AF9
+    call load_obj0d_tiles                    ; 47AF9
     rr xor, ax, ax                           ; 47AFC
     mov ds,ax                                ; 47AFE
     popa                                     ; 47B00
@@ -13356,8 +14513,13 @@ loc_7B02:
     ret                                      ; 47B02
     db 0x90   ; 47B03
 
+; Level tick (lvl06/lvl20): allocates and loads the type-17h graphics (36 tiles, slot [1414h]) and the type 0Dh-0Fh graphics (slot [140Ah]) if not yet loaded. [high, reviewed: range_0000_7B9B.json]
+; in:  [1414h], [140Ah], [1396h]
+; out: [1396h], [1414h], [140Ah], tile RAM
+; side effects: none
+; evidence: 47B04 cmp word [0x1414],0; 47B26 call sub_7A84; 47B2F cmp word [0x140a],0; 47B51 call sub_7A98
 ; dispatch roles: lvl06_tick, lvl20_tick
-lvl06_tick:
+lvl06_tick_alloc_obj17_gfx:
     cmp word [0x1414],byte +0x0              ; 47B04
     jnz short loc_7B2F                       ; 47B09
     push ax                                  ; 47B0B
@@ -13373,7 +14535,7 @@ loc_7B19:
     mov [0x1414],ax                          ; 47B1D
     shl ax,byte 0x4                          ; 47B20
     add ax,0x2000                            ; 47B23
-    call sub_7A84                            ; 47B26
+    call load_obj17_tiles                    ; 47B26
     rr xor, ax, ax                           ; 47B29
     mov ds,ax                                ; 47B2B
     popa                                     ; 47B2D
@@ -13394,7 +14556,7 @@ loc_7B44:
     mov [0x140a],ax                          ; 47B48
     shl ax,byte 0x4                          ; 47B4B
     add ax,0x2000                            ; 47B4E
-    call sub_7A98                            ; 47B51
+    call load_obj0d_tiles                    ; 47B51
     rr xor, ax, ax                           ; 47B54
     mov ds,ax                                ; 47B56
     popa                                     ; 47B58
@@ -13403,12 +14565,22 @@ loc_7B5A:
     ret                                      ; 47B5A
     db 0x90   ; 47B5B
 
-lvl1F_spawn:
-    call lvl05_spawn                         ; 47B5C
+; Level spawn routine: lvl05_spawn_obj07_delayed with [DI+1Fh] = 0Dh instead of 07h. [high, reviewed: range_0000_7B9B.json]
+; in:  DI, AX, DX, CH
+; out: as lvl05 spawn, DI +1Fh = 0Dh
+; side effects: none
+; evidence: 47B5C call lvl05_spawn; mov byte [di+0x1f],0xd; ret
+lvl1f_spawn_obj07_alt:
+    call lvl05_spawn_obj07_delayed           ; 47B5C
     mov byte [di+0x1f],0xd                   ; 47B5F
     ret                                      ; 47B63
 
-lvl05_spawn:
+; Level spawn routine: delayed spawner at tile AX,DX that becomes type 07 after CH*4 frames ([1Fh] = 07h, size 80h, gravity 1, facing right). [high, reviewed: range_0000_7B9B.json]
+; in:  DI, AX, DX, CH
+; out: DI +0=011Bh, +2/+4, +1Eh=7, +1Fh=7, +14h, +0Ah/+0Bh, +9, +0Ch
+; side effects: none
+; evidence: 47B70 mov al,0x1b; 47B76 mov byte [di+0x1e],7; 47B7A mov byte [di+0x1f],7; 47B7E mov [di+0x14],ch
+lvl05_spawn_obj07_delayed:
     mov cl,0x4                               ; 47B64
     shl ax,cl                                ; 47B66
     shl dx,cl                                ; 47B68
@@ -13427,12 +14599,22 @@ lvl05_spawn:
     ret                                      ; 47B92
     db 0x90   ; 47B93
 
-lvl20_spawn:
-    call lvl06_spawn                         ; 47B94
+; Level spawn routine: calls lvl06_spawn (7B9C: delayed spawner that becomes type 17h) and then sets [DI+1Fh] = 0Dh. [high, reviewed: range_0000_7B9B.json]
+; in:  DI, AX, DX, CH
+; out: as lvl06_spawn, DI +1Fh = 0Dh
+; side effects: none
+; evidence: 47B94 call lvl06_spawn; mov byte [di+0x1f],0xd; ret; 47BAE lvl06_spawn sets [di+0x1e]=0x17
+lvl20_spawn_obj17_alt:
+    call lvl06_spawn_delayed_obj17           ; 47B94
     mov byte [di+0x1f],0xd                   ; 47B97
     ret                                      ; 47B9B
 
-lvl06_spawn:
+; Places a type-1Bh delayed spawner at (AX*16, DX*16) whose +1Eh = 17h: obj1B_update turns it into object type 17h after CH*4 frames. Also sets +1Fh = 7, +0Ah = +0Bh = 80h, +0Ch |= 12h. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: slot +0 = 011Bh, +2/+4 = x/y (1/16 px), +14h = CH, +1Eh = 17h, +1Fh = 7, +0Ah/+0Bh = 80h, +0Ch |= 12h
+; side effects: none
+; evidence: mov al,1Bh/mov ah,1/mov [di],ax; mov byte [di+1Eh],17h; mov [di+14h],ch. obj1B_update (4:6690) waits until [di+1Ch] > 4*[di+14h] then writes type = [di+1Eh].
+lvl06_spawn_delayed_obj17:
     mov cl,0x4                               ; 47B9C
     shl ax,cl                                ; 47B9E
     shl dx,cl                                ; 47BA0
@@ -13450,7 +14632,12 @@ lvl06_spawn:
     ret                                      ; 47BC6
     db 0x90   ; 47BC7
 
-obj07_update:
+; Per-frame update for type 07h: marks the slot updated, counts timers +1Ch/+14h, sets +0Ch bit 4, runs the level-record movement handler (sub_6670), applies velocity (sub_622B) unless +13h is set, then (if still type 07h) tail-jumps to sub_6146 (wall check that reverses facing/speed and floor landing). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: object x/y/velocity/+0Ch/+10h updated by the callees
+; side effects: The 'cmp al,18h / mov al,18h' clamp is dead (AL not used afterwards).
+; evidence: or byte [di+1],2; inc word [di+1Ch]; inc byte [di+14h]; call sub_6670; cmp byte [di+13h],0 / call sub_622B; cmp byte [di],7 / jmp sub_6146 (6146 negates [di+12h] and flips +0Ch bits 0-1 on a wall).
+obj07_update_walker:
     or byte [di+0x1],0x2                     ; 47BC8
     inc word [di+0x1c]                       ; 47BCC
     inc byte [di+0x14]                       ; 47BCF
@@ -13459,19 +14646,24 @@ obj07_update:
     jl short loc_7BDD                        ; 47BD9
     mov al,0x18                              ; 47BDB
 loc_7BDD:
-    call sub_6670                            ; 47BDD
+    call mscript_run                         ; 47BDD
     cmp byte [di+0x13],0x0                   ; 47BE0
     jnz short loc_7BE9                       ; 47BE4
-    call sub_622B                            ; 47BE6
+    call obj_apply_velocity                  ; 47BE6
 loc_7BE9:
     cmp byte [di],0x7                        ; 47BE9
     jz short loc_7BEF                        ; 47BEC
     ret                                      ; 47BEE
 loc_7BEF:
-    jmp near sub_6146                        ; 47BEF
+    jmp near obj_walk_terrain                ; 47BEF
 
+; Draw handler shared by types 07h and 17h: if the sprite list has room (< 17D4h), uses the VRAM tile base [1412h] (type 07h) or [1414h] (otherwise) OR 2800h as BP and jumps to the orientation-specific block emitter tbl_D31E[play_flags & 1] (obj2E_draw_case0/1). [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: cmp word [1382h],17D4h; bp=[1412h] / [1414h]; or bp,2800h; jmp [cs:bx+tbl_D31E] with bx=(play_flags&1)*2
 ; dispatch roles: obj07_draw, obj17_draw
-obj07_draw:
+obj07_draw_dyn_tiles:
     cmp word [0x1382],0x17d4                 ; 47BF2
     jc short loc_7BFB                        ; 47BF8
     ret                                      ; 47BFA
@@ -13488,23 +14680,38 @@ loc_7C08:
     jmp [cs:bx+tbl_D31E]                     ; 47C16
     db 0x90   ; 47C1B
 
+; Swaps DI and SI, calls coll_02_07 (type-02 object captures the 07h/17h object) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_02_07
+; side effects: as coll_02_07
+; evidence: xchg di,si / call coll_02_07 / xchg di,si / ret
 ; dispatch roles: coll_07_02, coll_17_02
-coll_07_02:
+coll_07_02_capture_rev:
     xchg di,si                               ; 47C1C
-    call coll_02_07                          ; 47C1E
+    call coll_02_07_capture                  ; 47C1E
     xchg di,si                               ; 47C21
     ret                                      ; 47C23
 
+; Type 02h object (DI) touching a 07h/17h enemy (SI): sub_60D4 with DL = 0Fh turns SI into type 0Fh (old type saved in SI+1Eh), records it as the player's held object ([3D6h] = SI, [3D5h] = 1), plays sound 0Ah, spawns effect type 3Fh at DI, deletes DI and increments [13C0h] (capped at 99); then clears SI+1Ch. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 02 (matrix row), SI = object of type 07/17 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: SI type = 0Fh, SI+1Eh = old type, SI+14h = 0, SI+0Ch |= 400h, SI+1Ch = 0; [3DEh] = old type; [3CCh] = ([3CCh] & DEBFh) | 600h; [3D6h] = SI; [3D5h] = 1; [13C0h]++ (<= 99); DI type = 0
+; side effects: Sound 0Ah (sub_DD97); spawns object 3Fh via sub_D4A0.
+; evidence: mov dl,0Fh / call sub_60D4 / mov word [si+1Ch],0. obj0F_update then pulls SI toward the player slot 03C0h.
 ; dispatch roles: coll_02_07, coll_02_17
-coll_02_07:
+coll_02_07_capture:
     mov dl,0xf                               ; 47C24
-    call sub_60D4                            ; 47C26
+    call shot_grab_enemy                     ; 47C26
     mov word [si+0x1c],0x0                   ; 47C29
     ret                                      ; 47C2E
     db 0x90   ; 47C2F
 
+; 07h/17h enemy (DI) vs type 12h/27h object (SI): if SI+0Ch bit 4 is set, or SI is type 27h with non-zero x velocity, DI is deleted and an explosion burst spawned (sub_812F). Otherwise, if SI is below DI the enemy gets vy = E0h (bounce up); else, if DI is moving horizontally, it is turned to face away from SI (facing bits in +0Ch and sign of +12h). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 07/17 (matrix row), SI = object of type 12/27 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: DI+8 = E0h, or DI+0Ch/+12h direction, or DI deleted
+; side effects: Possible sub_812F spawn (type 11h)
+; evidence: test word [si+0Ch],10h / cmp byte [si],27h / cmp byte [si+6],0 -> loc_7C82 (mov byte [di],0 ... jmp sub_812F); cmp ax,[di+4] jg -> mov byte [di+8],0E0h; else or bp,1/2, neg [di+12h].
 ; dispatch roles: coll_07_12, coll_07_27, coll_17_12, coll_17_27
-coll_07_12:
+coll_07_12_block_contact:
     test word [si+0xc],0x10                  ; 47C30
     jnz short loc_7C82                       ; 47C35
     cmp byte [si],0x27                       ; 47C37
@@ -13546,55 +14753,85 @@ loc_7C82:
     mov ax,[di+0x2]                          ; 47C85
     mov dx,[di+0x4]                          ; 47C88
     mov ch,[di+0x15]                         ; 47C8B
-    jmp near sub_812F                        ; 47C8E
+    jmp near spawn_explosion_burst           ; 47C8E
 loc_7C91:
     mov byte [di+0x8],0xe0                   ; 47C91
     ret                                      ; 47C95
 
+; Swaps DI and SI, calls coll_07_12 (enemy vs block contact) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_07_12
+; side effects: as coll_07_12
+; evidence: xchg di,si / call coll_07_12 / xchg di,si / ret
 ; dispatch roles: coll_12_07, coll_27_07, coll_27_17
-coll_12_07:
+coll_12_07_block_contact_rev:
     xchg di,si                               ; 47C96
-    call coll_07_12                          ; 47C98
+    call coll_07_12_block_contact            ; 47C98
     xchg di,si                               ; 47C9B
     ret                                      ; 47C9D
 
-; dispatch roles: coll_07_13, coll_07_14, coll_07_15, coll_0D_05, coll_0D_06, coll_0D_15, coll_0D_2F, coll_10_05 ...
-coll_07_13:
+; Generic callback (13 type pairs): deletes the DI object and spawns an explosion burst (type 11h) at its position with its level-record id (DI+15h). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 07/0D/10/17 (matrix row), SI = object of type 13/14/15/05/06/2F (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: DI type = 0; new type-11h slot
+; side effects: sub_812F spawn
+; evidence: mov byte [di],0 / ax=[di+2] / dx=[di+4] / ch=[di+15h] / jmp sub_812F
+; dispatch roles: coll_07_13, coll_07_14, coll_07_15, coll_0D_05, coll_0D_06, coll_0D_15, coll_0D_2F, coll_10_05
+coll_07_13_coll_explode_di:
     mov byte [di],0x0                        ; 47C9E
     mov ax,[di+0x2]                          ; 47CA1
     mov dx,[di+0x4]                          ; 47CA4
     mov ch,[di+0x15]                         ; 47CA7
-    jmp near sub_812F                        ; 47CAA
+    jmp near spawn_explosion_burst           ; 47CAA
     db 0x90   ; 47CAD
 
-; dispatch roles: coll_05_0D, coll_05_10, coll_06_0D, coll_06_10, coll_13_07, coll_14_07, coll_14_17, coll_15_07 ...
-coll_05_0D:
+; Generic callback (12 type pairs): deletes the SI object and spawns an explosion burst (type 11h) at its position with its record id. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 05/06/13/14/15/2F (matrix row), SI = object of type 0D/10/07/17 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: SI type = 0; new type-11h slot
+; side effects: sub_812F spawn
+; evidence: mov byte [si],0 / ax=[si+2] / dx=[si+4] / ch=[si+15h] / jmp sub_812F
+; dispatch roles: coll_05_0D, coll_05_10, coll_06_0D, coll_06_10, coll_13_07, coll_14_07, coll_14_17, coll_15_07
+coll_05_0D_coll_explode_si:
     mov byte [si],0x0                        ; 47CAE
     mov ax,[si+0x2]                          ; 47CB1
     mov dx,[si+0x4]                          ; 47CB4
     mov ch,[si+0x15]                         ; 47CB7
-    jmp near sub_812F                        ; 47CBA
+    jmp near spawn_explosion_burst           ; 47CBA
     db 0x90   ; 47CBD
 
-; dispatch roles: coll_07_0A, coll_07_0B, coll_07_0C, coll_0D_03, coll_0D_04, coll_0D_0B, coll_0D_0C, coll_0D_2D ...
-coll_07_0A:
+; Generic callback (16 pairs): deletes DI with an explosion burst (sub_812F) and defeats SI via sub_79D0 (SI becomes type 3Eh, a type-16h puff is spawned). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 07/0D/10/17 (matrix row), SI = object of type 0A/0B/0C/03/04/2D/2E (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: DI type = 0; SI type = 3Eh, SI+1Ch = 0
+; side effects: spawns types 11h and 16h
+; evidence: mov byte [di],0 ... call sub_812F / jmp sub_79D0 (79D0: mov byte [si],3Eh, spawns 0116h via sub_B585)
+; dispatch roles: coll_07_0A, coll_07_0B, coll_07_0C, coll_0D_03, coll_0D_04, coll_0D_0B, coll_0D_0C, coll_0D_2D
+coll_07_0A_coll_explode_di_poof_si:
     mov byte [di],0x0                        ; 47CBE
     mov ax,[di+0x2]                          ; 47CC1
     mov dx,[di+0x4]                          ; 47CC4
     mov ch,[di+0x15]                         ; 47CC7
-    call sub_812F                            ; 47CCA
-    jmp near sub_79D0                        ; 47CCD
+    call spawn_explosion_burst               ; 47CCA
+    jmp near obj_kill_with_burst_si          ; 47CCD
 
-; dispatch roles: coll_03_0D, coll_03_10, coll_04_0D, coll_04_10, coll_0B_07, coll_0B_0D, coll_0B_17, coll_0C_07 ...
-coll_03_0D:
-    call sub_79A6                            ; 47CD0
+; Mirror of coll_explode_di_poof_si: defeats DI via sub_79A6 (type 3Eh + puff 16h), deletes SI with an explosion burst. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 03/04/0B/0C/2D/2E (matrix row), SI = object of type 0D/10/07/17 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: DI type = 3Eh; SI type = 0
+; side effects: spawns types 16h and 11h
+; evidence: call sub_79A6 / mov byte [si],0 / ... jmp sub_812F
+; dispatch roles: coll_03_0D, coll_03_10, coll_04_0D, coll_04_10, coll_0B_07, coll_0B_0D, coll_0B_17, coll_0C_07
+coll_03_0D_coll_poof_di_explode_si:
+    call obj_kill_with_burst                 ; 47CD0
     mov byte [si],0x0                        ; 47CD3
     mov ax,[si+0x2]                          ; 47CD6
     mov dx,[si+0x4]                          ; 47CD9
     mov ch,[si+0x15]                         ; 47CDC
-    jmp near sub_812F                        ; 47CDF
+    jmp near spawn_explosion_burst           ; 47CDF
 
-sub_7CE2:
+; Countdown for captured enemies: every 64 frames (when (+1Ch & 3Fh) == 0) decrements +1Fh; while +1Fh is below 5 plays sound 38h on each decrement. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = captured-enemy slot (types 0Dh/0Eh/0Fh/10h)
+; out: DI+1Fh decremented
+; side effects: sound 38h (sub_DD97) when +1Fh < 5; AX clobbered
+; evidence: mov ax,[di+1Ch] / and ax,3Fh / jnz / dec byte [di+1Fh] / cmp byte [di+1Fh],5 / jnc / mov ax,38h / call sub_DD97. Callers: obj0D/0E/0F/10_update. obj0D_draw shows +1Fh as digits.
+capture_timer_tick:
     mov ax,[di+0x1c]                         ; 47CE2
     and ax,0x3f                              ; 47CE5
     cmp ax,0x0                               ; 47CE8
@@ -13603,22 +14840,27 @@ sub_7CE2:
     cmp byte [di+0x1f],0x5                   ; 47CF0
     jnc short loc_7CFC                       ; 47CF4
     mov ax,0x38                              ; 47CF6
-    call sub_DD97                            ; 47CF9
+    call sound_play                          ; 47CF9
 loc_7CFC:
     ret                                      ; 47CFC
     db 0x90   ; 47CFD
 
-obj0D_update:
+; Type 0Dh (captured enemy released downward / falling): marks updated, ticks +1Ch and the capture timer, applies velocity and terrain collision (sub_6146). When the terrain check sets +0Ch bit 12 (tile attribute >= 2) or the timer +1Fh reaches 0, deletes itself and spawns an explosion burst. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: position/velocity; slot deleted on expiry
+; side effects: sub_812F spawn
+; evidence: call sub_7CE2 / call sub_622B / call sub_6146 / test word [di+0Ch],1000h / cmp byte [di+1Fh],0 -> mov byte [di],0 / jmp sub_812F. Created by obj0E_update (+0Ch bit 5 -> type 0Dh, vy 8, ay 1) and sub_5FC7.
+obj0d_update_dropped:
     or byte [di+0x1],0x2                     ; 47CFE
     inc word [di+0x1c]                       ; 47D02
     or word [di+0xc],0x10                    ; 47D05
-    call sub_7CE2                            ; 47D0A
+    call capture_timer_tick                  ; 47D0A
     cmp al,0x18                              ; 47D0D
     jl short loc_7D13                        ; 47D0F
     mov al,0x18                              ; 47D11
 loc_7D13:
-    call sub_622B                            ; 47D13
-    call sub_6146                            ; 47D16
+    call obj_apply_velocity                  ; 47D13
+    call obj_walk_terrain                    ; 47D16
     test word [di+0xc],0x1000                ; 47D19
     jnz short loc_7D27                       ; 47D1E
     cmp byte [di+0x1f],0x0                   ; 47D20
@@ -13629,12 +14871,17 @@ loc_7D27:
     mov dx,[di+0x4]                          ; 47D2A
     mov ch,[di+0x15]                         ; 47D2D
     mov byte [di],0x0                        ; 47D30
-    jmp near sub_812F                        ; 47D33
+    jmp near spawn_explosion_burst           ; 47D33
 
-obj0F_update:
+; Type 0Fh (just-captured enemy): for 12 frames sets its velocity to (player - self) * n / 16 (n = frame count) so it flies to the player (slot 03C0h); frames 13-32 it snaps to the player's x and tracks the player's y (+vy, -10h) with a ceiling check. Becomes type 0Eh (held) after 32 frames, on a ceiling hit, or when [3CCh] bit 5 or its own +0Ch bit 11 is set; clears player +0Ch bit 9 when it does. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h); player slot 03C0h
+; out: DI+6/+8 velocity, +2/+4 position, +14h frame count, type -> 0Eh; [3CCh] &= FDFFh
+; side effects: Calls sub_7CE2, sub_622B, sub_43E5 (collision map lookup).
+; evidence: mov si,3C0h; imul of (si+4)-(di+4) and (si+2)-(di+2) by bl; sar 4 -> [di+8]/[di+6]; cmp bl,0Ch / cmp bl,20h; mov byte [di],0Eh; and word [si+0Ch],0FDFFh
+obj0f_update_pull_to_player:
     or byte [di+0x1],0x2                     ; 47D36
     inc word [di+0x1c]                       ; 47D3A
-    call sub_7CE2                            ; 47D3D
+    call capture_timer_tick                  ; 47D3D
     or byte [di+0x1],0x2                     ; 47D40
     mov si,0x3c0                             ; 47D44
     mov bl,[di+0x14]                         ; 47D47
@@ -13666,7 +14913,7 @@ obj0F_update:
     pop cx                                   ; 47D7B
     mov [di+0x6],al                          ; 47D7C
     mov [di+0x14],bl                         ; 47D7F
-    jmp near sub_622B                        ; 47D82
+    jmp near obj_apply_velocity              ; 47D82
 loc_7D85:
     mov [di+0x14],bl                         ; 47D85
     cmp bl,0x20                              ; 47D88
@@ -13683,13 +14930,13 @@ loc_7D85:
     mov dx,[di+0x2]                          ; 47DA5
     sub dx,0xa0                              ; 47DA8
     rr mov, ax, bp                           ; 47DAC
-    call sub_43E5                            ; 47DAE
+    call terrain_attr_at                     ; 47DAE
     cmp al,0x0                               ; 47DB1
     jnz short loc_7DC1                       ; 47DB3
     mov dx,[di+0x2]                          ; 47DB5
     add dx,0xa0                              ; 47DB8
     rr mov, ax, bp                           ; 47DBC
-    call sub_43E5                            ; 47DBE
+    call terrain_attr_at                     ; 47DBE
 loc_7DC1:
     mov [di+0x10],bx                         ; 47DC1
     test word [0x3cc],0x20                   ; 47DC4
@@ -13711,7 +14958,12 @@ loc_7DE6:
     db 0x80,0x7D,0x1F,0x00,0x74,0x00,0xE8,0xBA,0xE1,0x8B,0x45,0x02,0x8B,0x55,0x04,0x8A   ; 47DEF
     db 0x6D,0x15,0xC6,0x05,0x00,0xE9,0x28,0x03,0x90   ; 47DFF
 
-obj0E_update:
+; Type 0Eh (enemy held by the player): zero velocity; if +0Ch bit 5 is set becomes type 0Dh falling (vy 8, accel 1); if +0Ch bit 11 is set becomes type 10h moving horizontally at +/-20h by facing bit 0. Otherwise ticks the capture timer, runs sub_7712 against the player, and when the timer expires or +0Ch bit 12 is set releases the player's hold (sub_5FB2) and explodes. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: type change to 0Dh/10h, velocity; or slot deleted; [3D5h]/[3D6h]/[3CCh]/[3D2h] via sub_5FB2
+; side effects: sub_812F spawn on expiry
+; evidence: test bp,20h -> mov byte [di],0Dh / [di+8]=0108h; test bp,800h -> mov byte [di],10h, al=20h (neg if bp&1); cmp byte [di+1Fh],0 / call sub_7712; loc_7E6A: call sub_5FB2 / mov [di],al(0) / jmp sub_812F
+obj0e_update_held:
     or byte [di+0x1],0x2                     ; 47E08
     mov bp,[di+0xc]                          ; 47E0C
     mov word [di+0x6],0x0                    ; 47E0F
@@ -13724,8 +14976,8 @@ obj0E_update:
     jz short loc_7E6A                        ; 47E29
     mov si,0x3c0                             ; 47E2B
     inc word [di+0x1c]                       ; 47E2E
-    call sub_7CE2                            ; 47E31
-    call sub_7712                            ; 47E34
+    call capture_timer_tick                  ; 47E31
+    call held_enemy_follow_player            ; 47E34
     test word [di+0xc],0x1000                ; 47E37
     jnz short loc_7E6A                       ; 47E3C
     ret                                      ; 47E3E
@@ -13750,20 +15002,25 @@ loc_7E61:
     mov word [di+0x8],0x0                    ; 47E64
     ret                                      ; 47E69
 loc_7E6A:
-    call sub_5FB2                            ; 47E6A
+    call player_clear_held                   ; 47E6A
     mov [di],al                              ; 47E6D
     mov ax,[di+0x2]                          ; 47E6F
     mov dx,[di+0x4]                          ; 47E72
     mov ch,[di+0x15]                         ; 47E75
-    jmp near sub_812F                        ; 47E78
+    jmp near spawn_explosion_burst           ; 47E78
     db 0x90   ; 47E7B
 
-obj10_update:
+; Type 10h (enemy thrown horizontally): ticks capture timer, applies velocity, horizontal wall check (sub_5F50). Hitting a wall (+11h bits 0-1) converts it to a falling type 0Dh (sub_5FC7); tile attribute >= 2 (+0Ch bit 12) or timer 0 deletes it with an explosion burst. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: position; type -> 0Dh or deleted
+; side effects: sub_812F spawn
+; evidence: call sub_7CE2/sub_622B/sub_5F50; test byte [di+11h],3 -> call sub_5FC7 (mov byte [di],0Dh, vy 0 accel 1); test word [di+0Ch],1000h / cmp byte [di+1Fh],0 -> jmp sub_812F
+obj10_update_thrown:
     or byte [di+0x1],0x2                     ; 47E7C
     inc word [di+0x1c]                       ; 47E80
-    call sub_7CE2                            ; 47E83
-    call sub_622B                            ; 47E86
-    call sub_5F50                            ; 47E89
+    call capture_timer_tick                  ; 47E83
+    call obj_apply_velocity                  ; 47E86
+    call obj_check_wall_terrain              ; 47E89
     test word [di+0xc],0x1000                ; 47E8C
     jnz short loc_7EA4                       ; 47E91
     test byte [di+0x11],0x3                  ; 47E93
@@ -13772,32 +15029,47 @@ obj10_update:
     jz short loc_7EA4                        ; 47E9D
     ret                                      ; 47E9F
 loc_7EA0:
-    call sub_5FC7                            ; 47EA0
+    call obj_convert_to_type0d               ; 47EA0
     ret                                      ; 47EA3
 loc_7EA4:
     mov ax,[di+0x2]                          ; 47EA4
     mov dx,[di+0x4]                          ; 47EA7
     mov ch,[di+0x15]                         ; 47EAA
     mov byte [di],0x0                        ; 47EAD
-    jmp near sub_812F                        ; 47EB0
+    jmp near spawn_explosion_burst           ; 47EB0
     db 0x90,0x80,0x4D,0x01,0x02,0xFF,0x45,0x1C,0x3C,0x18,0x7C,0x02,0xB0,0x18,0xE8,0x1E   ; 47EB3
     db 0xFE,0xE8,0x64,0xE3,0xE8,0x7C,0xE2,0xF6,0x45,0x11,0x04,0x75,0x07,0x80,0x7D,0x1F   ; 47EC3
     db 0x00,0x74,0x05,0xC3,0xE8,0xED,0xE0,0xC3,0x8B,0x45,0x02,0x8B,0x55,0x04,0x8A,0x6D   ; 47ED3
     db 0x15,0xC6,0x05,0x00,0xE9,0x45,0x02   ; 47EE3
 
-coll_0D_02:
+; Swaps DI and SI, calls coll_02_0D (type-02 object re-captures a released enemy) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_02_0D
+; side effects: as coll_02_0D
+; evidence: xchg di,si / call coll_02_0D / xchg di,si / ret
+coll_0d_02_recapture_rev:
     xchg di,si                               ; 47EEA
-    call coll_02_0D                          ; 47EEC
+    call coll_02_0d_recapture                ; 47EEC
     xchg di,si                               ; 47EEF
     ret                                      ; 47EF1
 
-coll_02_0D:
+; Type 02h object (DI) touching a released captured enemy (SI, type 0Dh): sub_6074 with DL = 0Fh re-captures it (unless SI has +10h/+11h bit 7 or +0Ch bit 5), making it type 0Fh again, held by the player, sound 0Ah, effect 3Fh, DI deleted. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 02 (matrix row), SI = object of type 0D (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: as sub_6074: SI type 0Fh, [3D6h] = SI, [3D5h] = 1, DI type 0
+; side effects: sound 0Ah, sub_D4A0 spawn
+; evidence: mov dl,0Fh / call sub_6074 / ret
+coll_02_0d_recapture:
     mov dl,0xf                               ; 47EF2
-    call sub_6074                            ; 47EF4
+    call shot_grab_object                    ; 47EF4
     ret                                      ; 47EF7
 
+; Thrown enemy (type 10h, DI) vs block (12h/27h, SI): if within 17Ch vertically and 180h horizontally (coordinates masked to whole pixels), converts DI to a falling 0Dh (sub_5FC7), places it 180h beside SI on the side it came from and sets the contact bits (+11h bits 4/5) on both. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 10 (matrix row), SI = object of type 12/27 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: DI type 0Dh, DI+2 = SI+2 +/- 180h; DI+11h/SI+11h |= 10h/20h
+; side effects: none (pusha/popa)
+; evidence: and ax,0FFF0h; cmp ax,17Ch; cmp ax,180h; call sub_5FC7; mov ax,[si+2] / add|sub ax,180h / mov [di+2],ax; or byte [di+11h],20h / or byte [si+11h],10h
 ; dispatch roles: coll_10_12, coll_10_27
-coll_10_12:
+coll_10_12_stop_at_block:
     pusha                                    ; 47EF8
     mov ax,[di+0x4]                          ; 47EF9
     mov dx,[si+0x4]                          ; 47EFC
@@ -13826,7 +15098,7 @@ loc_7F14:
     popa                                     ; 47F2F
     ret                                      ; 47F30
 loc_7F31:
-    call sub_5FC7                            ; 47F31
+    call obj_convert_to_type0d               ; 47F31
     cmp bp,byte +0x0                         ; 47F34
     jng short loc_7F4C                       ; 47F37
     mov ax,[si+0x2]                          ; 47F39
@@ -13846,15 +15118,25 @@ loc_7F4C:
     ret                                      ; 47F5E
     db 0xC3   ; 47F5F
 
+; Swaps DI and SI, calls coll_10_12 (thrown enemy stops at block) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_10_12
+; side effects: as coll_10_12
+; evidence: xchg di,si / call coll_10_12 / xchg di,si / ret
 ; dispatch roles: coll_12_10, coll_27_10
-coll_12_10:
+coll_12_10_stop_at_block_rev:
     xchg di,si                               ; 47F60
-    call coll_10_12                          ; 47F62
+    call coll_10_12_stop_at_block            ; 47F62
     xchg di,si                               ; 47F65
     ret                                      ; 47F67
 
+; Falling enemy (0Dh, DI) vs block (12h/27h, SI): within 160h vertically and 180h horizontally, if SI is not moving horizontally and DI is above it, DI lands on SI (y = SI.y - 160h, x low nibble from SI, +0Eh = SI as the supporting object, contact bits +11h 40h/80h, +0Ch bit 5 cleared, vy reset to 0100h); otherwise DI is deleted with an explosion burst. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 0D (matrix row), SI = object of type 12/27 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: DI position/+0Eh/+11h/+0Ch/+8, or DI deleted
+; side effects: sub_812F spawn on the destroy path
+; evidence: Code bug: 'and ax,0FFF0h' is repeated at 7F6E/7F71, so [si+4] in DX is never masked (other callbacks mask both). mov [di+0Eh],si; or byte [di+11h],40h; or byte [si+11h],80h; mov word [di+8],100h
 ; dispatch roles: coll_0D_12, coll_0D_27
-coll_0D_12:
+coll_0d_12_land_on_block:
     mov ax,[di+0x4]                          ; 47F68
     mov dx,[si+0x4]                          ; 47F6B
     and ax,0xfff0                            ; 47F6E
@@ -13902,81 +15184,121 @@ loc_7FD3:
     mov ax,[di+0x2]                          ; 47FD6
     mov dx,[di+0x4]                          ; 47FD9
     mov ch,[di+0x15]                         ; 47FDC
-    jmp near sub_812F                        ; 47FDF
+    jmp near spawn_explosion_burst           ; 47FDF
 
+; Swaps DI and SI, calls coll_0D_12 (falling enemy lands on block) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_0D_12
+; side effects: as coll_0D_12
+; evidence: xchg di,si / call coll_0D_12 / xchg di,si / ret
 ; dispatch roles: coll_12_0D, coll_27_0D
-coll_12_0D:
+coll_12_0d_land_on_block_rev:
     xchg di,si                               ; 47FE2
-    call coll_0D_12                          ; 47FE4
+    call coll_0d_12_land_on_block            ; 47FE4
     xchg di,si                               ; 47FE7
     ret                                      ; 47FE9
 
+; Deletes DI (held enemy 0Eh) with an explosion burst and releases the player's hold (sub_5FB2 clears [3D5h], [3D6h], [3CCh] bits 9/10/14, [3D2h] bit 0). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 0E (matrix row), SI = object of type 05/06/29/2F (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: DI type 0; player hold state cleared
+; side effects: sub_812F spawn
+; evidence: mov byte [di],0 ... call sub_812F / jmp sub_5FB2
 ; dispatch roles: coll_0E_05, coll_0E_06, coll_0E_29, coll_0E_2F
-coll_0E_05:
+coll_0E_05_coll_explode_di_release:
     mov byte [di],0x0                        ; 47FEA
     mov ax,[di+0x2]                          ; 47FED
     mov dx,[di+0x4]                          ; 47FF0
     mov ch,[di+0x15]                         ; 47FF3
-    call sub_812F                            ; 47FF6
-    jmp near sub_5FB2                        ; 47FF9
+    call spawn_explosion_burst               ; 47FF6
+    jmp near player_clear_held               ; 47FF9
 
+; Swaps DI and SI, calls coll_0E_05 (held enemy explodes and hold released) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_0E_05
+; side effects: as coll_0E_05
+; evidence: xchg di,si / call coll_0E_05 / xchg di,si / ret
 ; dispatch roles: coll_05_0E, coll_06_0E, coll_29_0E, coll_2F_0E
-coll_05_0E:
+coll_05_0E_coll_explode_si_release_rev:
     xchg di,si                               ; 47FFC
-    call coll_0E_05                          ; 47FFE
+    call coll_0E_05_coll_explode_di_release  ; 47FFE
     xchg di,si                               ; 48001
     ret                                      ; 48003
 
+; Deletes DI with an explosion burst, defeats SI via sub_79D0 (type 3Eh + puff 16h) and releases the player's hold (sub_5FB2). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 0D/0E (matrix row), SI = object of type 0A/03/04/2D/2E (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: DI type 0; SI type 3Eh; hold cleared
+; side effects: spawns 11h and 16h
+; evidence: mov byte [di],0 ... call sub_812F / call sub_79D0 / jmp sub_5FB2
 ; dispatch roles: coll_0D_0A, coll_0E_03, coll_0E_04, coll_0E_2D, coll_0E_2E
-coll_0D_0A:
+coll_0D_0A_coll_explode_di_poof_si_rel:
     mov byte [di],0x0                        ; 48004
     mov ax,[di+0x2]                          ; 48007
     mov dx,[di+0x4]                          ; 4800A
     mov ch,[di+0x15]                         ; 4800D
-    call sub_812F                            ; 48010
-    call sub_79D0                            ; 48013
-    jmp near sub_5FB2                        ; 48016
+    call spawn_explosion_burst               ; 48010
+    call obj_kill_with_burst_si              ; 48013
+    jmp near player_clear_held               ; 48016
     db 0x90   ; 48019
 
+; Swaps DI and SI, calls coll_0D_0A (explode / defeat / release) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_0D_0A
+; side effects: as coll_0D_0A
+; evidence: xchg di,si / call coll_0D_0A / xchg di,si / ret
 ; dispatch roles: coll_03_0E, coll_04_0E, coll_0A_07, coll_0A_0D, coll_0A_15, coll_0A_17, coll_2D_0E, coll_2E_0E
-coll_03_0E:
+coll_03_0E_coll_poof_di_explode_si_rel_rev:
     xchg di,si                               ; 4801A
-    call coll_0D_0A                          ; 4801C
+    call coll_0D_0A_coll_explode_di_poof_si_rel ; 4801C
     xchg di,si                               ; 4801F
     ret                                      ; 48021
 
-; dispatch roles: coll_07_10, coll_0D_0D, coll_0D_0E, coll_0D_10, coll_0E_0D, coll_0E_0E, coll_0E_10, coll_10_07 ...
-coll_07_10:
+; Deletes both objects, each with an explosion burst at its own position (sub_812F twice). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 07/0D/0E/10/17 (matrix row), SI = object of type 0D/0E/10/07/17 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: DI and SI type 0
+; side effects: two sub_812F spawns
+; evidence: mov byte [di],0 / call sub_812F / mov byte [si],0 / call sub_812F
+; dispatch roles: coll_07_10, coll_0D_0D, coll_0D_0E, coll_0D_10, coll_0E_0D, coll_0E_0E, coll_0E_10, coll_10_07
+coll_07_10_coll_explode_both:
     mov byte [di],0x0                        ; 48022
     mov ax,[di+0x2]                          ; 48025
     mov dx,[di+0x4]                          ; 48028
     mov ch,[di+0x15]                         ; 4802B
-    call sub_812F                            ; 4802E
+    call spawn_explosion_burst               ; 4802E
     mov byte [si],0x0                        ; 48031
     mov ax,[si+0x2]                          ; 48034
     mov dx,[si+0x4]                          ; 48037
     mov ch,[si+0x15]                         ; 4803A
-    call sub_812F                            ; 4803D
+    call spawn_explosion_burst               ; 4803D
     ret                                      ; 48040
     db 0x90   ; 48041
 
+; Deletes both objects with explosion bursts and releases the player's hold (sub_5FB2); used for held enemy (0Eh) vs 07h/17h. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 07/0E/17 (matrix row), SI = object of type 0E/07/17 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: DI and SI type 0; hold cleared
+; side effects: two sub_812F spawns
+; evidence: two sub_812F calls then jmp sub_5FB2
 ; dispatch roles: coll_07_0E, coll_0E_07, coll_0E_17, coll_17_0E
-coll_07_0E:
+coll_07_0E_coll_explode_both_release:
     mov byte [di],0x0                        ; 48042
     mov ax,[di+0x2]                          ; 48045
     mov dx,[di+0x4]                          ; 48048
     mov ch,[di+0x15]                         ; 4804B
-    call sub_812F                            ; 4804E
+    call spawn_explosion_burst               ; 4804E
     mov byte [si],0x0                        ; 48051
     mov ax,[si+0x2]                          ; 48054
     mov dx,[si+0x4]                          ; 48057
     mov ch,[si+0x15]                         ; 4805A
-    call sub_812F                            ; 4805D
-    jmp near sub_5FB2                        ; 48060
+    call spawn_explosion_burst               ; 4805D
+    jmp near player_clear_held               ; 48060
     db 0x90   ; 48063
 
+; If either object has +0Ch bit 5 set, deletes both with explosion bursts; otherwise does nothing. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 07/0D/17 (matrix row), SI = object of type 0D/07/17 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: DI and SI type 0 when triggered
+; side effects: two sub_812F spawns
+; evidence: test word [di+0Ch],20h / test word [si+0Ch],20h / jnz loc_8073
 ; dispatch roles: coll_07_0D, coll_0D_07, coll_0D_17, coll_17_0D
-coll_07_0D:
+coll_07_0d_explode_if_flag20:
     test word [di+0xc],0x20                  ; 48064
     jnz short loc_8073                       ; 48069
     test word [si+0xc],0x20                  ; 4806B
@@ -13987,17 +15309,22 @@ loc_8073:
     mov ax,[di+0x2]                          ; 48076
     mov dx,[di+0x4]                          ; 48079
     mov ch,[di+0x15]                         ; 4807C
-    call sub_812F                            ; 4807F
+    call spawn_explosion_burst               ; 4807F
     mov byte [si],0x0                        ; 48082
     mov ax,[si+0x2]                          ; 48085
     mov dx,[si+0x4]                          ; 48088
     mov ch,[si+0x15]                         ; 4808B
-    call sub_812F                            ; 4808E
+    call spawn_explosion_burst               ; 4808E
     ret                                      ; 48091
     db 0xEA,0xFC,0xFC,0x0E,0x00,0xFC,0xFC,0x00,0x00,0x08,0x08,0x00   ; 48092
 
+; Draw handler shared by 0Dh/0Eh/0Fh/10h (captured enemies): if room (< 17B0h) and the capture timer +1Fh is non-zero, draws the timer as one or two digit sprites (tiles 2D4Dh + digit, '1' = 2D4Eh for 10+) at an orientation-dependent offset (table 4:8092), flashing palette (2C00h) when below 4; then draws the 32x32 body via loc_D118 using tile base 1C3h if the original type (+1Eh) equals [3DEh], else [140Ah]. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: mov al,[di+1Fh]; cmp al,0Ah; mov word [bx],2D4Eh; add ax,2D4Dh; mov cx,[cs:si-7F6Eh] (=8092h); cmp al,[3DEh] / or bp,1C3h / or bp,[140Ah]; jmp loc_D118
 ; dispatch roles: obj0D_draw, obj0E_draw, obj0F_draw, obj10_draw
-obj0D_draw:
+obj0d_draw_with_timer:
     cmp word [0x1382],0x17b0                 ; 4809E
     jc short loc_80A7                        ; 480A4
     ret                                      ; 480A6
@@ -14056,12 +15383,17 @@ loc_8128:
     or bp,[0x140a]                           ; 48128
     jmp near loc_D118                        ; 4812C
 
-sub_812F:
+; Allocates a slot in the effect area 0300h-03BFh (sub_B585) and creates a type-11h object (flags 09h) at AX,DX with origin copy +18h/+1Ah and level-record id +15h = CH. obj11_update turns it into a sequence of type-29h fragments. [medium, reviewed: range_7B9C_A99F.json]
+; in:  AX = x, DX = y (1/16 px), CH = level-record id
+; out: new type-11h slot (none if the 6 effect slots are full)
+; side effects: pusha/popa
+; evidence: call sub_B585 / call sub_B4F0 / mov [di+2],ax / mov [di+18h],ax / mov [di+4],dx / mov [di+1Ah],dx / mov [di+15h],ch / mov ax,0911h / mov [di],ax
+spawn_explosion_burst:
     pusha                                    ; 4812F
-    call sub_B585                            ; 48130
+    call obj_alloc_low_slot                  ; 48130
     test di,di                               ; 48133
     jz short loc_814F                        ; 48135
-    call sub_B4F0                            ; 48137
+    call obj_clear_slot                      ; 48137
     mov [di+0x2],ax                          ; 4813A
     mov [di+0x18],ax                         ; 4813D
     mov [di+0x4],dx                          ; 48140
@@ -14077,7 +15409,12 @@ loc_814F:
     db 0x10,0x10,0xF0,0xF0,0x00,0x10,0x00,0xF0,0xF0,0x10,0x10,0xF0,0xF0,0x00,0x10,0x00   ; 48161
     db 0x00,0x00,0x00,0x00   ; 48171
 
-obj11_update:
+; Type 11h explosion burst: every 4th frame spawns a type-29h fragment (sub_A326) at origin + (dx,dy)*16 taken from the 18-entry offset table at 4:8151 (+/-16 px pattern), playing sound 14h on every 4th fragment; after 18 fragments (+14h = 12h) clears the level record's 'spawned' bit (sub_61F8) and deletes itself, allowing the enemy to respawn. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +14h fragment index, +1Ch timer; [13C8h]/[13CAh] bit cleared at the end; slot deleted
+; side effects: sets +1 bits 1 and 3; sound 14h
+; evidence: or byte [di+1],0Ah; cmp ax,3; cmp byte [di+14h],12h / call sub_61F8; mov dx,[cs:bx-7EAFh] (=8151h); shl ax,4; call sub_A326; inc byte [di+14h]
+obj11_update_burst:
     or byte [di+0x1],0xa                     ; 48175
     inc word [di+0x1c]                       ; 48179
     mov ax,[di+0x1c]                         ; 4817C
@@ -14085,7 +15422,7 @@ obj11_update:
     ja short loc_818E                        ; 48182
     cmp byte [di+0x14],0x12                  ; 48184
     jnz short loc_818D                       ; 48188
-    call sub_61F8                            ; 4818A
+    call obj_delete_clear_spawn_bit          ; 4818A
 loc_818D:
     ret                                      ; 4818D
 loc_818E:
@@ -14094,7 +15431,7 @@ loc_818E:
     cmp al,0x0                               ; 48193
     jnz short loc_819D                       ; 48195
     mov ax,0x14                              ; 48197
-    call sub_DD97                            ; 4819A
+    call sound_play                          ; 4819A
 loc_819D:
     mov cl,0x4                               ; 4819D
     rr xor, bx, bx                           ; 4819F
@@ -14115,139 +15452,194 @@ loc_819D:
     rr mov, dx, ax                           ; 481C0
     pop ax                                   ; 481C2
     rr xor, cl, cl                           ; 481C3
-    call sub_A326                            ; 481C5
+    call spawn_explosion_fragment            ; 481C5
     inc byte [di+0x14]                       ; 481C8
     mov word [di+0x1c],0x0                   ; 481CB
     ret                                      ; 481D0
     db 0x90,0xC3,0x90   ; 481D1
 
+; Explosion fragment (29h, DI) vs enemy (03h/04h/0Bh/0Ch/2Dh/2Eh, SI): if within 130h on both axes (sub_6124), defeats SI via sub_79D0 (type 3Eh + puff 16h). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 29 (matrix row), SI = object of type 03/04/0B/0C/2D/2E (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: SI type 3Eh
+; side effects: spawns type 16h
+; evidence: mov bx,130h / mov cx,130h / call sub_6124 / jnc / call sub_79D0
 ; dispatch roles: coll_29_03, coll_29_04, coll_29_0B, coll_29_0C, coll_29_2D, coll_29_2E
-coll_29_03:
+coll_29_03_poof_si:
     mov bx,0x130                             ; 481D4
     mov cx,0x130                             ; 481D7
-    call sub_6124                            ; 481DA
+    call obj_within_box                      ; 481DA
     jnc short loc_81E2                       ; 481DD
-    call sub_79D0                            ; 481DF
+    call obj_kill_with_burst_si              ; 481DF
 loc_81E2:
     ret                                      ; 481E2
     db 0x90   ; 481E3
 
+; Swaps DI and SI, calls coll_29_03 (fragment defeats enemy) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_29_03
+; side effects: as coll_29_03
+; evidence: xchg di,si / call coll_29_03 / xchg di,si / ret
 ; dispatch roles: coll_03_29, coll_04_29, coll_2D_29, coll_2E_29
-coll_03_29:
+coll_03_29_poof_rev:
     xchg di,si                               ; 481E4
-    call coll_29_03                          ; 481E6
+    call coll_29_03_poof_si                  ; 481E6
     xchg di,si                               ; 481E9
     ret                                      ; 481EB
 
+; Fragment (DI) vs type 12h/15h object (SI) whose +1Fh (direction) is non-zero: within 170h, deletes SI and starts an explosion chain (type 3Ch, sub_A296) at its position travelling in direction SI+1Fh with SI's record id. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 29 (matrix row), SI = object of type 12/15 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: SI type 0; new type-3Ch slot
+; side effects: none
+; evidence: cmp byte [si+1Fh],0; mov bx,170h/cx,170h; call sub_6124; mov byte [si],0; cl=[si+1Fh]; ch=[si+15h]; call sub_A296
 ; dispatch roles: coll_29_12, coll_29_15
-coll_29_12:
+coll_29_12_detonate:
     cmp byte [si+0x1f],0x0                   ; 481EC
     jz short loc_820F                        ; 481F0
     mov bx,0x170                             ; 481F2
     mov cx,0x170                             ; 481F5
-    call sub_6124                            ; 481F8
+    call obj_within_box                      ; 481F8
     jnc short loc_820F                       ; 481FB
     mov byte [si],0x0                        ; 481FD
     mov ax,[si+0x2]                          ; 48200
     mov dx,[si+0x4]                          ; 48203
     mov cl,[si+0x1f]                         ; 48206
     mov ch,[si+0x15]                         ; 48209
-    call sub_A296                            ; 4820C
+    call spawn_explosion_chain               ; 4820C
 loc_820F:
     ret                                      ; 4820F
 
+; Mirror of coll_29_12_detonate with DI = the 12h/15h object: if DI+1Fh is non-zero and within 170h, starts an explosion chain at DI and deletes DI. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 12/15 (matrix row), SI = object of type 29 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: DI type 0; new type-3Ch slot
+; side effects: none
+; evidence: cmp byte [di+1Fh],0 / call sub_6124 / call sub_A296 / mov byte [di],0
 ; dispatch roles: coll_12_29, coll_15_29
-coll_12_29:
+coll_12_29_detonate:
     cmp byte [di+0x1f],0x0                   ; 48210
     jz short loc_8233                        ; 48214
     mov bx,0x170                             ; 48216
     mov cx,0x170                             ; 48219
-    call sub_6124                            ; 4821C
+    call obj_within_box                      ; 4821C
     jnc short loc_8233                       ; 4821F
     mov ax,[di+0x2]                          ; 48221
     mov dx,[di+0x4]                          ; 48224
     mov cl,[di+0x1f]                         ; 48227
     mov ch,[di+0x15]                         ; 4822A
-    call sub_A296                            ; 4822D
+    call spawn_explosion_chain               ; 4822D
     mov byte [di],0x0                        ; 48230
 loc_8233:
     ret                                      ; 48233
 
-coll_29_14:
+; As coll_29_12_detonate for a type-14h object (SI), and additionally releases the player's hold (sub_5FB2). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 29 (matrix row), SI = object of type 14 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: SI type 0; type-3Ch spawn; hold cleared
+; side effects: none
+; evidence: ... call sub_A296 / mov byte [si],0 / call sub_5FB2
+coll_29_14_detonate_held:
     cmp byte [si+0x1f],0x0                   ; 48234
     jz short loc_825A                        ; 48238
     mov bx,0x170                             ; 4823A
     mov cx,0x170                             ; 4823D
-    call sub_6124                            ; 48240
+    call obj_within_box                      ; 48240
     jnc short loc_825A                       ; 48243
     mov ax,[si+0x2]                          ; 48245
     mov dx,[si+0x4]                          ; 48248
     mov cl,[si+0x1f]                         ; 4824B
     mov ch,[si+0x15]                         ; 4824E
-    call sub_A296                            ; 48251
+    call spawn_explosion_chain               ; 48251
     mov byte [si],0x0                        ; 48254
-    call sub_5FB2                            ; 48257
+    call player_clear_held                   ; 48257
 loc_825A:
     ret                                      ; 4825A
 
-coll_14_29:
+; Swaps DI and SI, calls coll_29_14 (fragment detonates held object) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_29_14
+; side effects: as coll_29_14
+; evidence: xchg di,si / call coll_29_14 / xchg di,si / ret
+coll_14_29_detonate_held_rev:
     xchg di,si                               ; 4825B
-    call coll_29_14                          ; 4825D
+    call coll_29_14_detonate_held            ; 4825D
     xchg di,si                               ; 48260
     ret                                      ; 48262
     db 0x90   ; 48263
 
+; Fragment (DI) vs enemy 07h/0Dh/10h/17h (SI): if DI+1Ch is 0 (always for fragments created by sub_A326) and within 130h, SI explodes (sub_812F) and is deleted - chain reaction. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 29 (matrix row), SI = object of type 07/0D/10/17 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: SI type 0; new type-11h
+; side effects: none
+; evidence: cmp word [di+1Ch],0; mov bx,130h; call sub_6124; call sub_812F; mov byte [si],0
 ; dispatch roles: coll_29_07, coll_29_0D, coll_29_10, coll_29_17
-coll_29_07:
+coll_29_07_explode_si:
     cmp word [di+0x1c],byte +0x0             ; 48264
     jnz short loc_8284                       ; 48268
     mov bx,0x130                             ; 4826A
     mov cx,0x130                             ; 4826D
-    call sub_6124                            ; 48270
+    call obj_within_box                      ; 48270
     jnc short loc_8284                       ; 48273
     mov ax,[si+0x2]                          ; 48275
     mov dx,[si+0x4]                          ; 48278
     mov ch,[si+0x15]                         ; 4827B
-    call sub_812F                            ; 4827E
+    call spawn_explosion_burst               ; 4827E
     mov byte [si],0x0                        ; 48281
 loc_8284:
     ret                                      ; 48284
     db 0x90   ; 48285
 
+; Mirror: enemy 07h/0Dh/10h/17h (DI) explodes when a fragment (SI, +1Ch = 0) is within 130h. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 07/0D/10/17 (matrix row), SI = object of type 29 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: DI type 0; new type-11h
+; side effects: none
+; evidence: cmp word [si+1Ch],0 / call sub_6124 / call sub_812F / mov byte [di],0
 ; dispatch roles: coll_07_29, coll_0D_29, coll_10_29, coll_17_29
-coll_07_29:
+coll_07_29_explode_di:
     cmp word [si+0x1c],byte +0x0             ; 48286
     jnz short loc_82A6                       ; 4828A
     mov bx,0x130                             ; 4828C
     mov cx,0x130                             ; 4828F
-    call sub_6124                            ; 48292
+    call obj_within_box                      ; 48292
     jnc short loc_82A6                       ; 48295
     mov ax,[di+0x2]                          ; 48297
     mov dx,[di+0x4]                          ; 4829A
     mov ch,[di+0x15]                         ; 4829D
-    call sub_812F                            ; 482A0
+    call spawn_explosion_burst               ; 482A0
     mov byte [di],0x0                        ; 482A3
 loc_82A6:
     ret                                      ; 482A6
     db 0x90   ; 482A7
 
-coll_29_01:
+; Swaps DI and SI, calls coll_01_29 (fragment hurts player) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_01_29
+; side effects: as coll_01_29
+; evidence: xchg di,si / call coll_01_29 / xchg di,si / ret
+coll_29_01_hurt_player_rev:
     xchg di,si                               ; 482A8
-    call coll_01_29                          ; 482AA
+    call coll_01_29_hurt_player              ; 482AA
     xchg di,si                               ; 482AD
     ret                                      ; 482AF
 
-coll_01_29:
+; Player (01h, DI) vs explosion fragment (29h, SI): if within 170h on both axes, runs the player damage handler coll_01_03 (sets [3CCh] bit 12, [3D9h] = 100, decrements [13E0h], knock-back, sound 1). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 01 (matrix row), SI = object of type 29 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: as coll_01_03
+; side effects: as coll_01_03
+; evidence: mov bx,170h / mov cx,170h / call sub_6124 / jnc / call coll_01_03
+coll_01_29_hurt_player:
     mov bx,0x170                             ; 482B0
     mov cx,0x170                             ; 482B3
-    call sub_6124                            ; 482B6
+    call obj_within_box                      ; 482B6
     jnc short loc_82BE                       ; 482B9
-    call coll_01_03                          ; 482BB
+    call coll_01_03_coll_player_hurt_by_enemy ; 482BB
 loc_82BE:
     ret                                      ; 482BE
     db 0x90   ; 482BF
 
-sub_82C0:
+; Copies 128 bytes (8 16-byte 2bpp tiles) of sprite tile data from 7000:8FC0 to 0000:AX (tile RAM). [high, reviewed: range_7B9C_A99F.json]
+; in:  AX = destination offset in segment 0 (tile RAM, 2000h + 16*tile)
+; out: tile RAM at 0000:AX..+80h
+; side effects: Leaves DS = 7000h (caller lvl07_tick restores DS = 0); clobbers CX, SI, DI, ES.
+; evidence: mov di,ax / mov cx,40h / ds=7000h / si=8FC0 / es=0 / rep movsw
+lvl07_tiles_copy:
     rr mov, di, ax                           ; 482C0
     mov cx,0x40                              ; 482C2
     mov ax,0x7000                            ; 482C5
@@ -14258,7 +15650,12 @@ sub_82C0:
     rep movsw                                ; 482D1
     ret                                      ; 482D3
 
-sub_82D4:
+; Copies 128 bytes (8 16-byte 2bpp tiles) of sprite tile data from 7000:72C0 to 0000:AX (tile RAM). [high, reviewed: range_7B9C_A99F.json]
+; in:  AX = destination offset in segment 0 (tile RAM, 2000h + 16*tile)
+; out: tile RAM at 0000:AX..+80h
+; side effects: Leaves DS = 7000h (caller lvl17_tick restores DS = 0); clobbers CX, SI, DI, ES.
+; evidence: mov di,ax / mov cx,40h / ds=7000h / si=72C0 / es=0 / rep movsw
+lvl17_tiles_copy:
     rr mov, di, ax                           ; 482D4
     mov cx,0x40                              ; 482D6
     mov ax,0x7000                            ; 482D9
@@ -14269,7 +15666,12 @@ sub_82D4:
     rep movsw                                ; 482E5
     ret                                      ; 482E7
 
-lvl07_tick:
+; Once per Vision: if the VRAM tile base [1422h] is still 0, allocates 8 tiles downward from the tile allocator [1396h] (gives up if the new value would fall below 96h), stores the base tile in [1422h] and copies the tiles via sub_82C0. [high, reviewed: range_7B9C_A99F.json]
+; in:  ES:DI = level record, ES = 8000h (called once per record by sub_B4A2 from sub_B053 during Vision load, kind table 8:0192)
+; out: [1396h] -= 8, [1422h] = new base tile; tile RAM 2000h+16*base
+; side effects: Calls sub_82C0 (sets DS = 7000h) then restores DS = 0; all registers preserved (push ax/pusha).
+; evidence: cmp word [1422h],0 / ax=[1396h]-8h / cmp ax,96h jnc / mov [1396h],ax / mov [1422h],ax / shl ax,4 / add ax,2000h / call sub_82C0. [1396h] is reset to 14Bh and 1400h-142Fh cleared by sub_146A (state04_vision_load).
+lvl07_load_tiles:
     cmp word [0x1422],byte +0x0              ; 482E8
     jnz short loc_8313                       ; 482ED
     push ax                                  ; 482EF
@@ -14285,7 +15687,7 @@ loc_82FD:
     mov [0x1422],ax                          ; 48301
     shl ax,byte 0x4                          ; 48304
     add ax,0x2000                            ; 48307
-    call sub_82C0                            ; 4830A
+    call lvl07_tiles_copy                    ; 4830A
     rr xor, ax, ax                           ; 4830D
     mov ds,ax                                ; 4830F
     popa                                     ; 48311
@@ -14293,7 +15695,12 @@ loc_82FD:
 loc_8313:
     ret                                      ; 48313
 
-lvl17_tick:
+; Once per Vision: if the VRAM tile base [1424h] is still 0, allocates 8 tiles downward from the tile allocator [1396h] (gives up if the new value would fall below 96h), stores the base tile in [1424h] and copies the tiles via sub_82D4. [high, reviewed: range_7B9C_A99F.json]
+; in:  ES:DI = level record, ES = 8000h (called once per record by sub_B4A2 from sub_B053 during Vision load, kind table 8:0192)
+; out: [1396h] -= 8, [1424h] = new base tile; tile RAM 2000h+16*base
+; side effects: Calls sub_82D4 (sets DS = 7000h) then restores DS = 0; all registers preserved (push ax/pusha).
+; evidence: cmp word [1424h],0 / ax=[1396h]-8h / cmp ax,96h jnc / mov [1396h],ax / mov [1424h],ax / shl ax,4 / add ax,2000h / call sub_82D4. [1396h] is reset to 14Bh and 1400h-142Fh cleared by sub_146A (state04_vision_load).
+lvl17_load_tiles:
     cmp word [0x1424],byte +0x0              ; 48314
     jnz short loc_833F                       ; 48319
     push ax                                  ; 4831B
@@ -14309,7 +15716,7 @@ loc_8329:
     mov [0x1424],ax                          ; 4832D
     shl ax,byte 0x4                          ; 48330
     add ax,0x2000                            ; 48333
-    call sub_82D4                            ; 48336
+    call lvl17_tiles_copy                    ; 48336
     rr xor, ax, ax                           ; 48339
     mov ds,ax                                ; 4833B
     popa                                     ; 4833D
@@ -14317,7 +15724,12 @@ loc_8329:
 loc_833F:
     ret                                      ; 4833F
 
-lvl07_spawn:
+; Places a type-1Bh delayed spawner that becomes type 18h after CH*4 frames (+1Eh = 18h); +0Ah = 80h, +0Bh = FFh, +0Ch |= 12h. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: slot +0 = 011Bh, +2/+4 = x/y, +14h = CH, +1Eh = 18h, +0Ah/+0Bh, +0Ch
+; side effects: none
+; evidence: mov al,1Bh; mov byte [di+1Eh],18h; mov [di+14h],ch; mov byte [di+0Bh],0FFh
+lvl07_spawn_delayed_obj18:
     mov cl,0x4                               ; 48340
     shl ax,cl                                ; 48342
     shl dx,cl                                ; 48344
@@ -14334,7 +15746,12 @@ lvl07_spawn:
     ret                                      ; 48366
     db 0x90   ; 48367
 
-lvl17_spawn:
+; Places a type-1Bh delayed spawner that becomes type 26h after CH*4 frames (+1Eh = 26h); +0Ah = 80h, +0Bh = FFh, +0Ch |= 12h. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: slot +0 = 011Bh, +2/+4, +14h = CH, +1Eh = 26h
+; side effects: none
+; evidence: mov byte [di+1Eh],26h
+lvl17_spawn_delayed_obj26:
     mov cl,0x4                               ; 48368
     shl ax,cl                                ; 4836A
     shl dx,cl                                ; 4836C
@@ -14351,20 +15768,30 @@ lvl17_spawn:
     ret                                      ; 4838E
     db 0x90   ; 4838F
 
+; Update shared by types 18h and 26h: marks updated, counts +14h/+1Ch, runs the level-record movement handler (sub_6670) and applies velocity (sub_622B) unless +13h is non-zero. No terrain collision. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: position via sub_622B
+; side effects: none
+; evidence: inc byte [di+14h]; inc word [di+1Ch]; call sub_6670; cmp byte [di+13h],0 / jmp sub_622B
 ; dispatch roles: obj18_update, obj26_update
-obj18_update:
+obj18_update_scripted_move:
     or byte [di+0x1],0x2                     ; 48390
     inc byte [di+0x14]                       ; 48394
     inc word [di+0x1c]                       ; 48397
-    call sub_6670                            ; 4839A
+    call mscript_run                         ; 4839A
     cmp byte [di+0x13],0x0                   ; 4839D
     jnz short loc_83A6                       ; 483A1
-    jmp near sub_622B                        ; 483A3
+    jmp near obj_apply_velocity              ; 483A3
 loc_83A6:
     ret                                      ; 483A6
     db 0x90   ; 483A7
 
-obj18_draw:
+; Draws type 18h as 2 rows of 4 sprites (32x16) from tile base [1422h] with attribute 2C00h via loc_D44C. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: cmp word [1382h],17D8h; bp=[1422h]|2C00h; mov cx,2; jmp loc_D44C
+obj18_draw_32x16:
     cmp word [0x1382],0x17d8                 ; 483A8
     jc short loc_83B1                        ; 483AE
     ret                                      ; 483B0
@@ -14375,7 +15802,12 @@ loc_83B1:
     jmp near loc_D44C                        ; 483BC
     db 0x90   ; 483BF
 
-obj26_draw:
+; Draws type 26h as 2 rows of 4 sprites (32x16) from tile base [1424h] with attribute 2800h via loc_D44C. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: bp=[1424h]|2800h; mov cx,2; jmp loc_D44C
+obj26_draw_32x16:
     cmp word [0x1382],0x17d8                 ; 483C0
     jc short loc_83C9                        ; 483C6
     ret                                      ; 483C8
@@ -14386,8 +15818,13 @@ loc_83C9:
     jmp near loc_D44C                        ; 483D4
     db 0x90   ; 483D7
 
+; Moving platform (18h/26h, DI) vs object 12h/13h/27h (SI), extents 1C0h x 140h: on side contact sets contact bits and pushes SI to DI.x -/+ 1C0h (also moving the player x when SI is the object the player stands on, [3CEh]); if SI is already blocked on that side (SI+10h|+11h bits 22h/11h) the platform reverses instead. On vertical contact SI is placed on top of DI and linked (SI+0Eh = DI), or, with DI above, DI's vertical direction is reversed. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 18/26 (matrix row), SI = object of type 12/13/27 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: SI+2/+4/+0Eh/+11h/+0Ch, DI+0Ch/+12h/+11h, player x [3C2h]
+; side effects: none
+; evidence: cmp ax,1C0h; cmp ax,140h; shl ax,1 / cmp ax,bx (side vs top test); test bl,22h; sub ax,1C0h / mov [si+2],ax; cmp bx,[3CEh] / add [3C2h],dx; mov [si+0Eh],di; neg al / mov [di+12h],al
 ; dispatch roles: coll_18_12, coll_18_13, coll_18_27, coll_26_12, coll_26_13, coll_26_27
-coll_18_12:
+coll_18_12_platform_push:
     mov ax,[di+0x2]                          ; 483D8
     mov dx,[si+0x2]                          ; 483DB
     and ax,0xfff0                            ; 483DE
@@ -14530,13 +15967,23 @@ loc_8516:
     ret                                      ; 4851A
     db 0x90   ; 4851B
 
+; Swaps DI and SI, calls coll_18_12 (platform pushes / carries object) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_18_12
+; side effects: as coll_18_12
+; evidence: xchg di,si / call coll_18_12 / xchg di,si / ret
 ; dispatch roles: coll_12_18, coll_12_26, coll_13_18, coll_13_26, coll_27_18, coll_27_26
-coll_12_18:
+coll_12_18_platform_push_rev:
     xchg di,si                               ; 4851C
-    call coll_18_12                          ; 4851E
+    call coll_18_12_platform_push            ; 4851E
     xchg di,si                               ; 48521
     ret                                      ; 48523
 
+; Swaps DI and SI, calls coll_15_18 (type 15h vs platform) with the roles reversed, swaps back. [low, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_15_18
+; side effects: as coll_15_18
+; evidence: xchg di,si / call coll_15_18 / xchg di,si / ret
 ; dispatch roles: coll_18_15, coll_26_15
 coll_18_15:
     xchg di,si                               ; 48524
@@ -14544,6 +15991,11 @@ coll_18_15:
     xchg di,si                               ; 48529
     ret                                      ; 4852B
 
+; Type 15h object (DI) vs moving platform 18h/26h (SI), extents 1C0h x 140h: on side contact while moving toward SI, DI is placed beside SI, its vx is zeroed and +13h set to at least 1 (stops velocity application); on vertical contact DI is set on top of SI (y = SI.y - 140h, x low nibble from SI) or, when below, SI's vertical direction is reversed. [low, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 15 (matrix row), SI = object of type 18/26 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: DI+2/+4/+6/+13h/+11h/+0Ch, SI+12h/+11h
+; side effects: none
+; evidence: cmp ax,1C0h; cmp ax,140h; shr bx,1 / cmp ax,bx; mov [di+6],ax(0); cmp al,1 / adc al,0 / mov [di+13h],al; sub ax,140h / mov [di+4],ax
 ; dispatch roles: coll_15_18, coll_15_26
 coll_15_18:
     mov ax,[si+0x2]                          ; 4852C
@@ -14644,6 +16096,11 @@ loc_85EA:
     ret                                      ; 48608
     db 0x90   ; 48609
 
+; Moving platform (18h/26h, DI) vs object 0Ah/0Eh/14h (SI) that shares the player's x: side contact pushes SI to DI.x -/+ 1D0h and writes the same x to the player ([3C2h]); vertical contact with DI above: a type-0Ah SI is pushed below DI (y = DI.y + 140h), otherwise DI's vertical direction is reversed and an upward-moving player has its vy cancelled ([3C4h] += -vy, [3C8h] = 0). [low, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 18/26 (matrix row), SI = object of type 0A/0E/14 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: SI+2/+4, [3C2h], [3C4h], [3C8h], DI+12h, contact bits
+; side effects: none
+; evidence: sub ax,1D0h / mov [si+2],ax / mov [3C2h],ax; cmp byte [si],0Ah; mov al,[3C8h] / neg al / cbw / add [3C4h],ax / mov byte [3C8h],0
 ; dispatch roles: coll_18_0A, coll_18_0E, coll_18_14, coll_26_0A, coll_26_0E, coll_26_14
 coll_18_0A:
     mov ax,[di+0x2]                          ; 4860A
@@ -14740,6 +16197,11 @@ loc_86C8:
 loc_86DD:
     ret                                      ; 486DD
 
+; Swaps DI and SI, calls coll_18_0A (platform vs player-attached object) with the roles reversed, swaps back. [low, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_18_0A
+; side effects: as coll_18_0A
+; evidence: xchg di,si / call coll_18_0A / xchg di,si / ret
 ; dispatch roles: coll_0A_18, coll_0A_26, coll_0E_18, coll_0E_26, coll_14_18, coll_14_26
 coll_0A_18:
     xchg di,si                               ; 486DE
@@ -14747,6 +16209,11 @@ coll_0A_18:
     xchg di,si                               ; 486E3
     ret                                      ; 486E5
 
+; Block (12h/27h, DI) vs object 0Ah/0Eh/14h (SI), extents 180h: side contact pushes SI (and the player x [3C2h]) to DI.x -/+ 180h, turning a horizontally moving DI around unless SI is 0Ah/0Eh; vertical contact with DI above: SI 0Ah/0Eh is pushed below, otherwise DI is put on top of SI (y = SI.y - 180h) and an upward-moving player has its vy cancelled; DI below: SI+12h = 3. [low, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 12/27 (matrix row), SI = object of type 0A/0E/14 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: SI/DI positions, [3C2h], [3C4h], [3C8h], SI+12h, contact bits
+; side effects: none
+; evidence: cmp ax,180h (x and y); cmp byte [si],0Ah / 0Eh; sub ax,180h / mov [si+2],ax / mov [3C2h],ax; mov byte [si+12h],3. The 'cmp byte [di],5' branch at 87B6 cannot match for the listed row types.
 ; dispatch roles: coll_12_0A, coll_12_0E, coll_12_14, coll_27_14
 coll_12_0A:
     mov ax,[di+0x2]                          ; 486E6
@@ -14886,6 +16353,11 @@ loc_8811:
     db 0x8B,0x45,0x04,0x25,0xF0,0xFF,0x2D,0x80,0x01,0x89,0x44,0x04,0x80,0x4C,0x11,0x40   ; 48816
     db 0x80,0x4D,0x11,0x80,0xC3,0x90   ; 48826
 
+; Swaps DI and SI, calls coll_12_0A (block vs player-attached object) with the roles reversed, swaps back. [low, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_12_0A
+; side effects: as coll_12_0A
+; evidence: xchg di,si / call coll_12_0A / xchg di,si / ret
 ; dispatch roles: coll_0A_12, coll_0A_27, coll_0E_12, coll_0E_27, coll_14_12, coll_14_27
 coll_0A_12:
     xchg di,si                               ; 4882C
@@ -14893,6 +16365,11 @@ coll_0A_12:
     xchg di,si                               ; 48831
     ret                                      ; 48833
 
+; Type 05h/06h (DI) vs type 14h (SI). If the player is in the hurt state ([3CCh] bit 12) sets SI+12h = 3; otherwise halves SI+12h, and when within 190h x 180h halves it again (setting it to 3 if the shifted-out bit was 1) and then separates the two like coll_12_0A_solid_separate (also writing the player x / cancelling player vy). [low, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 05/06 (matrix row), SI = object of type 14 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: SI+12h, SI/DI positions, [3C2h], [3C4h], [3C8h]
+; side effects: none
+; evidence: test word [3CCh],1000h / mov byte [si+12h],3; shr byte [si+12h],1 (twice); cmp ax,190h; cmp ax,180h; sub ax,180h / mov [3C2h],ax. Meaning of +12h for type 14h not established.
 ; dispatch roles: coll_05_14, coll_06_14
 coll_05_14:
     test word [0x3cc],0x1000                 ; 48834
@@ -15022,6 +16499,11 @@ loc_894D:
     mov byte [si+0x12],0x3                   ; 4894D
     ret                                      ; 48951
 
+; Swaps DI and SI, calls coll_05_14 (type 05h/06h vs 14h) with the roles reversed, swaps back. [low, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_05_14
+; side effects: as coll_05_14
+; evidence: xchg di,si / call coll_05_14 / xchg di,si / ret
 ; dispatch roles: coll_14_05, coll_14_06
 coll_14_05:
     xchg di,si                               ; 48952
@@ -15029,7 +16511,12 @@ coll_14_05:
     xchg di,si                               ; 48957
     ret                                      ; 48959
 
-sub_895A:
+; Copies 32 bytes from 7000:8B00 to tile RAM 0000:3D40 (tiles 1D4h-1D5h); tile 1D4h is used by obj19_draw (attribute 2BD4h). [high, reviewed: range_7B9C_A99F.json]
+; in:  none
+; out: tile RAM 0000:3D40..+20h
+; side effects: pusha/popa; restores DS = 0.
+; evidence: cx=10h, ds:si=7000:8B00, es:di=0000:3D40, rep movsw; called only from sub_1426 (gameplay graphics init, 4:1435-143E)
+load_tiles_1d4:
     pusha                                    ; 4895A
     mov cx,0x10                              ; 4895B
     mov ax,0x7000                            ; 4895E
@@ -15045,7 +16532,12 @@ sub_895A:
     ret                                      ; 48974
     db 0x90   ; 48975
 
-lvl08_spawn:
+; Creates object type 19h at x = AX*16 (8-px aligned), base y = DX*16 in +4 and +1Ah; +12h/+18h/+1Ch = base y - 180h; +8 = FF00h (vy 0, accel -1). [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: slot +0 = 0119h, +2, +4, +8, +12h, +18h, +1Ah, +1Ch
+; side effects: none
+; evidence: and ax,0FF80h; mov [di+1Ah],dx; sub dx,180h / mov [di+18h],dx / [di+1Ch] / [di+12h]; mov ah,0FFh / xor al,al / mov [di+8],ax
+lvl08_spawn_obj19:
     mov cl,0x4                               ; 48976
     shl ax,cl                                ; 48978
     shl dx,cl                                ; 4897A
@@ -15066,6 +16558,11 @@ lvl08_spawn:
     ret                                      ; 489A2
     db 0x90   ; 489A3
 
+; Type 19h update (two vertical coordinates over a fixed base +1Ah): +18h is a top level driven upward by the velocity/accel in +8 (min speed -40h) and clamped at base-190h; when the player is more than 600h above it the drawn y (+4) is parked at the base, otherwise +4 rises 4 or 16 units per frame and wraps back near the base depending on the player's y (+/-600h, +/-C00h in rotated mode). Map probes (sub_43E5, CH = 8) at +18h and +1Ch reset them on a hit; +1Ch rises 20h per frame and wraps to base-180h. [low, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h); player y [3C4h]
+; out: +4, +8, +10h, +12h, +14h, +18h, +1Ch
+; side effects: calls sub_43E5
+; evidence: mov dx,[di+18h] / add al,ah / cmp al,0C0h; sub dx,190h; mov ax,[3C4h] / add ax,600h; and bp,600h / add bp,600h (play_flags bit 0); call sub_43E5 / test bh,8; sub word [di+1Ch],20h. coll_19_12/26 limit the fall speed of objects between +18h and +1Ah. Purpose (bubble/air column?) not confirmed.
 obj19_update:
     or byte [di+0x1],0x2                     ; 489A4
     inc byte [di+0x14]                       ; 489A8
@@ -15134,7 +16631,7 @@ loc_8A2C:
     mov ax,[di+0x18]                         ; 48A3E
     mov dx,[di+0x2]                          ; 48A41
     mov ch,0x8                               ; 48A44
-    call sub_43E5                            ; 48A46
+    call terrain_attr_at                     ; 48A46
     test bh,0x8                              ; 48A49
     jz short loc_8A5E                        ; 48A4C
     mov al,[di+0x8]                          ; 48A4E
@@ -15151,7 +16648,7 @@ loc_8A61:
     mov ax,[di+0x1c]                         ; 48A63
     mov dx,[di+0x2]                          ; 48A66
     mov ch,0x8                               ; 48A69
-    call sub_43E5                            ; 48A6B
+    call terrain_attr_at                     ; 48A6B
     test bh,0x8                              ; 48A6E
     jz short loc_8A88                        ; 48A71
     mov ax,[di+0x1c]                         ; 48A73
@@ -15172,7 +16669,12 @@ loc_8A88:
 loc_8A9D:
     ret                                      ; 48A9D
 
-obj19_draw:
+; Draws three 8x8 sprites (tile/attr 2BD4h) stacked 12 px apart, each displaced sideways by values from the sine/cosine tables at 4:B5CA/4:B60A indexed by the frame counter +14h (phase offsets 0, 30h, 60h); orientation-aware. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: 3 sprite entries at [1382h] (+0Ch)
+; side effects: none
+; evidence: cmp word [1382h],17ECh; mov ax,[cs:bx-4A36h] (B5CAh); mov ax,[cs:bx-49F6h] (B60Ah); add bx,30h / 60h; mov ax,2BD4h / mov [si],ax / [si+4] / [si+8]
+obj19_draw_wobble_sprites:
     cmp word [0x1382],0x17ec                 ; 48A9E
     jc short loc_8AA7                        ; 48AA4
     ret                                      ; 48AA6
@@ -15270,8 +16772,13 @@ loc_8B5E:
     ret                                      ; 48B7C
     db 0x90   ; 48B7D
 
+; Type 19h column (DI) vs object 12h/27h (SI): if SI.y lies between DI+18h and DI+1Ah and |dx| < 140h, clears SI+0Ch bit 5, limits SI's downward speed to 8, lowers DI's top (+18h) to SI.y + D0h when that is lower, and resets DI's vy/accel to FF00h. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 19 (matrix row), SI = object of type 12/27 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: SI+8, SI+0Ch, DI+18h, DI+8
+; side effects: none (pusha/popa)
+; evidence: cmp dx,[di+18h] jg; cmp dx,[di+1Ah] jl; cmp ax,140h; and word [si+0Ch],0FFDFh; cmp al,8 / mov [si+8],al; add ax,0D0h / mov [di+18h],ax; mov word [di+8],0FF00h
 ; dispatch roles: coll_19_12, coll_19_27
-coll_19_12:
+coll_19_12_cap_fall_speed:
     pusha                                    ; 48B7E
     mov ax,[di+0x18]                         ; 48B7F
     mov dx,[si+0x4]                          ; 48B82
@@ -15318,14 +16825,24 @@ loc_8BD0:
     ret                                      ; 48BD6
     db 0x90   ; 48BD7
 
+; Swaps DI and SI, calls coll_19_12 (column caps fall speed) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_19_12
+; side effects: as coll_19_12
+; evidence: xchg di,si / call coll_19_12 / xchg di,si / ret
 ; dispatch roles: coll_12_19, coll_27_19
-coll_12_19:
+coll_12_19_cap_fall_speed_rev:
     xchg di,si                               ; 48BD8
-    call coll_19_12                          ; 48BDA
+    call coll_19_12_cap_fall_speed           ; 48BDA
     xchg di,si                               ; 48BDD
     ret                                      ; 48BDF
 
-coll_19_26:
+; As coll_19_12_cap_fall_speed for a type-26h object (SI), with |dx| < 180h and top set to SI.y + 90h. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 19 (matrix row), SI = object of type 26 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: SI+8, SI+0Ch, DI+18h, DI+8
+; side effects: none
+; evidence: cmp ax,180h; add ax,90h; mov word [di+8],0FF00h
+coll_19_26_cap_fall_speed:
     pusha                                    ; 48BE0
     mov ax,[di+0x18]                         ; 48BE1
     mov dx,[si+0x4]                          ; 48BE4
@@ -15372,13 +16889,23 @@ loc_8C32:
     ret                                      ; 48C38
     db 0x90   ; 48C39
 
-coll_26_19:
+; Swaps DI and SI, calls coll_19_26 (column caps fall speed) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_19_26
+; side effects: as coll_19_26
+; evidence: xchg di,si / call coll_19_26 / xchg di,si / ret
+coll_26_19_cap_fall_speed_rev:
     xchg di,si                               ; 48C3A
-    call coll_19_26                          ; 48C3C
+    call coll_19_26_cap_fall_speed           ; 48C3C
     xchg di,si                               ; 48C3F
     ret                                      ; 48C41
 
-sub_8C42:
+; Copies 64 bytes from 7000:8C20 to tile RAM 3820h (tiles 182h-185h) and 256 bytes from 7000:8B20 to 3720h (tiles 172h-181h). Tiles 172h + 4*n are drawn by obj1A_draw (the four key colours). [medium, reviewed: range_7B9C_A99F.json]
+; in:  none
+; out: tile RAM 3720h-385Fh
+; side effects: pusha/popa; restores DS = 0
+; evidence: cx=20h si=8C20h di=3820h rep movsw; cx=80h si=8B20h di=3720h rep movsw; called only from sub_1426 (gameplay graphics init)
+load_key_tiles:
     pusha                                    ; 48C42
     mov cx,0x20                              ; 48C43
     mov ax,0x7000                            ; 48C46
@@ -15402,7 +16929,12 @@ sub_8C42:
     ret                                      ; 48C70
     db 0x90   ; 48C71
 
-lvl09_spawn:
+; Creates a type-1Ah key at 8-unit-aligned (AX*16, DX*16) with colour +14h = CH & 3; deletes it again if that colour is already collected (bit in [13D1h]). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: slot +0 = 011Ah, +2/+4, +14h
+; side effects: none
+; evidence: and ch,3 / mov [di+14h],ch / shl al,cl / test [13D1h],al / mov byte [di],0
+lvl09_spawn_key:
     mov cl,0x4                               ; 48C72
     shl ax,cl                                ; 48C74
     shl dx,cl                                ; 48C76
@@ -15425,13 +16957,23 @@ loc_8CA0:
     ret                                      ; 48CA0
     db 0x90   ; 48CA1
 
-obj1A_update:
+; Marks the slot updated (+1 bit 1) and increments the animation counter +1Ch. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +1, +1Ch
+; side effects: none
+; evidence: or byte [di+1],2 / inc word [di+1Ch] / ret
+obj1a_update_anim_counter:
     or byte [di+0x1],0x2                     ; 48CA2
     inc word [di+0x1c]                       ; 48CA6
     ret                                      ; 48CA9
     db 0x00,0x01,0x02,0x01,0x00,0xFF,0xFE,0xFF   ; 48CAA
 
-obj1A_draw:
+; Draws the key as a 16x16 sprite (tiles 172h + 4*colour, attribute 2800h) bobbing by 0,+1,+2,+1,0,-1,-2,-1 px (table 4:8CAA indexed by +1Ch/8) along the screen-vertical axis. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: mov al,[cs:bx-7356h] (8CAAh); add dl,al / sub dh,al; mov al,[di+14h] / shl 2 / add ax,172h / or bp,2800h / jmp loc_D092
+obj1a_draw_key_bob:
     cmp word [0x1382],0x17f0                 ; 48CB2
     jc short loc_8CBB                        ; 48CB8
     ret                                      ; 48CBA
@@ -15456,24 +16998,34 @@ loc_8CD8:
     or bp,0x2800                             ; 48CE5
     jmp near loc_D092                        ; 48CE9
 
-coll_01_1A:
+; Player touches a key: sets bit (+14h) in [13D1h], redraws the four key icons on the HUD (sub_C608, tile map at 0800h), deletes the key, spawns effect 3Fh (subtype 2) and plays sound 23h. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 01 (matrix row), SI = object of type 1A (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: [13D1h] |= 1 << colour; SI type 0
+; side effects: HUD tiles via sub_BB5E; sound 23h; sub_D4A0 spawn
+; evidence: shl al,cl / or [13D1h],al / call sub_C608 / mov byte [si],0 / mov cx,2 / call sub_D4A0 / mov ax,23h / call sub_DD97
+coll_01_1a_collect_key:
     mov al,0x1                               ; 48CEC
     mov cl,[si+0x14]                         ; 48CEE
     shl al,cl                                ; 48CF1
     or [0x13d1],al                           ; 48CF3
-    call sub_C608                            ; 48CF7
+    call hud_draw_flags_13d1                 ; 48CF7
     push ax                                  ; 48CFA
     mov byte [si],0x0                        ; 48CFB
     mov ax,[si+0x2]                          ; 48CFE
     mov dx,[si+0x4]                          ; 48D01
     mov cx,0x2                               ; 48D04
-    call sub_D4A0                            ; 48D07
+    call spawn_sparkle_effect                ; 48D07
     pop ax                                   ; 48D0A
     mov ax,0x23                              ; 48D0B
-    call sub_DD97                            ; 48D0E
+    call sound_play                          ; 48D0E
     ret                                      ; 48D11
 
-sub_8D12:
+; Copies 512 bytes (32 16-byte 2bpp tiles) of sprite tile data from 7000:8C60 to 0000:AX (tile RAM). [high, reviewed: range_7B9C_A99F.json]
+; in:  AX = destination offset in segment 0 (tile RAM, 2000h + 16*tile)
+; out: tile RAM at 0000:AX..+200h
+; side effects: Leaves DS = 7000h (caller lvl0A_tick restores DS = 0); clobbers CX, SI, DI, ES.
+; evidence: mov di,ax / mov cx,100h / ds=7000h / si=8C60 / es=0 / rep movsw
+lvl0a_tiles_copy:
     rr mov, di, ax                           ; 48D12
     mov cx,0x100                             ; 48D14
     mov ax,0x7000                            ; 48D17
@@ -15484,8 +17036,13 @@ sub_8D12:
     rep movsw                                ; 48D23
     ret                                      ; 48D25
 
+; Once per Vision: if the VRAM tile base [1428h] is still 0, allocates 32 tiles downward from the tile allocator [1396h] (gives up if the new value would fall below 96h), stores the base tile in [1428h] and copies the tiles via sub_8D12. Shared by kinds 0Ah-0Dh and 0Fh (doors and the item gate use [1428h]). [high, reviewed: range_7B9C_A99F.json]
+; in:  ES:DI = level record, ES = 8000h (called once per record by sub_B4A2 from sub_B053 during Vision load, kind table 8:0192)
+; out: [1396h] -= 32, [1428h] = new base tile; tile RAM 2000h+16*base
+; side effects: Calls sub_8D12 (sets DS = 7000h) then restores DS = 0; all registers preserved (push ax/pusha).
+; evidence: cmp word [1428h],0 / ax=[1396h]-20h / cmp ax,96h jnc / mov [1396h],ax / mov [1428h],ax / shl ax,4 / add ax,2000h / call sub_8D12. [1396h] is reset to 14Bh and 1400h-142Fh cleared by sub_146A (state04_vision_load).
 ; dispatch roles: lvl0A_tick, lvl0B_tick, lvl0C_tick, lvl0D_tick, lvl0F_tick
-lvl0A_tick:
+lvl0a_load_tiles:
     cmp word [0x1428],byte +0x0              ; 48D26
     jnz short loc_8D51                       ; 48D2B
     push ax                                  ; 48D2D
@@ -15501,7 +17058,7 @@ loc_8D3B:
     mov [0x1428],ax                          ; 48D3F
     shl ax,byte 0x4                          ; 48D42
     add ax,0x2000                            ; 48D45
-    call sub_8D12                            ; 48D48
+    call lvl0a_tiles_copy                    ; 48D48
     rr xor, ax, ax                           ; 48D4B
     mov ds,ax                                ; 48D4D
     popa                                     ; 48D4F
@@ -15509,8 +17066,13 @@ loc_8D3B:
 loc_8D51:
     ret                                      ; 48D51
 
+; Shared by kinds 0Ah-0Dh: creates a type-1Ch door at 8-px-aligned (AX*16, DX*16) with colour +1Eh = kind - 0Ah (from SI), door id +14h = CH & 0Fh and +1Fh = FFh if bit id of [13D2h] (already opened) is set; a closed door marks a 4x4-tile (32x32) solid block in the collision map (sub_4436). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: slot +0 = 011Ch, +2/+4, +14h, +1Eh, +1Fh; collision map at 0C80h
+; side effects: none
+; evidence: mov ax,si / shr ax,1 / sub ax,0Ah / and al,3 / mov [di+1Eh],al; mov ax,[13D2h] / shr ax,cl / sbb al,al / mov [di+1Fh],al; mov bx,404h / call sub_4436
 ; dispatch roles: lvl0A_spawn, lvl0B_spawn, lvl0C_spawn, lvl0D_spawn
-lvl0A_spawn:
+lvl0a_spawn_locked_door:
     mov cl,0x4                               ; 48D52
     shl ax,cl                                ; 48D54
     shl dx,cl                                ; 48D56
@@ -15540,17 +17102,27 @@ lvl0A_spawn:
     sub ax,0x100                             ; 48D93
     sub dx,0x100                             ; 48D96
     mov bx,0x404                             ; 48D9A
-    call sub_4436                            ; 48D9D
+    call terrain_rect_set                    ; 48D9D
 loc_8DA0:
     ret                                      ; 48DA0
     db 0x90   ; 48DA1
 
-obj1C_update:
+; Only marks the slot as updated this frame (+1 bit 1). [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +1 bit 1
+; side effects: none
+; evidence: or byte [di+1],2 / ret
+obj1c_update_idle:
     or byte [di+0x1],0x2                     ; 48DA2
     ret                                      ; 48DA6
     db 0x90   ; 48DA7
 
-sub_8DA8:
+; Emits 12 sprites forming the border of a 32x32 square (top row of 4, two 2-sprite side rows, bottom row of 4) with consecutive tiles starting at BP, into the buffer at BX; layout rotated when play_flags bit 0 is set. [high, reviewed: range_7B9C_A99F.json]
+; in:  BX = sprite-list write position, BP = first tile/attr, DH/DL = screen centre
+; out: 12 sprite entries at BX; BX and BP advanced
+; side effects: Caller must reserve 30h bytes in [1382h]
+; evidence: loop cx=4 (add ah,8); add al,8 / add ah,18h pairs; test byte [play_flags],1 -> loc_8E10 rotated variant
+emit_sprite_frame_32:
     test byte [play_flags],0x1               ; 48DA8
     jnz short loc_8E10                       ; 48DAD
     sub dh,0x10                              ; 48DAF
@@ -15643,7 +17215,12 @@ loc_8E62:
     loop loc_8E62                            ; 48E6D
     ret                                      ; 48E6F
 
-obj1C_draw:
+; Door draw: while closed (+1Fh = 0) emits the 32x32 frame (emit_sprite_frame_32, tiles [1428h], attribute 2C00h) and then the 16x16 colour emblem (tile [1428h] + 0Ch + 4*colour, attribute 2600h via loc_D092); when open only the emblem. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: cmp byte [di+1Fh],0; add word [1382h],30h; bp=[1428h]|2C00h; call sub_8DA8; al=[di+1Eh] / shl 2 / add ax,[1428h] / add ax,260Ch / jmp loc_D092
+obj1c_draw_door:
     cmp byte [di+0x1f],0x0                   ; 48E70
     jz short loc_8E82                        ; 48E74
     cmp word [0x1382],0x17e8                 ; 48E76
@@ -15661,7 +17238,7 @@ loc_8E8B:
     mov bp,[0x1428]                          ; 48E94
     or bp,0x2c00                             ; 48E98
     push dx                                  ; 48E9C
-    call sub_8DA8                            ; 48E9D
+    call emit_sprite_frame_32                ; 48E9D
     pop dx                                   ; 48EA0
 loc_8EA1:
     mov al,[di+0x1e]                         ; 48EA1
@@ -15674,7 +17251,12 @@ loc_8EA1:
     jmp near loc_D092                        ; 48EB2
     db 0x90   ; 48EB5
 
-coll_01_1C:
+; Player touches a closed door whose key colour (+1Eh) is in [13D1h]: records it open in [13D2h] (bit +14h), clears the 32x32 solid block (sub_445B), plays sound 21h, sets +1Fh = FFh and spawns effect 3Fh (subtype 2). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 01 (matrix row), SI = object of type 1C (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: [13D2h] |= 1 << id; collision map cleared; SI+1Fh = FFh
+; side effects: sound 21h, sub_D4A0 spawn
+; evidence: cmp byte [si+1Fh],0; test [13D1h],al; or [13D2h],ax; mov bx,404h / call sub_445B; mov ax,21h / call sub_DD97; mov byte [si+1Fh],0FFh
+coll_01_1c_unlock_door:
     cmp byte [si+0x1f],0x0                   ; 48EB6
     jnz short loc_8F00                       ; 48EBA
     mov cl,[si+0x1e]                         ; 48EBC
@@ -15691,21 +17273,26 @@ coll_01_1C:
     sub ax,0x100                             ; 48EDB
     sub dx,0x100                             ; 48EDE
     mov bx,0x404                             ; 48EE2
-    call sub_445B                            ; 48EE5
+    call terrain_rect_clear                  ; 48EE5
     mov ax,0x21                              ; 48EE8
-    call sub_DD97                            ; 48EEB
+    call sound_play                          ; 48EEB
     mov byte [si+0x1f],0xff                  ; 48EEE
     push ax                                  ; 48EF2
     mov ax,[si+0x2]                          ; 48EF3
     mov dx,[si+0x4]                          ; 48EF6
     mov cx,0x2                               ; 48EF9
-    call sub_D4A0                            ; 48EFC
+    call spawn_sparkle_effect                ; 48EFC
     pop ax                                   ; 48EFF
 loc_8F00:
     ret                                      ; 48F00
     db 0x90   ; 48F01
 
-lvl0E_spawn:
+; Creates a type-1Dh item at 8-unit-aligned (AX*16, DX*16) with index +14h = CH & 3; deletes it if bit index of [13D0h] is already set. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: slot +0 = 011Dh, +2/+4, +14h
+; side effects: none
+; evidence: and ch,3 / test [13D0h],al / mov byte [di],0
+lvl0e_spawn_set_item:
     mov cl,0x4                               ; 48F02
     shl ax,cl                                ; 48F04
     shl dx,cl                                ; 48F06
@@ -15728,12 +17315,22 @@ loc_8F30:
     ret                                      ; 48F30
     db 0x90   ; 48F31
 
-obj1D_update:
+; Marks the slot updated and increments +1Ch. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +1, +1Ch
+; side effects: none
+; evidence: or byte [di+1],2 / inc word [di+1Ch] / ret
+obj1d_update_anim_counter:
     or byte [di+0x1],0x2                     ; 48F32
     inc word [di+0x1c]                       ; 48F36
     ret                                      ; 48F39
 
-obj1D_draw:
+; Draws the item as one 16x16 sprite group, tile 1B7h attribute 2C00h (loc_D092). [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: cmp word [1382h],17E8h / mov bp,2DB7h / jmp loc_D092
+obj1d_draw_16px:
     cmp word [0x1382],0x17e8                 ; 48F3A
     jc short loc_8F43                        ; 48F40
     ret                                      ; 48F42
@@ -15742,7 +17339,12 @@ loc_8F43:
     jmp near loc_D092                        ; 48F46
     db 0x90   ; 48F49
 
-coll_01_1D:
+; Player touches item 1Dh: sets bit +14h in [13D0h], deletes it, spawns effect 3Fh (subtype 3), redraws the HUD count of bits 0-2 (sub_C678), plays sound 24h (25h when all three bits are set) and, when all three are collected, spawns a type-3Bh object via sub_D6AE (AX = 8, DX = 0). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 01 (matrix row), SI = object of type 1D (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: [13D0h] |= 1 << index; SI type 0
+; side effects: sounds 24h/25h, HUD tiles, sub_D4A0/sub_D6AE spawns
+; evidence: or [13D0h],al; mov cx,3 / call sub_D4A0; call sub_C678; mov ax,24h ... mov ax,25h / call sub_DD97; and al,7 / cmp al,7 / mov ax,8 / call sub_D6AE
+coll_01_1d_collect_set_item:
     mov al,0x1                               ; 48F4A
     mov cl,[si+0x14]                         ; 48F4C
     shl al,cl                                ; 48F4F
@@ -15752,9 +17354,9 @@ coll_01_1D:
     mov ax,[si+0x2]                          ; 48F59
     mov dx,[si+0x4]                          ; 48F5C
     mov cx,0x3                               ; 48F5F
-    call sub_D4A0                            ; 48F62
+    call spawn_sparkle_effect                ; 48F62
     pop ax                                   ; 48F65
-    call sub_C678                            ; 48F66
+    call hud_draw_count_13d0                 ; 48F66
     mov ax,0x24                              ; 48F69
     mov dl,[0x13d0]                          ; 48F6C
     shr dl,1                                 ; 48F70
@@ -15765,18 +17367,23 @@ coll_01_1D:
     jnc short loc_8F7F                       ; 48F7A
     mov ax,0x25                              ; 48F7C
 loc_8F7F:
-    call sub_DD97                            ; 48F7F
+    call sound_play                          ; 48F7F
     mov al,[0x13d0]                          ; 48F82
     and al,0x7                               ; 48F85
     cmp al,0x7                               ; 48F87
     jnz short loc_8F93                       ; 48F89
     mov ax,0x8                               ; 48F8B
     rr xor, dx, dx                           ; 48F8E
-    call sub_D6AE                            ; 48F90
+    call start_palette_fade                  ; 48F90
 loc_8F93:
     ret                                      ; 48F93
 
-lvl0F_spawn:
+; Creates a type-1Eh gate at 8-px-aligned (AX*16, DX*16) unless [13D0h] bit 7 (gate opened) is set; marks a 32x32 solid block in the collision map. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: slot +0 = 011Eh, +2/+4; collision map
+; side effects: none
+; evidence: mov al,[13D0h] / shl al,1 / jnc; mov bx,404h / call sub_4436
+lvl0f_spawn_item_gate:
     mov cl,0x4                               ; 48F94
     shl ax,cl                                ; 48F96
     shl dx,cl                                ; 48F98
@@ -15798,15 +17405,25 @@ loc_8FB8:
     sub ax,0x100                             ; 48FBE
     sub dx,0x100                             ; 48FC1
     mov bx,0x404                             ; 48FC5
-    call sub_4436                            ; 48FC8
+    call terrain_rect_set                    ; 48FC8
     ret                                      ; 48FCB
 
-obj1E_update:
+; Marks the slot updated and increments +1Ch. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +1, +1Ch
+; side effects: none
+; evidence: or byte [di+1],2 / inc word [di+1Ch] / ret
+obj1e_update_anim_counter:
     or byte [di+0x1],0x2                     ; 48FCC
     inc word [di+0x1c]                       ; 48FD0
     ret                                      ; 48FD3
 
-obj1E_draw:
+; Draws the gate: 32x32 frame (emit_sprite_frame_32 with tiles [1428h], attribute 2C00h) plus a 16x16 emblem at tile [1428h] + 1Ch (attribute 2600h). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: add word [1382h],30h / bp=[1428h]|2C00h / call sub_8DA8 / add ax,261Ch / jmp loc_D092
+obj1e_draw_gate:
     cmp word [0x1382],0x17b8                 ; 48FD4
     jc short loc_8FDD                        ; 48FDA
     ret                                      ; 48FDC
@@ -15816,17 +17433,22 @@ loc_8FDD:
     mov bp,[0x1428]                          ; 48FE6
     or bp,0x2c00                             ; 48FEA
     push dx                                  ; 48FEE
-    call sub_8DA8                            ; 48FEF
+    call emit_sprite_frame_32                ; 48FEF
     pop dx                                   ; 48FF2
     mov ax,[0x1428]                          ; 48FF3
     add ax,0x261c                            ; 48FF6
     rr mov, bp, ax                           ; 48FF9
     jmp near loc_D092                        ; 48FFB
 
-coll_01_1E:
+; Player within 280h of the gate with all three items ([13D0h] bits 0-2): sets [13D0h] bit 7, clears the 32x32 solid block, plays sound 22h and deletes the gate. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 01 (matrix row), SI = object of type 1E (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: [13D0h] |= 80h; collision map; SI type 0
+; side effects: sound 22h
+; evidence: mov bx,280h / mov cx,280h / call sub_6124; shr al,1 x3 jnc; or byte [13D0h],80h; call sub_445B; mov ax,22h
+coll_01_1e_open_item_gate:
     mov bx,0x280                             ; 48FFE
     mov cx,0x280                             ; 49001
-    call sub_6124                            ; 49004
+    call obj_within_box                      ; 49004
     jnc short loc_9039                       ; 49007
     mov al,[0x13d0]                          ; 49009
     shr al,1                                 ; 4900C
@@ -15841,14 +17463,19 @@ coll_01_1E:
     sub ax,0x100                             ; 49023
     sub dx,0x100                             ; 49026
     mov bx,0x404                             ; 4902A
-    call sub_445B                            ; 4902D
+    call terrain_rect_clear                  ; 4902D
     mov ax,0x22                              ; 49030
-    call sub_DD97                            ; 49033
+    call sound_play                          ; 49033
     mov byte [si],0x0                        ; 49036
 loc_9039:
     ret                                      ; 49039
 
-sub_903A:
+; Copies 144 bytes from 7000:8E60 to tile RAM 0000:3DA0 (tiles 1DAh-1E2h); used by the switch objects (2DDEh/29DAh) and the pressure plate (29DFh). [medium, reviewed: range_7B9C_A99F.json]
+; in:  none
+; out: tile RAM 0000:3DA0..+90h
+; side effects: pusha/popa; restores DS = 0.
+; evidence: cx=48h, ds:si=7000:8E60, es:di=0000:3DA0, rep movsw; called only from sub_1426 (gameplay graphics init, 4:1435-143E)
+load_switch_tiles:
     pusha                                    ; 4903A
     mov cx,0x48                              ; 4903B
     mov ax,0x7000                            ; 4903E
@@ -15864,7 +17491,12 @@ sub_903A:
     ret                                      ; 49054
     db 0x90   ; 49055
 
-lvl10_spawn:
+; Creates a type-1Fh switch with id +1Eh = CH & 0Fh; starts in state 2 (on) if bit id of [13D4h] is already set. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: slot +0 = 011Fh, +2/+4, +1Eh, +14h
+; side effects: none
+; evidence: and ch,0Fh / mov [di+1Eh],ch / test [13D4h],ax / mov byte [di+14h],2
+lvl10_spawn_switch:
     mov cl,0x4                               ; 49056
     shl ax,cl                                ; 49058
     shl dx,cl                                ; 4905A
@@ -15884,7 +17516,12 @@ lvl10_spawn:
 loc_907F:
     ret                                      ; 4907F
 
-obj1F_update:
+; Switch state machine: in odd states (1 = activating, 3) counts +1Ch and after 16 frames advances +14h to the next state (mod 4); even states are static. State 1 is entered by sub_6000 when hit. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +14h, +1Ch
+; side effects: none
+; evidence: shr al,1 / jnc ret; inc word [di+1Ch] / cmp ...,10h / ja; inc al / and al,3 / mov [di+14h],al
+obj1f_update_switch:
     or byte [di+0x1],0x2                     ; 49080
     mov al,[di+0x14]                         ; 49084
     shr al,1                                 ; 49087
@@ -15901,8 +17538,13 @@ loc_9095:
     mov [di+0x14],al                         ; 4909C
     ret                                      ; 4909F
 
+; State-0 draw for types 20h/22h: Emits small 8x8 particle sprites (tile 1DEh, attribute 2C00h) around the switch and then the 16x16 orb (tile 1DAh, attribute 2800h) via loc_D092; two particles at fixed offsets (16 px apart). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: mov bp,2DDEh; sub ah,3 / sub al,0Ch / add al,10h; mov bp,29DAh / jmp loc_D092
 ; dispatch roles: obj20_draw_case0, obj22_draw_case0
-obj20_draw_case0:
+obj20_draw_idle:
     push dx                                  ; 490A0
     mov bx,[0x1382]                          ; 490A1
     add word [0x1382],byte +0x8              ; 490A5
@@ -15935,7 +17577,12 @@ loc_90E4:
     mov bp,0x29da                            ; 490E5
     jmp near loc_D092                        ; 490E8
 
-obj1F_draw_case1:
+; State-1 draw for type 1Fh: two particles that close in as +1Ch grows, orb bobbing via sine table 4:B5CA. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: mov cx,[di+1Ch] / shr cl,1 / sub ah,cl / add ah,cl; mov ax,[cs:bx-4A36h] / sar al,2 / add dh,al; jmp loc_D092
+obj1f_draw_activating:
     push dx                                  ; 490EB
     mov bx,[0x1382]                          ; 490EC
     add word [0x1382],byte +0x8              ; 490F0
@@ -15983,7 +17630,12 @@ loc_913E:
     mov bp,0x29da                            ; 49151
     jmp near loc_D092                        ; 49154
 
-obj1F_draw_case2:
+; State-2 (on) draw for type 1Fh, also used by obj21_draw when its group bit is set: one centred particle plus the orb. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: add word [1382h],4 / bp=2DDEh / sub ah,4 / sub al,4; bp=29DAh / jmp loc_D092
+obj1f_draw_on:
     push dx                                  ; 49157
     mov bx,[0x1382]                          ; 49158
     add word [0x1382],byte +0x4              ; 4915C
@@ -15998,18 +17650,28 @@ obj1F_draw_case2:
     mov bp,0x29da                            ; 49174
     jmp near loc_D092                        ; 49177
 
-obj1F_draw_case3:
+; State-3 entry of the obj1F draw table: draws nothing. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: none
+; side effects: none
+; evidence: ret
+obj1f_draw_none:
     ret                                      ; 4917A
 
 ; jump table tbl_917B: 4 words, bound: adjacent (first use at 49194)
 tbl_917B:
-    dw obj1F_draw_case0
-    dw obj1F_draw_case1
-    dw obj1F_draw_case2
-    dw obj1F_draw_case3
+    dw obj1f_draw_idle
+    dw obj1f_draw_activating
+    dw obj1f_draw_on
+    dw obj1f_draw_none
     db 0x90   ; 49183
 
-obj1F_draw:
+; Draw dispatcher for type 1Fh: if room (< 17E0h) jumps through tbl_917B by state +14h. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: cmp word [1382h],17E0h / mov bl,[di+14h] / jmp [cs:bx+tbl_917B]
+obj1f_draw_switch:
     cmp word [0x1382],0x17e0                 ; 49184
     jc short loc_918D                        ; 4918A
     ret                                      ; 4918C
@@ -16020,59 +17682,104 @@ loc_918D:
     jmp [cs:bx+tbl_917B]                     ; 49194
     db 0x90   ; 49199
 
+; Object 02h (DI) hits switch 1Fh/20h (SI): sub_6000 - if SI state is 0 sets state 1 and bit SI+1Eh in [13D4h]; if state 2 restarts its timer (+1Ch = 0). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 02 (matrix row), SI = object of type 1F/20 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: SI+14h, SI+1Ch, [13D4h]
+; side effects: none
+; evidence: call sub_6000 / ret
 ; dispatch roles: coll_02_1F, coll_02_20
-coll_02_1F:
+coll_02_1f_hit_switch:
     call sub_6000                            ; 4919A
     ret                                      ; 4919D
 
+; Swaps DI and SI, calls coll_02_1F (switch hit) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_02_1F
+; side effects: as coll_02_1F
+; evidence: xchg di,si / call coll_02_1F / xchg di,si / ret
 ; dispatch roles: coll_1F_02, coll_20_02
-coll_1F_02:
+coll_1f_02_hit_switch_rev:
     xchg di,si                               ; 4919E
-    call coll_02_1F                          ; 491A0
+    call coll_02_1f_hit_switch               ; 491A0
     xchg di,si                               ; 491A3
     ret                                      ; 491A5
 
+; Activates switch SI (sub_6000) and defeats DI (sub_79A6: type 3Eh + puff 16h). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 0B/0C/0D/10 (matrix row), SI = object of type 1F/20 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: SI switch state/[13D4h]; DI type 3Eh
+; side effects: spawns type 16h
+; evidence: call sub_6000 / jmp sub_79A6
 ; dispatch roles: coll_0B_1F, coll_0B_20, coll_0C_1F, coll_0C_20, coll_0D_1F, coll_10_1F
-coll_0B_1F:
+coll_0b_1f_hit_switch_poof:
     call sub_6000                            ; 491A6
-    jmp near sub_79A6                        ; 491A9
+    jmp near obj_kill_with_burst             ; 491A9
 
+; Swaps DI and SI, calls coll_0B_1F (switch hit, hitter defeated) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_0B_1F
+; side effects: as coll_0B_1F
+; evidence: xchg di,si / call coll_0B_1F / xchg di,si / ret
 ; dispatch roles: coll_1F_0B, coll_1F_0C, coll_20_0B, coll_20_0C
-coll_1F_0B:
+coll_1f_0b_hit_switch_poof_rev:
     xchg di,si                               ; 491AC
-    call coll_0B_1F                          ; 491AE
+    call coll_0b_1f_hit_switch_poof          ; 491AE
     xchg di,si                               ; 491B1
     ret                                      ; 491B3
 
+; Activates switch SI (sub_6000) and deletes DI with an explosion burst (sub_812F). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 0D/10 (matrix row), SI = object of type 20 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: SI switch state/[13D4h]; DI type 0
+; side effects: sub_812F spawn
+; evidence: call sub_6000 / mov byte [di],0 / ... / jmp sub_812F
 ; dispatch roles: coll_0D_20, coll_10_20
-coll_0D_20:
+coll_0d_20_hit_switch_explode:
     call sub_6000                            ; 491B4
     mov byte [di],0x0                        ; 491B7
     mov ax,[di+0x2]                          ; 491BA
     mov dx,[di+0x4]                          ; 491BD
     mov ch,[di+0x15]                         ; 491C0
-    jmp near sub_812F                        ; 491C3
+    jmp near spawn_explosion_burst           ; 491C3
 
+; Swaps DI and SI, calls coll_0D_20 (switch hit, hitter explodes) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_0D_20
+; side effects: as coll_0D_20
+; evidence: xchg di,si / call coll_0D_20 / xchg di,si / ret
 ; dispatch roles: coll_1F_0D, coll_1F_10, coll_20_0D, coll_20_10
-coll_1F_0D:
+coll_1F_0D_coll_20_0d_hit_switch_explode_rev:
     xchg di,si                               ; 491C6
-    call coll_0D_20                          ; 491C8
+    call coll_0d_20_hit_switch_explode       ; 491C8
     xchg di,si                               ; 491CB
     ret                                      ; 491CD
 
+; Activates switch SI (jmp sub_6000); used for blocks and other heavy objects (12h/15h/27h/29h) touching switches 1Fh/20h. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 12/15/27/29 (matrix row), SI = object of type 1F/20 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: SI switch state/[13D4h]
+; side effects: none
+; evidence: jmp sub_6000
 ; dispatch roles: coll_12_1F, coll_12_20, coll_15_1F, coll_15_20, coll_27_1F, coll_27_20, coll_29_1F, coll_29_20
-coll_12_1F:
+coll_12_1f_hit_switch:
     jmp near sub_6000                        ; 491CE
     db 0x90   ; 491D1
 
+; Swaps DI and SI, calls coll_12_1F (switch hit) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_12_1F
+; side effects: as coll_12_1F
+; evidence: xchg di,si / call coll_12_1F / xchg di,si / ret
 ; dispatch roles: coll_1F_12, coll_1F_15, coll_1F_27, coll_1F_29, coll_20_12, coll_20_15, coll_20_27, coll_20_29
-coll_1F_12:
+coll_1f_12_hit_switch_rev:
     xchg di,si                               ; 491D2
-    call coll_12_1F                          ; 491D4
+    call coll_12_1f_hit_switch               ; 491D4
     xchg di,si                               ; 491D7
     ret                                      ; 491D9
 
-lvl11_spawn:
+; Creates a type-20h timed switch: +18h = BP (on-duration in frames), id +1Eh = CH & 0Fh, and clears bit id of [13D4h]. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: slot +0 = 0120h, +2/+4, +18h, +1Eh; [13D4h] bit cleared
+; side effects: none
+; evidence: mov [di+18h],bp / not ax / and [13D4h],ax
+lvl11_spawn_timed_switch:
     mov cl,0x4                               ; 491DA
     shl ax,cl                                ; 491DC
     shl dx,cl                                ; 491DE
@@ -16091,13 +17798,23 @@ lvl11_spawn:
     and [0x13d4],ax                          ; 491FE
     ret                                      ; 49202
 
-obj20_update_case0:
+; State 0: just counts +1Ch. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +1Ch
+; side effects: none
+; evidence: inc / mov [di+1Ch],ax / ret
+obj20_update_idle:
     mov ax,[di+0x1c]                         ; 49203
     inc ax                                   ; 49206
     mov [di+0x1c],ax                         ; 49207
     ret                                      ; 4920A
 
-obj20_update_case1:
+; State 1: after 32 frames switches to state 2 and resets +1Ch. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +14h, +1Ch
+; side effects: none
+; evidence: cmp ax,20h / mov byte [di+14h],2
+obj20_update_activating:
     mov ax,[di+0x1c]                         ; 4920B
     inc ax                                   ; 4920E
     mov [di+0x1c],ax                         ; 4920F
@@ -16108,7 +17825,12 @@ obj20_update_case1:
 loc_9220:
     ret                                      ; 49220
 
-obj20_update_case2:
+; State 2: after +18h frames (spawn parameter) switches to state 3. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +14h, +1Ch
+; side effects: none
+; evidence: cmp ax,[di+18h] / mov byte [di+14h],3
+obj20_update_active:
     mov ax,[di+0x1c]                         ; 49221
     inc ax                                   ; 49224
     mov [di+0x1c],ax                         ; 49225
@@ -16119,7 +17841,12 @@ obj20_update_case2:
 loc_9236:
     ret                                      ; 49236
 
-obj20_update_case3:
+; State 3: after 32 frames returns to state 0 and clears bit +1Eh of [13D4h] (switch off). [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +14h, +1Ch, [13D4h]
+; side effects: none
+; evidence: cmp ax,20h / mov byte [di+14h],0 / not ax / and [13D4h],ax
+obj20_update_deactivating:
     mov ax,[di+0x1c]                         ; 49237
     inc ax                                   ; 4923A
     mov [di+0x1c],ax                         ; 4923B
@@ -16137,20 +17864,30 @@ loc_925A:
 
 ; jump table tbl_925B: 4 words, bound: adjacent (first use at 4926F)
 tbl_925B:
-    dw obj20_update_case0
-    dw obj20_update_case1
-    dw obj20_update_case2
-    dw obj20_update_case3
+    dw obj20_update_idle
+    dw obj20_update_activating
+    dw obj20_update_active
+    dw obj20_update_deactivating
     db 0x90   ; 49263
 
-obj20_update:
+; Type 20h update: marks updated and dispatches on state +14h through tbl_925B (idle / activating / active for +18h frames / deactivating). [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: see cases
+; side effects: none
+; evidence: or byte [di+1],2 / mov bl,[di+14h] / jmp [cs:bx+tbl_925B]
+obj20_update_timed_switch:
     or byte [di+0x1],0x2                     ; 49264
     rr xor, bx, bx                           ; 49268
     mov bl,[di+0x14]                         ; 4926A
     shl bx,1                                 ; 4926D
     jmp [cs:bx+tbl_925B]                     ; 4926F
 
-obj20_draw_case1:
+; State-1 draw for type 20h: two particles orbiting the orb (sine/cosine tables 4:B5CA/B60A indexed by +1Ch), orb bobbing. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: mov ax,[cs:si-4A36h] / mov cx,[cs:si-49F6h] / add ah,ch / add al,cl / sub ...; jmp loc_D092
+obj20_draw_activating:
     push dx                                  ; 49274
     sub dh,0x3                               ; 49275
     sub dl,0x4                               ; 49278
@@ -16203,8 +17940,13 @@ loc_92DC:
     mov bp,0x29da                            ; 492EF
     jmp near loc_D092                        ; 492F2
 
+; Shared draw (type 1Fh state 0, type 20h state 2): two particles at fixed offsets 16 px apart plus the orb. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: sub al,4 / sub ah,0Bh / add ah,10h; bp=29DAh / jmp loc_D092
 ; dispatch roles: obj1F_draw_case0, obj20_draw_case2
-obj1F_draw_case0:
+obj1f_draw_idle:
     push dx                                  ; 492F5
     mov bx,[0x1382]                          ; 492F6
     add word [0x1382],byte +0x8              ; 492FA
@@ -16235,7 +17977,12 @@ loc_9337:
     mov bp,0x29da                            ; 49338
     jmp near loc_D092                        ; 4933B
 
-obj20_draw_case3:
+; State-3 draw for type 20h: like obj20_draw_activating with the sine/cosine tables swapped. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: mov ax,[cs:si-49F6h] / mov cx,[cs:si-4A36h]
+obj20_draw_deactivating:
     push dx                                  ; 4933E
     sub dh,0x3                               ; 4933F
     sub dl,0x4                               ; 49342
@@ -16290,13 +18037,18 @@ loc_93A6:
 
 ; jump table tbl_93BF: 4 words, bound: adjacent (first use at 4941B)
 tbl_93BF:
-    dw obj20_draw_case0
-    dw obj20_draw_case1
-    dw obj1F_draw_case0
-    dw obj20_draw_case3
+    dw obj20_draw_idle
+    dw obj20_draw_activating
+    dw obj1f_draw_idle
+    dw obj20_draw_deactivating
     db 0x90   ; 493C7
 
-obj20_draw:
+; Draw dispatcher for type 20h: if room (< 17D8h) emits two fixed particles, then jumps through tbl_93BF by state. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: cmp word [1382h],17D8h / add word [1382h],8 / ... / jmp [cs:bx+tbl_93BF]
+obj20_draw_timed_switch:
     cmp word [0x1382],0x17d8                 ; 493C8
     jc short loc_93D1                        ; 493CE
     ret                                      ; 493D0
@@ -16333,7 +18085,12 @@ loc_9413:
     shl bx,1                                 ; 49419
     jmp [cs:bx+tbl_93BF]                     ; 4941B
 
-lvl12_spawn:
+; Creates a type-21h switch: +18h = BP (on-duration), id +1Eh = CH & 0Fh, state 2 if bit id of [13D4h] is set; then links it with the other type-21h objects having the same id through +1Ah (if another already has a link this one points to it, else that one points here), forming a group. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: slot +0 = 0121h, +2/+4, +18h, +1Eh, +14h, +1Ah; other slots' +1Ah
+; side effects: none
+; evidence: mov si,3C0h / add si,20h / cmp byte [si],21h / cmp al,[si+1Eh] / cmp word [si+1Ah],0 / mov [di+1Ah],si / mov [si+1Ah],di
+lvl12_spawn_linked_switch:
     mov cl,0x4                               ; 49420
     shl ax,cl                                ; 49422
     shl dx,cl                                ; 49424
@@ -16374,13 +18131,23 @@ loc_9475:
 loc_947B:
     ret                                      ; 4947B
 
-obj21_update_case0:
+; State 0: counts +1Ch. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +1Ch
+; side effects: none
+; evidence: inc ax / mov [di+1Ch],ax
+obj21_update_idle:
     mov ax,[di+0x1c]                         ; 4947C
     inc ax                                   ; 4947F
     mov [di+0x1c],ax                         ; 49480
     ret                                      ; 49483
 
-obj21_update_case1:
+; State 1: after 32 frames enters state 2. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +14h, +1Ch
+; side effects: none
+; evidence: cmp ax,20h / mov byte [di+14h],2
+obj21_update_activating:
     mov ax,[di+0x1c]                         ; 49484
     inc ax                                   ; 49487
     mov [di+0x1c],ax                         ; 49488
@@ -16391,7 +18158,12 @@ obj21_update_case1:
 loc_9499:
     ret                                      ; 49499
 
-obj21_update_case2:
+; State 2: if the group bit +1Eh of [13D4h] is not yet set and the linked switch (+1Ah) and its own link are both in state 2, sets the bit (group solved, permanent); otherwise counts +1Ch and after +18h frames enters state 3. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: [13D4h], +14h, +1Ch
+; side effects: none
+; evidence: test [13D4h],ax / mov si,[di+1Ah] / cmp byte [si+14h],2 / mov bx,[si+1Ah] / cmp byte [bx+14h],2 / or [13D4h],ax; cmp ax,[di+18h] / mov byte [di+14h],3
+obj21_update_active_check_group:
     mov cl,[di+0x1e]                         ; 4949A
     mov ax,0x1                               ; 4949D
     shl ax,cl                                ; 494A0
@@ -16422,7 +18194,12 @@ loc_94CE:
 loc_94E3:
     ret                                      ; 494E3
 
-obj21_update_case3:
+; State 3: after 32 frames returns to state 0 and clears bit +1Eh of [13D4h]. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +14h, +1Ch, [13D4h]
+; side effects: none
+; evidence: cmp ax,20h / mov byte [di+14h],0 / not ax / and [13D4h],ax
+obj21_update_deactivating:
     mov ax,[di+0x1c]                         ; 494E4
     inc ax                                   ; 494E7
     mov [di+0x1c],ax                         ; 494E8
@@ -16440,19 +18217,29 @@ loc_9507:
 
 ; jump table tbl_9508: 4 words, bound: adjacent (first use at 4951B)
 tbl_9508:
-    dw obj21_update_case0
-    dw obj21_update_case1
-    dw obj21_update_case2
-    dw obj21_update_case3
+    dw obj21_update_idle
+    dw obj21_update_activating
+    dw obj21_update_active_check_group
+    dw obj21_update_deactivating
 
-obj21_update:
+; Type 21h update: marks updated and dispatches on state through tbl_9508. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: see cases
+; side effects: none
+; evidence: or byte [di+1],2 / jmp [cs:bx+tbl_9508]
+obj21_update_linked_switch:
     or byte [di+0x1],0x2                     ; 49510
     rr xor, bx, bx                           ; 49514
     mov bl,[di+0x14]                         ; 49516
     shl bx,1                                 ; 49519
     jmp [cs:bx+tbl_9508]                     ; 4951B
 
-obj21_draw_case0:
+; State-0 draw for type 21h: one particle at a fixed offset plus the orb. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: sub dh,3 / sub dl,0Ch / mov bp,29DAh / jmp loc_D092
+obj21_draw_idle:
     push dx                                  ; 49520
     mov bx,[0x1382]                          ; 49521
     add word [0x1382],byte +0x4              ; 49525
@@ -16474,7 +18261,12 @@ loc_954D:
     mov bp,0x29da                            ; 4954E
     jmp near loc_D092                        ; 49551
 
-obj21_draw_case1:
+; State-1 draw for type 21h: one particle moving on the sine/cosine tables (subtracting), orb bobbing. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: mov ax,[cs:si-4A36h] / sar ax,1 / sub dh,al
+obj21_draw_activating:
     push dx                                  ; 49554
     sub dh,0x3                               ; 49555
     sub dl,0x4                               ; 49558
@@ -16515,7 +18307,12 @@ loc_959D:
     mov bp,0x29da                            ; 495B8
     jmp near loc_D092                        ; 495BB
 
-obj21_draw_case2:
+; State-2 draw for type 21h: one particle at the opposite fixed offset plus the orb. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: sub dh,3 / add dl,4 / jmp loc_D092
+obj21_draw_active:
     push dx                                  ; 495BE
     mov bx,[0x1382]                          ; 495BF
     add word [0x1382],byte +0x4              ; 495C3
@@ -16537,7 +18334,12 @@ loc_95EB:
     mov bp,0x29da                            ; 495EC
     jmp near loc_D092                        ; 495EF
 
-obj21_draw_case3:
+; State-3 draw for type 21h: one particle moving on the sine/cosine tables (adding), orb bobbing. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: add dh,al / add dl,al
+obj21_draw_deactivating:
     push dx                                  ; 495F2
     sub dh,0x3                               ; 495F3
     sub dl,0x4                               ; 495F6
@@ -16580,12 +18382,17 @@ loc_963B:
 
 ; jump table tbl_965C: 4 words, bound: adjacent (first use at 49682)
 tbl_965C:
-    dw obj21_draw_case0
-    dw obj21_draw_case1
-    dw obj21_draw_case2
-    dw obj21_draw_case3
+    dw obj21_draw_idle
+    dw obj21_draw_activating
+    dw obj21_draw_active
+    dw obj21_draw_deactivating
 
-obj21_draw:
+; Draw dispatcher for type 21h: when the group bit in [13D4h] is set draws the solved pose (obj1F_draw_on), else jumps through tbl_965C by state. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: test [13D4h],ax / jnz -> jmp obj1F_draw_case2; jmp [cs:bx+tbl_965C]
+obj21_draw_linked_switch:
     cmp word [0x1382],0x17e0                 ; 49664
     jc short loc_966D                        ; 4966A
     ret                                      ; 4966C
@@ -16600,61 +18407,106 @@ loc_966D:
     shl bx,1                                 ; 49680
     jmp [cs:bx+tbl_965C]                     ; 49682
 loc_9687:
-    jmp near obj1F_draw_case2                ; 49687
+    jmp near obj1f_draw_on                   ; 49687
 
+; Hit on switch 21h/22h (SI) via sub_5FDB: if its state is 0 and it is type 21h or its +1Ch >= 100, enters state 1; if state 2 (or just set to 1) clears +1Ch. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 02 (matrix row), SI = object of type 21/22 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: SI+14h, SI+1Ch
+; side effects: none
+; evidence: jmp sub_5FDB
 ; dispatch roles: coll_02_21, coll_02_22
-coll_02_21:
+coll_02_21_hit_switch:
     jmp near sub_5FDB                        ; 4968A
     db 0x90   ; 4968D
 
+; Swaps DI and SI, calls coll_02_21 (switch hit) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_02_21
+; side effects: as coll_02_21
+; evidence: xchg di,si / call coll_02_21 / xchg di,si / ret
 ; dispatch roles: coll_21_02, coll_22_02
-coll_21_02:
+coll_21_02_hit_switch_rev:
     xchg di,si                               ; 4968E
-    call coll_02_21                          ; 49690
+    call coll_02_21_hit_switch               ; 49690
     xchg di,si                               ; 49693
     ret                                      ; 49695
 
+; Hits switch SI (sub_5FDB) and defeats DI (sub_79A6). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 0B/0C (matrix row), SI = object of type 21/22 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: SI state; DI type 3Eh
+; side effects: spawns 16h
+; evidence: call sub_5FDB / jmp sub_79A6
 ; dispatch roles: coll_0B_21, coll_0B_22, coll_0C_21, coll_0C_22
-coll_0B_21:
+coll_0b_21_hit_switch_poof:
     call sub_5FDB                            ; 49696
-    jmp near sub_79A6                        ; 49699
+    jmp near obj_kill_with_burst             ; 49699
 
+; Swaps DI and SI, calls coll_0B_21 (switch hit, hitter defeated) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_0B_21
+; side effects: as coll_0B_21
+; evidence: xchg di,si / call coll_0B_21 / xchg di,si / ret
 ; dispatch roles: coll_21_0B, coll_21_0C, coll_22_0B, coll_22_0C
-coll_21_0B:
+coll_21_0b_hit_switch_poof_rev:
     xchg di,si                               ; 4969C
-    call coll_0B_21                          ; 4969E
+    call coll_0b_21_hit_switch_poof          ; 4969E
     xchg di,si                               ; 496A1
     ret                                      ; 496A3
 
+; Hits switch SI (sub_5FDB) and deletes DI with an explosion burst. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 0D/10 (matrix row), SI = object of type 21/22 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: SI state; DI type 0
+; side effects: sub_812F spawn
+; evidence: call sub_5FDB / mov byte [di],0 / jmp sub_812F
 ; dispatch roles: coll_0D_21, coll_0D_22, coll_10_21, coll_10_22
-coll_0D_21:
+coll_0d_21_hit_switch_explode:
     call sub_5FDB                            ; 496A4
     mov byte [di],0x0                        ; 496A7
     mov ax,[di+0x2]                          ; 496AA
     mov dx,[di+0x4]                          ; 496AD
     mov ch,[di+0x15]                         ; 496B0
-    jmp near sub_812F                        ; 496B3
+    jmp near spawn_explosion_burst           ; 496B3
 
+; Swaps DI and SI, calls coll_0D_21 (switch hit, hitter explodes) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_0D_21
+; side effects: as coll_0D_21
+; evidence: xchg di,si / call coll_0D_21 / xchg di,si / ret
 ; dispatch roles: coll_21_0D, coll_21_10, coll_22_0D, coll_22_10
-coll_21_0D:
+coll_21_0d_hit_switch_explode_rev:
     xchg di,si                               ; 496B6
-    call coll_0D_21                          ; 496B8
+    call coll_0d_21_hit_switch_explode       ; 496B8
     xchg di,si                               ; 496BB
     ret                                      ; 496BD
 
+; Hits switch 21h/22h (SI) via sub_5FDB; used for 12h/15h/27h/29h. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 12/15/27/29 (matrix row), SI = object of type 21/22 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: SI state
+; side effects: none
+; evidence: jmp sub_5FDB
 ; dispatch roles: coll_12_21, coll_12_22, coll_15_21, coll_15_22, coll_27_21, coll_27_22, coll_29_21, coll_29_22
-coll_12_21:
+coll_12_21_hit_switch:
     jmp near sub_5FDB                        ; 496BE
     db 0x90   ; 496C1
 
+; Swaps DI and SI, calls coll_12_21 (switch hit) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_12_21
+; side effects: as coll_12_21
+; evidence: xchg di,si / call coll_12_21 / xchg di,si / ret
 ; dispatch roles: coll_21_12, coll_21_15, coll_21_27, coll_21_29, coll_22_12, coll_22_15, coll_22_27, coll_22_29
-coll_21_12:
+coll_21_12_hit_switch_rev:
     xchg di,si                               ; 496C2
-    call coll_12_21                          ; 496C4
+    call coll_12_21_hit_switch               ; 496C4
     xchg di,si                               ; 496C7
     ret                                      ; 496C9
 
-lvl13_spawn:
+; Creates a type-22h toggle switch with +1Ch = 100 so it can be triggered immediately (sub_5FDB requires +1Ch >= 100 for non-21h switches). [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: slot +0 = 0122h, +2/+4, +1Ch = 64h
+; side effects: none
+; evidence: mov al,22h / mov word [di+1Ch],64h
+lvl13_spawn_toggle_switch:
     mov cl,0x4                               ; 496CA
     shl ax,cl                                ; 496CC
     shl dx,cl                                ; 496CE
@@ -16666,11 +18518,21 @@ lvl13_spawn:
     mov word [di+0x1c],0x64                  ; 496DC
     ret                                      ; 496E1
 
-obj22_update_case0:
+; State 0: counts +1Ch (re-arm cooldown). [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +1Ch
+; side effects: none
+; evidence: inc word [di+1Ch] / ret
+obj22_update_idle:
     inc word [di+0x1c]                       ; 496E2
     ret                                      ; 496E5
 
-obj22_update_case1:
+; State 1: on its 2nd frame inverts the whole word [13D6h] and plays sound 26h; after 32 frames returns to state 0 with +1Ch = 0 (100 more frames needed before it can be hit again). [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: [13D6h] inverted; +14h, +1Ch
+; side effects: sound 26h
+; evidence: cmp ax,2 / not word [13D6h] / mov ax,26h / call sub_DD97; cmp ax,20h / mov byte [di+14h],0
+obj22_update_toggle:
     mov ax,[di+0x1c]                         ; 496E6
     inc ax                                   ; 496E9
     mov [di+0x1c],ax                         ; 496EA
@@ -16685,15 +18547,20 @@ loc_9700:
 loc_9701:
     not word [0x13d6]                        ; 49701
     mov ax,0x26                              ; 49705
-    call sub_DD97                            ; 49708
+    call sound_play                          ; 49708
     ret                                      ; 4970B
 
 ; jump table tbl_970C: 2 words, bound: mask (first use at 4971F)
 tbl_970C:
-    dw obj22_update_case0
-    dw obj22_update_case1
+    dw obj22_update_idle
+    dw obj22_update_toggle
 
-obj22_update:
+; Type 22h update: marks updated and dispatches on state bit 0 through tbl_970C. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: see cases
+; side effects: none
+; evidence: and bx,1 / jmp [cs:bx+tbl_970C]
+obj22_update_toggle_switch:
     or byte [di+0x1],0x2                     ; 49710
     rr xor, bx, bx                           ; 49714
     mov bl,[di+0x14]                         ; 49716
@@ -16701,7 +18568,12 @@ obj22_update:
     shl bx,1                                 ; 4971D
     jmp [cs:bx+tbl_970C]                     ; 4971F
 
-obj22_draw_case1:
+; State-1 draw for type 22h: two particles placed symmetrically on the sine/cosine tables, orb bobbing. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: mov ax,[cs:si-4A36h] / mov ch,al / ... neg ch / neg cl
+obj22_draw_toggling:
     push dx                                  ; 49724
     sub dh,0x3                               ; 49725
     sub dl,0x4                               ; 49728
@@ -16761,10 +18633,15 @@ loc_9797:
 
 ; jump table tbl_97B0: 2 words, bound: mask (first use at 497C8)
 tbl_97B0:
-    dw obj20_draw_case0
-    dw obj22_draw_case1
+    dw obj20_draw_idle
+    dw obj22_draw_toggling
 
-obj22_draw:
+; Draw dispatcher for type 22h: if room (< 17E0h) jumps through tbl_97B0 (obj20_draw_idle / obj22_draw_toggling) by state bit 0. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: cmp word [1382h],17E0h / and bx,1 / jmp [cs:bx+tbl_97B0]
+obj22_draw_toggle_switch:
     cmp word [0x1382],0x17e0                 ; 497B4
     jc short loc_97BD                        ; 497BA
     ret                                      ; 497BC
@@ -16776,7 +18653,12 @@ loc_97BD:
     jmp [cs:bx+tbl_97B0]                     ; 497C8
     db 0x90   ; 497CD
 
-lvl14_spawn:
+; Creates a type-23h plate at 8-px-aligned (AX*16, DX*16), rest y in +18h, id +1Eh = CH & 0Fh, and clears bit id of [13D4h]. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: slot +0 = 0123h, +2/+4, +18h, +1Eh; [13D4h]
+; side effects: none
+; evidence: and dx,0FF80h / mov [di+18h],dx / mov al,23h / not ax / and [13D4h],ax
+lvl14_spawn_pressure_plate:
     mov cl,0x4                               ; 497CE
     shl ax,cl                                ; 497D0
     shl dx,cl                                ; 497D2
@@ -16797,7 +18679,12 @@ lvl14_spawn:
     and [0x13d4],ax                          ; 497F9
     ret                                      ; 497FD
 
-obj23_update:
+; While +1Fh (set to 8 by contact) is non-zero: state 2, decrements +1Fh, sets bit +1Eh in [13D4h] and lowers the plate 40h (4 px) below rest; when it reaches 0: state 0, clears the bit and restores the rest y. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +14h, +1Fh, +4, [13D4h]
+; side effects: none
+; evidence: cmp al,0 / mov byte [di+14h],0 / and [13D4h],ax / mov ax,[di+18h] / mov [di+4],ax; dec byte [di+1Fh] / or [13D4h],ax / add ax,40h
+obj23_update_pressure_plate:
     or byte [di+0x1],0x2                     ; 497FE
     mov al,[di+0x1f]                         ; 49802
     mov cl,[di+0x1e]                         ; 49805
@@ -16826,7 +18713,12 @@ loc_9840:
     ret                                      ; 49840
     db 0x90   ; 49841
 
-obj23_draw:
+; Draws the plate as one row of 4 sprites (tiles 1DFh-1E2h, attribute 2800h) via loc_D44C. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: mov bp,29DFh / mov cx,1 / jmp loc_D44C
+obj23_draw_32x8:
     cmp word [0x1382],0x17e8                 ; 49842
     jc short loc_984B                        ; 49848
     ret                                      ; 4984A
@@ -16835,8 +18727,13 @@ loc_984B:
     mov cx,0x1                               ; 4984E
     jmp near loc_D44C                        ; 49851
 
+; Plate (DI) vs 0Dh/12h/27h (SI): if |dx| <= 100h and |dy| <= 140h sets DI+1Fh = 8 (keep pressed for 8 more frames). [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 23 (matrix row), SI = object of type 0D/12/27 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: DI+1Fh = 8
+; side effects: none
+; evidence: cmp ax,100h jg / cmp ax,140h jg / mov byte [di+1Fh],8
 ; dispatch roles: coll_23_0D, coll_23_12, coll_23_27
-coll_23_0D:
+coll_23_0d_press_plate:
     mov ax,[si+0x2]                          ; 49854
     sub ax,[di+0x2]                          ; 49857
     cwd                                      ; 4985A
@@ -16855,15 +18752,25 @@ coll_23_0D:
 loc_9878:
     ret                                      ; 49878
 
+; Swaps DI and SI, calls coll_23_0D (player/0Dh/12h/27h presses the plate) with the roles reversed, swaps back. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_23_0D
+; side effects: as coll_23_0D
+; evidence: xchg di,si / call coll_23_0D / xchg di,si / ret
 ; dispatch roles: coll_01_23, coll_0D_23, coll_12_23, coll_27_23
-coll_01_23:
+coll_01_23_press_plate_rev:
     xchg di,si                               ; 49879
-    call coll_23_0D                          ; 4987B
+    call coll_23_0d_press_plate              ; 4987B
     xchg di,si                               ; 4987E
     ret                                      ; 49880
     db 0x90   ; 49881
 
-sub_9882:
+; Copies 64 bytes from 7000:8EF0 to tile RAM 0000:3D60 (tiles 1D6h-1D9h); tile 1D6h is drawn by obj24 (attribute 25D6h). [medium, reviewed: range_7B9C_A99F.json]
+; in:  none
+; out: tile RAM 0000:3D60..+40h
+; side effects: pusha/popa; restores DS = 0.
+; evidence: cx=20h, ds:si=7000:8EF0, es:di=0000:3D60, rep movsw; called only from sub_1426 (gameplay graphics init, 4:1435-143E)
+load_gate_tiles:
     pusha                                    ; 49882
     mov cx,0x20                              ; 49883
     mov ax,0x7000                            ; 49886
@@ -16879,7 +18786,12 @@ sub_9882:
     ret                                      ; 4989C
     db 0x90   ; 4989D
 
-lvl15_spawn:
+; Creates a type-24h gate: +1Ah = top y (8-px aligned), y = top + 100h, id +1Eh = CH & 0Fh; if bit id of [13D4h] is set starts open (state 2, collision cleared), else closed (state 0) with a 16x32 solid area (BL = 2 columns, BH = 4 rows) in the collision map. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: slot +0 = 0124h, +2/+4, +1Ah, +1Eh, +14h; collision map
+; side effects: none
+; evidence: mov bx,402h / call sub_445B | sub_4436; mov byte [di+14h],2/0
+lvl15_spawn_switch_gate:
     mov cl,0x4                               ; 4989E
     shl ax,cl                                ; 498A0
     shl dx,cl                                ; 498A2
@@ -16903,17 +18815,22 @@ lvl15_spawn:
     mov dx,[di+0x2]                          ; 498D3
     mov ax,[di+0x1a]                         ; 498D6
     mov bx,0x402                             ; 498D9
-    call sub_445B                            ; 498DC
+    call terrain_rect_clear                  ; 498DC
     ret                                      ; 498DF
 loc_98E0:
     mov dx,[di+0x2]                          ; 498E0
     mov ax,[di+0x1a]                         ; 498E3
     mov bx,0x402                             ; 498E6
-    call sub_4436                            ; 498E9
+    call terrain_rect_set                    ; 498E9
     mov byte [di+0x14],0x0                   ; 498EC
     ret                                      ; 498F0
 
-obj24_update_case0:
+; State 0: when bit +1Eh of [13D4h] becomes set, clears the solid area, plays sound 11h and enters state 1. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +14h, +1Ch, collision map
+; side effects: sound 11h
+; evidence: shr ax,cl / jc / mov byte [di+14h],1 / call sub_445B / mov ax,11h / call sub_DD97
+obj24_update_closed:
     mov cl,[di+0x1e]                         ; 498F1
     mov ax,[0x13d4]                          ; 498F4
     inc cl                                   ; 498F7
@@ -16926,12 +18843,17 @@ loc_98FE:
     mov dx,[di+0x2]                          ; 49907
     mov ax,[di+0x1a]                         ; 4990A
     mov bx,0x402                             ; 4990D
-    call sub_445B                            ; 49910
+    call terrain_rect_clear                  ; 49910
     mov ax,0x11                              ; 49913
-    call sub_DD97                            ; 49916
+    call sound_play                          ; 49916
     ret                                      ; 49919
 
-obj24_update_case1:
+; State 1: after 32 frames enters state 2 (open). [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +14h, +1Ch
+; side effects: none
+; evidence: cmp word [di+1Ch],20h / mov byte [di+14h],2
+obj24_update_opening:
     cmp word [di+0x1c],byte +0x20            ; 4991A
     jc short loc_9929                        ; 4991E
     mov byte [di+0x14],0x2                   ; 49920
@@ -16939,7 +18861,12 @@ obj24_update_case1:
 loc_9929:
     ret                                      ; 49929
 
-obj24_update_case2:
+; State 2: when the switch bit clears, enters state 3 and plays sound 12h. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +14h, +1Ch
+; side effects: sound 12h
+; evidence: jc / mov byte [di+14h],3 / mov ax,12h
+obj24_update_open:
     mov cl,[di+0x1e]                         ; 4992A
     mov ax,[0x13d4]                          ; 4992D
     inc cl                                   ; 49930
@@ -16948,11 +18875,16 @@ obj24_update_case2:
     mov byte [di+0x14],0x3                   ; 49936
     mov word [di+0x1c],0x0                   ; 4993A
     mov ax,0x12                              ; 4993F
-    call sub_DD97                            ; 49942
+    call sound_play                          ; 49942
 loc_9945:
     ret                                      ; 49945
 
-obj24_update_case3:
+; State 3: after 32 frames re-marks the 16x32 solid area and returns to state 0. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +14h, +1Ch, collision map
+; side effects: none
+; evidence: cmp word [di+1Ch],20h / mov bx,402h / call sub_4436
+obj24_update_closing:
     cmp word [di+0x1c],byte +0x20            ; 49946
     jc short loc_9961                        ; 4994A
     mov byte [di+0x14],0x0                   ; 4994C
@@ -16960,18 +18892,23 @@ obj24_update_case3:
     mov dx,[di+0x2]                          ; 49955
     mov ax,[di+0x1a]                         ; 49958
     mov bx,0x402                             ; 4995B
-    call sub_4436                            ; 4995E
+    call terrain_rect_set                    ; 4995E
 loc_9961:
     ret                                      ; 49961
 
 ; jump table tbl_9962: 4 words, bound: adjacent (first use at 49978)
 tbl_9962:
-    dw obj24_update_case0
-    dw obj24_update_case1
-    dw obj24_update_case2
-    dw obj24_update_case3
+    dw obj24_update_closed
+    dw obj24_update_opening
+    dw obj24_update_open
+    dw obj24_update_closing
 
-obj24_update:
+; Type 24h update: marks updated, counts +1Ch, dispatches through tbl_9962 (closed / opening / open / closing) following switch bit +1Eh of [13D4h]. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: see cases
+; side effects: none
+; evidence: inc word [di+1Ch] / jmp [cs:bx+tbl_9962]
+obj24_update_switch_gate:
     or byte [di+0x1],0x2                     ; 4996A
     inc word [di+0x1c]                       ; 4996E
     rr xor, bx, bx                           ; 49971
@@ -16980,7 +18917,12 @@ obj24_update:
     jmp [cs:bx+tbl_9962]                     ; 49978
     db 0x08,0x00,0x00,0xF8   ; 4997D
 
-obj24_draw_case0:
+; Draws the closed gate: 4 rows of 2 sprites (16x32), all tile 1D6h attribute 2400h+palette (25D6h); orientation-aware. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: 8 sprite entries (+20h)
+; side effects: none
+; evidence: mov bp,25D6h / mov cx,4 loop
+obj24_draw_closed:
     mov bx,[0x1382]                          ; 49981
     add word [0x1382],byte +0x20             ; 49985
     mov bp,0x25d6                            ; 4998A
@@ -17019,7 +18961,12 @@ loc_99C1:
     loop loc_99C1                            ; 499D8
     ret                                      ; 499DA
 
-obj24_draw_case1:
+; Draws the gate rows sliding together as +1Ch grows (row offset +1Ch/4 accumulated per row). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: 8 sprite entries
+; side effects: none
+; evidence: mov cx,[di+1Ch] / shr cx,2 / sub al,cl / add cl,ch
+obj24_draw_opening:
     mov bx,[0x1382]                          ; 499DB
     add word [0x1382],byte +0x20             ; 499DF
     mov cx,[di+0x1c]                         ; 499E4
@@ -17070,7 +19017,12 @@ loc_9A2B:
     jnz short loc_9A2B                       ; 49A49
     ret                                      ; 49A4B
 
-obj24_draw_case2:
+; Draws only the top row (2 sprites) of the open gate. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: 2 sprite entries
+; side effects: none
+; evidence: add word [1382h],8 / mov bp,25D6h
+obj24_draw_open:
     mov bx,[0x1382]                          ; 49A4C
     add word [0x1382],byte +0x8              ; 49A50
     mov bp,0x25d6                            ; 49A55
@@ -17097,7 +19049,12 @@ loc_9A78:
     mov [bx+0x2],dx                          ; 49A8A
     ret                                      ; 49A8D
 
-obj24_draw_case3:
+; Draws the gate rows extending again as +1Ch grows. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: 8 sprite entries
+; side effects: none
+; evidence: mov cx,[di+1Ch] / shr cx,2 / add al,cl
+obj24_draw_closing:
     mov bx,[0x1382]                          ; 49A8E
     add word [0x1382],byte +0x20             ; 49A92
     mov cx,[di+0x1c]                         ; 49A97
@@ -17144,13 +19101,18 @@ loc_9AD7:
 
 ; jump table tbl_9AF1: 4 words, bound: adjacent (first use at 49B0A)
 tbl_9AF1:
-    dw obj24_draw_case0
-    dw obj24_draw_case1
-    dw obj24_draw_case2
-    dw obj24_draw_case3
+    dw obj24_draw_closed
+    dw obj24_draw_opening
+    dw obj24_draw_open
+    dw obj24_draw_closing
     db 0x90   ; 49AF9
 
-obj24_draw:
+; Draw dispatcher for type 24h: if room (< 17E8h) jumps through tbl_9AF1 by state. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: cmp word [1382h],17E8h / jmp [cs:bx+tbl_9AF1]
+obj24_draw_switch_gate:
     cmp word [0x1382],0x17e8                 ; 49AFA
     jc short loc_9B03                        ; 49B00
     ret                                      ; 49B02
@@ -17161,7 +19123,12 @@ loc_9B03:
     jmp [cs:bx+tbl_9AF1]                     ; 49B0A
     db 0x90   ; 49B0F
 
-sub_9B10:
+; Copies 384 bytes (24 16-byte 2bpp tiles) of sprite tile data from 7000:9040 to 0000:AX (tile RAM). [high, reviewed: range_7B9C_A99F.json]
+; in:  AX = destination offset in segment 0 (tile RAM, 2000h + 16*tile)
+; out: tile RAM at 0000:AX..+180h
+; side effects: Leaves DS = 7000h (caller lvl16_tick restores DS = 0); clobbers CX, SI, DI, ES.
+; evidence: mov di,ax / mov cx,C0h / ds=7000h / si=9040 / es=0 / rep movsw
+lvl16_tiles_copy:
     rr mov, di, ax                           ; 49B10
     mov cx,0xc0                              ; 49B12
     mov ax,0x7000                            ; 49B15
@@ -17172,7 +19139,12 @@ sub_9B10:
     rep movsw                                ; 49B21
     ret                                      ; 49B23
 
-lvl16_tick:
+; Once per Vision: if the VRAM tile base [1420h] is still 0, allocates 24 tiles downward from the tile allocator [1396h] (gives up if the new value would fall below 96h), stores the base tile in [1420h] and copies the tiles via sub_9B10. [high, reviewed: range_7B9C_A99F.json]
+; in:  ES:DI = level record, ES = 8000h (called once per record by sub_B4A2 from sub_B053 during Vision load, kind table 8:0192)
+; out: [1396h] -= 24, [1420h] = new base tile; tile RAM 2000h+16*base
+; side effects: Calls sub_9B10 (sets DS = 7000h) then restores DS = 0; all registers preserved (push ax/pusha).
+; evidence: cmp word [1420h],0 / ax=[1396h]-18h / cmp ax,96h jnc / mov [1396h],ax / mov [1420h],ax / shl ax,4 / add ax,2000h / call sub_9B10. [1396h] is reset to 14Bh and 1400h-142Fh cleared by sub_146A (state04_vision_load).
+lvl16_load_tiles:
     cmp word [0x1420],byte +0x0              ; 49B24
     jnz short loc_9B4F                       ; 49B29
     push ax                                  ; 49B2B
@@ -17188,7 +19160,7 @@ loc_9B39:
     mov [0x1420],ax                          ; 49B3D
     shl ax,byte 0x4                          ; 49B40
     add ax,0x2000                            ; 49B43
-    call sub_9B10                            ; 49B46
+    call lvl16_tiles_copy                    ; 49B46
     rr xor, ax, ax                           ; 49B49
     mov ds,ax                                ; 49B4B
     popa                                     ; 49B4D
@@ -17196,7 +19168,12 @@ loc_9B39:
 loc_9B4F:
     ret                                      ; 49B4F
 
-lvl16_spawn:
+; Creates a type-25h platform at 8-px-aligned (AX*16, DX*16), +18h = BP (time spent gone), +0Ah = 80h, +0Bh = FFh, +0Ch |= 12h, and marks a 32x16 solid area (BL = 4 columns, BH = 2 rows) in the collision map. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: slot +0 = 0125h, +2/+4, +18h, +0Ah/+0Bh/+0Ch; collision map
+; side effects: none
+; evidence: mov [di+18h],bp / mov bx,204h / call sub_4436
+lvl16_spawn_vanish_platform:
     mov cl,0x4                               ; 49B50
     shl ax,cl                                ; 49B52
     shl dx,cl                                ; 49B54
@@ -17216,10 +19193,15 @@ lvl16_spawn:
     mov ax,[di+0x4]                          ; 49B80
     sub ax,0x80                              ; 49B83
     mov bx,0x204                             ; 49B86
-    call sub_4436                            ; 49B89
+    call terrain_rect_set                    ; 49B89
     ret                                      ; 49B8C
 
-obj25_update_case0:
+; State 0: once triggered (+1Eh non-zero, set when the player lands on it) waits 15 frames, then enters state 1. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +14h, +1Ch
+; side effects: none
+; evidence: cmp byte [di+1Eh],0 / cmp ax,0Fh / mov byte [di+14h],1
+obj25_update_wait_step:
     cmp byte [di+0x1e],0x0                   ; 49B8D
     jnz short loc_9B94                       ; 49B91
     ret                                      ; 49B93
@@ -17232,7 +19214,12 @@ loc_9B94:
 loc_9BA5:
     ret                                      ; 49BA5
 
-obj25_update_case1:
+; State 1: after 75 frames clears the 32x16 solid area and enters state 2. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +14h, +1Ch, collision map
+; side effects: none
+; evidence: cmp ax,4Bh / mov byte [di+14h],2 / mov bx,204h / call sub_445B
+obj25_update_crumbling:
     mov ax,[di+0x1c]                         ; 49BA6
     cmp ax,0x4b                              ; 49BA9
     jc short loc_9BCA                        ; 49BAC
@@ -17243,11 +19230,16 @@ obj25_update_case1:
     mov ax,[di+0x4]                          ; 49BBE
     sub ax,0x80                              ; 49BC1
     mov bx,0x204                             ; 49BC4
-    call sub_445B                            ; 49BC7
+    call terrain_rect_clear                  ; 49BC7
 loc_9BCA:
     ret                                      ; 49BCA
 
-obj25_update_case2:
+; State 2: after +18h frames (spawn parameter) enters state 3. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +14h, +1Ch
+; side effects: none
+; evidence: cmp ax,[di+18h] / mov byte [di+14h],3
+obj25_update_gone:
     mov ax,[di+0x1c]                         ; 49BCB
     cmp ax,[di+0x18]                         ; 49BCE
     jc short loc_9BDC                        ; 49BD1
@@ -17256,7 +19248,12 @@ obj25_update_case2:
 loc_9BDC:
     ret                                      ; 49BDC
 
-obj25_update_case3:
+; State 3: after 75 frames returns to state 0, clears the trigger +1Eh and re-marks the solid area. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +14h, +1Ch, +1Eh, collision map
+; side effects: none
+; evidence: cmp ax,4Bh / mov [di+1Eh],al(0) / mov bx,204h / call sub_4436
+obj25_update_reforming:
     mov ax,[di+0x1c]                         ; 49BDD
     cmp ax,0x4b                              ; 49BE0
     jc short loc_9C04                        ; 49BE3
@@ -17269,19 +19266,24 @@ obj25_update_case3:
     mov ax,[di+0x4]                          ; 49BF8
     sub ax,0x80                              ; 49BFB
     mov bx,0x204                             ; 49BFE
-    call sub_4436                            ; 49C01
+    call terrain_rect_set                    ; 49C01
 loc_9C04:
     ret                                      ; 49C04
 
 ; jump table tbl_9C05: 4 words, bound: adjacent (first use at 49C1C)
 tbl_9C05:
-    dw obj25_update_case0
-    dw obj25_update_case1
-    dw obj25_update_case2
-    dw obj25_update_case3
+    dw obj25_update_wait_step
+    dw obj25_update_crumbling
+    dw obj25_update_gone
+    dw obj25_update_reforming
     db 0x90   ; 49C0D
 
-obj25_update:
+; Type 25h update: marks updated, counts +1Ch, dispatches through tbl_9C05 (wait / crumble / gone / reform). [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: see cases
+; side effects: none
+; evidence: inc word [di+1Ch] / jmp [cs:bx+tbl_9C05]
+obj25_update_vanish_platform:
     or byte [di+0x1],0x2                     ; 49C0E
     inc word [di+0x1c]                       ; 49C12
     rr xor, bx, bx                           ; 49C15
@@ -17290,7 +19292,12 @@ obj25_update:
     jmp [cs:bx+tbl_9C05]                     ; 49C1C
     db 0x00,0x00,0x00,0x00,0x00,0xFF,0xFF,0xFF   ; 49C21
 
-obj25_draw_case0:
+; State-0 draw: 24x16 frame (loc_CE33, one animation frame, tiles [1420h], attribute 2C00h) offset by 0 or -1 px from table 4:9C21 (+1Ch/8). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: mov al,[cs:bx-63DFh] / mov ch,1 / jmp loc_CE33
+obj25_draw_solid:
     mov bp,[0x1420]                          ; 49C29
     or bp,0x2c00                             ; 49C2D
     mov bx,[di+0x1c]                         ; 49C31
@@ -17307,16 +19314,31 @@ loc_9C4E:
     mov ch,0x1                               ; 49C4E
     jmp near loc_CE33                        ; 49C50
 
-obj25_draw_case1:
+; State-1 draw: loc_CE33 with CH = 4 (cycles 4 animation frames of 6 tiles by +1Ch/8). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: mov ch,4 / jmp loc_CE33
+obj25_draw_crumbling:
     mov bp,[0x1420]                          ; 49C53
     or bp,0x2c00                             ; 49C57
     mov ch,0x4                               ; 49C5B
     jmp near loc_CE33                        ; 49C5D
 
-obj25_draw_case2:
+; State-2 draw: nothing (platform absent). [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: none
+; side effects: none
+; evidence: ret
+obj25_draw_gone:
     ret                                      ; 49C60
 
-obj25_draw_case3:
+; State-3 draw: same as crumbling (loc_CE33, CH = 4). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: mov ch,4 / jmp loc_CE33
+obj25_draw_reforming:
     mov bp,[0x1420]                          ; 49C61
     or bp,0x2c00                             ; 49C65
     mov ch,0x4                               ; 49C69
@@ -17324,12 +19346,17 @@ obj25_draw_case3:
 
 ; jump table tbl_9C6E: 4 words, bound: adjacent (first use at 49C86)
 tbl_9C6E:
-    dw obj25_draw_case0
-    dw obj25_draw_case1
-    dw obj25_draw_case2
-    dw obj25_draw_case3
+    dw obj25_draw_solid
+    dw obj25_draw_crumbling
+    dw obj25_draw_gone
+    dw obj25_draw_reforming
 
-obj25_draw:
+; Draw dispatcher for type 25h: if room (< 17E0h) jumps through tbl_9C6E by state. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: cmp word [1382h],17E0h / jmp [cs:bx+tbl_9C6E]
+obj25_draw_vanish_platform:
     cmp word [0x1382],0x17e0                 ; 49C76
     jc short loc_9C7F                        ; 49C7C
     ret                                      ; 49C7E
@@ -17340,7 +19367,12 @@ loc_9C7F:
     jmp [cs:bx+tbl_9C6E]                     ; 49C86
     db 0x90   ; 49C8B
 
-coll_01_25:
+; Player (DI) vs platform 25h (SI), extents 1C0h x 140h: if the player is above it and falling (vy >= 0) and the platform is untriggered, snaps the player onto it (y = SI.y - 140h), sets SI+1Eh = 1, SI+1Ch = 0 and spawns effect 3Fh (subtype 0). [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 01 (matrix row), SI = object of type 25 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: player +4; SI+1Eh, SI+1Ch
+; side effects: sub_D4A0 spawn
+; evidence: cmp ax,1C0h / cmp ax,140h / cmp dl,0 jl / cmp [si+1Eh],0 / sub ax,140h / mov [di+4],ax / mov byte [si+1Eh],1
+coll_01_25_land_trigger:
     mov ax,[di+0x2]                          ; 49C8C
     mov dx,[si+0x2]                          ; 49C8F
     and ax,0xfff0                            ; 49C92
@@ -17391,23 +19423,33 @@ loc_9CD5:
     mov ax,[si+0x2]                          ; 49CFB
     mov dx,[si+0x4]                          ; 49CFE
     rr xor, cx, cx                           ; 49D01
-    call sub_D4A0                            ; 49D03
+    call spawn_sparkle_effect                ; 49D03
 loc_9D06:
     ret                                      ; 49D06
 loc_9D07:
     ret                                      ; 49D07
 
-obj3E_update:
+; Type 3Eh (defeated enemy, set by sub_79A6/79D0): after 20 frames clears the level-record spawned bit and deletes itself (sub_61F8). [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +1Ch; [13C8h]/[13CAh] bit; slot deleted
+; side effects: none
+; evidence: inc word [di+1Ch] / cmp word [di+1Ch],14h / ja / jmp sub_61F8
+obj3e_update_despawn:
     or byte [di+0x1],0x2                     ; 49D08
     inc word [di+0x1c]                       ; 49D0C
     cmp word [di+0x1c],byte +0x14            ; 49D0F
     ja short loc_9D16                        ; 49D13
     ret                                      ; 49D15
 loc_9D16:
-    jmp near sub_61F8                        ; 49D16
+    jmp near obj_delete_clear_spawn_bit      ; 49D16
     db 0x90   ; 49D19
 
-sub_9D1A:
+; Copies 144 bytes (9 16-byte 2bpp tiles) of sprite tile data from 7000:8F30 to 0000:AX (tile RAM). [high, reviewed: range_7B9C_A99F.json]
+; in:  AX = destination offset in segment 0 (tile RAM, 2000h + 16*tile)
+; out: tile RAM at 0000:AX..+90h
+; side effects: Leaves DS = 7000h (caller lvl18_tick restores DS = 0); clobbers CX, SI, DI, ES.
+; evidence: mov di,ax / mov cx,48h / ds=7000h / si=8F30 / es=0 / rep movsw
+lvl18_tiles_copy:
     rr mov, di, ax                           ; 49D1A
     mov cx,0x48                              ; 49D1C
     mov ax,0x7000                            ; 49D1F
@@ -17418,7 +19460,12 @@ sub_9D1A:
     rep movsw                                ; 49D2B
     ret                                      ; 49D2D
 
-lvl18_tick:
+; Once per Vision: if the VRAM tile base [1402h] is still 0, allocates 9 tiles downward from the tile allocator [1396h] (gives up if the new value would fall below 96h), stores the base tile in [1402h] and copies the tiles via sub_9D1A. [high, reviewed: range_7B9C_A99F.json]
+; in:  ES:DI = level record, ES = 8000h (called once per record by sub_B4A2 from sub_B053 during Vision load, kind table 8:0192)
+; out: [1396h] -= 9, [1402h] = new base tile; tile RAM 2000h+16*base
+; side effects: Calls sub_9D1A (sets DS = 7000h) then restores DS = 0; all registers preserved (push ax/pusha).
+; evidence: cmp word [1402h],0 / ax=[1396h]-9h / cmp ax,96h jnc / mov [1396h],ax / mov [1402h],ax / shl ax,4 / add ax,2000h / call sub_9D1A. [1396h] is reset to 14Bh and 1400h-142Fh cleared by sub_146A (state04_vision_load).
+lvl18_load_tiles:
     cmp word [0x1402],byte +0x0              ; 49D2E
     jnz short loc_9D59                       ; 49D33
     push ax                                  ; 49D35
@@ -17434,7 +19481,7 @@ loc_9D43:
     mov [0x1402],ax                          ; 49D47
     shl ax,byte 0x4                          ; 49D4A
     add ax,0x2000                            ; 49D4D
-    call sub_9D1A                            ; 49D50
+    call lvl18_tiles_copy                    ; 49D50
     rr xor, ax, ax                           ; 49D53
     mov ds,ax                                ; 49D55
     popa                                     ; 49D57
@@ -17442,7 +19489,12 @@ loc_9D43:
 loc_9D59:
     ret                                      ; 49D59
 
-lvl18_spawn:
+; Creates a type-27h object with +0Ah = +0Bh = C0h, +18h = 8, y-accel +9 = 1 (gravity), +0Ch |= 10h and contact flags +10h = +11h = 44h. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: slot +0 = 0127h, +2/+4, +9, +0Ah/+0Bh, +0Ch, +10h/+11h, +18h
+; side effects: none
+; evidence: mov al,27h / mov byte [di+9],1 / mov al,44h / mov [di+11h],al / mov [di+10h],al
+lvl18_spawn_block:
     mov cl,0x4                               ; 49D5A
     shl ax,cl                                ; 49D5C
     shl dx,cl                                ; 49D5E
@@ -17462,7 +19514,12 @@ lvl18_spawn:
     ret                                      ; 49D8A
     db 0x90   ; 49D8B
 
-obj27_update:
+; Type 27h update: counts +14h, sets +0Ch bit 4, decrements +1Eh towards 0, runs the physics routine sub_6B20 with DX = +0Eh (supporting object); zeroes vx when DX ends up 0 or contact bit 2 is set, clears +0Ch bit 12, and plays sound 28h when contact bits 44h become newly set (landing). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: position/velocity via sub_6B20; +6, +0Ch, +1Eh
+; side effects: sound 28h
+; evidence: neg al / adc al,0 / neg al (saturating decrement of +1Eh); mov dx,[di+0Eh] / call sub_6B20; mov word [di+6],0; not al / and al,ah / test al,44h / mov ax,28h / call sub_DD97
+obj27_update_gravity_block:
     or byte [di+0x1],0x2                     ; 49D8C
     inc byte [di+0x14]                       ; 49D90
     or word [di+0xc],0x10                    ; 49D93
@@ -17472,7 +19529,7 @@ obj27_update:
     neg al                                   ; 49D9F
     mov [di+0x1e],al                         ; 49DA1
     mov dx,[di+0xe]                          ; 49DA4
-    call sub_6B20                            ; 49DA7
+    call obj_ride_or_fall                    ; 49DA7
     mov ax,[di+0x10]                         ; 49DAA
     rr or, al, ah                            ; 49DAD
     test dx,dx                               ; 49DAF
@@ -17492,31 +19549,51 @@ loc_9DBC:
     test al,0x44                             ; 49DCF
     jz short loc_9DD9                        ; 49DD1
     mov ax,0x28                              ; 49DD3
-    call sub_DD97                            ; 49DD6
+    call sound_play                          ; 49DD6
 loc_9DD9:
     ret                                      ; 49DD9
 
-obj27_draw:
+; Draws type 27h through sub_D1A1 with tile base [1402h] and attribute 2400h. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: cmp word [1382h],17D4h / bp=[1402h]|2400h / jmp sub_D1A1
+obj27_draw_block:
     cmp word [0x1382],0x17d4                 ; 49DDA
     jc short loc_9DE3                        ; 49DE0
     ret                                      ; 49DE2
 loc_9DE3:
     mov bp,[0x1402]                          ; 49DE3
     or bp,0x2400                             ; 49DE7
-    jmp near sub_D1A1                        ; 49DEB
+    jmp near draw_sprites_3x3                ; 49DEB
 
-coll_02_27:
+; Object 02h (DI) hitting a 27h block: clears [3CCh] bits 6, 8 and 13 (AND DEBFh) and deletes DI. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 02 (matrix row), SI = object of type 27 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: [3CCh] &= DEBFh; DI type 0
+; side effects: none
+; evidence: and word [3CCh],0DEBFh / mov byte [di],0
+coll_02_27_absorb_shot:
     and word [0x3cc],0xdebf                  ; 49DEE
     mov byte [di],0x0                        ; 49DF4
     ret                                      ; 49DF7
 
-coll_27_02:
+; Same as coll_02_27_absorb_shot with the roles reversed (deletes SI). [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 27 (matrix row), SI = object of type 02 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: [3CCh] &= DEBFh; SI type 0
+; side effects: none
+; evidence: and word [3CCh],0DEBFh / mov byte [si],0
+coll_27_02_absorb_shot:
     and word [0x3cc],0xdebf                  ; 49DF8
     mov byte [si],0x0                        ; 49DFE
     ret                                      ; 49E01
 
+; Block 27h (DI) vs 12h/13h/27h (SI), extents 180h x 190h: side contact (SI not moving down) sets contact bits and, if DI+1Eh is non-zero, moves DI beside SI, else pushes SI beside DI; vertical contact stacks the upper object on the lower one (y = lower.y - 180h, +0Eh link to the supporter, contact bits 40h/80h). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 27 (matrix row), SI = object of type 12/13/27 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: DI/SI x or y, +0Eh, +11h, SI+0Ch bit 5 cleared
+; side effects: none (pusha/popa)
+; evidence: cmp ax,180h / cmp ax,190h; cmp byte [si+8],0; cmp byte [di+1Eh],0; add ax,180h / mov [di+2],ax or [si+2]; mov [di+0Eh],si / mov [si+0Eh],di
 ; dispatch roles: coll_27_12, coll_27_13, coll_27_27
-coll_27_12:
+coll_27_12_block_push_stack:
     pusha                                    ; 49E02
     mov ax,[di+0x2]                          ; 49E03
     mov dx,[si+0x2]                          ; 49E06
@@ -17609,14 +19686,24 @@ loc_9EB4:
     ret                                      ; 49ED1
     db 0xC3,0x90   ; 49ED2
 
+; Swaps DI and SI, calls coll_27_12 (block push / stack) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_27_12
+; side effects: as coll_27_12
+; evidence: xchg di,si / call coll_27_12 / xchg di,si / ret
 ; dispatch roles: coll_12_27, coll_13_27
-coll_12_27:
+coll_12_27_block_push_stack_rev:
     xchg di,si                               ; 49ED4
-    call coll_27_12                          ; 49ED6
+    call coll_27_12_block_push_stack         ; 49ED6
     xchg di,si                               ; 49ED9
     ret                                      ; 49EDB
 
-sub_9EDC:
+; Copies 192 bytes (12 16-byte 2bpp tiles) of sprite tile data from 7000:91C0 to 0000:AX (tile RAM). [high, reviewed: range_7B9C_A99F.json]
+; in:  AX = destination offset in segment 0 (tile RAM, 2000h + 16*tile)
+; out: tile RAM at 0000:AX..+C0h
+; side effects: Leaves DS = 7000h (caller lvl19_tick restores DS = 0); clobbers CX, SI, DI, ES.
+; evidence: mov di,ax / mov cx,60h / ds=7000h / si=91C0 / es=0 / rep movsw
+lvl19_tiles_copy:
     rr mov, di, ax                           ; 49EDC
     mov cx,0x60                              ; 49EDE
     mov ax,0x7000                            ; 49EE1
@@ -17627,7 +19714,12 @@ sub_9EDC:
     rep movsw                                ; 49EED
     ret                                      ; 49EEF
 
-lvl19_tick:
+; Once per Vision: if the VRAM tile base [142Ah] is still 0, allocates 12 tiles downward from the tile allocator [1396h] (gives up if the new value would fall below 96h), stores the base tile in [142Ah] and copies the tiles via sub_9EDC. [high, reviewed: range_7B9C_A99F.json]
+; in:  ES:DI = level record, ES = 8000h (called once per record by sub_B4A2 from sub_B053 during Vision load, kind table 8:0192)
+; out: [1396h] -= 12, [142Ah] = new base tile; tile RAM 2000h+16*base
+; side effects: Calls sub_9EDC (sets DS = 7000h) then restores DS = 0; all registers preserved (push ax/pusha).
+; evidence: cmp word [142Ah],0 / ax=[1396h]-Ch / cmp ax,96h jnc / mov [1396h],ax / mov [142Ah],ax / shl ax,4 / add ax,2000h / call sub_9EDC. [1396h] is reset to 14Bh and 1400h-142Fh cleared by sub_146A (state04_vision_load).
+lvl19_load_tiles:
     cmp word [0x142a],byte +0x0              ; 49EF0
     jnz short loc_9F1B                       ; 49EF5
     push ax                                  ; 49EF7
@@ -17643,7 +19735,7 @@ loc_9F05:
     mov [0x142a],ax                          ; 49F09
     shl ax,byte 0x4                          ; 49F0C
     add ax,0x2000                            ; 49F0F
-    call sub_9EDC                            ; 49F12
+    call lvl19_tiles_copy                    ; 49F12
     rr xor, ax, ax                           ; 49F15
     mov ds,ax                                ; 49F17
     popa                                     ; 49F19
@@ -17651,7 +19743,12 @@ loc_9F05:
 loc_9F1B:
     ret                                      ; 49F1B
 
-lvl19_spawn:
+; Creates a type-28h block (32x32, 8-px aligned), +18h = BP, phase +1Eh = CH & 1; if bit phase of [13D6h] is set it starts solid (state 0, 4x4 tiles marked in the collision map), else absent (state 2, area cleared). [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: slot +0 = 0128h, +2/+4, +18h, +1Eh, +14h; collision map
+; side effects: none
+; evidence: and ch,1 / mov ax,[13D6h] / shr ax,cl / mov bx,404h / call sub_4436 | sub_445B
+lvl19_spawn_toggle_block:
     mov cl,0x4                               ; 49F1C
     shl ax,cl                                ; 49F1E
     shl dx,cl                                ; 49F20
@@ -17676,7 +19773,7 @@ lvl19_spawn:
     mov ax,[di+0x4]                          ; 49F54
     sub ax,0x100                             ; 49F57
     mov bx,0x404                             ; 49F5A
-    call sub_4436                            ; 49F5D
+    call terrain_rect_set                    ; 49F5D
     ret                                      ; 49F60
 loc_9F61:
     mov byte [di+0x14],0x2                   ; 49F61
@@ -17685,10 +19782,15 @@ loc_9F61:
     mov ax,[di+0x4]                          ; 49F6C
     sub ax,0x100                             ; 49F6F
     mov bx,0x404                             ; 49F72
-    call sub_445B                            ; 49F75
+    call terrain_rect_clear                  ; 49F75
     ret                                      ; 49F78
 
-obj28_update_case0:
+; State 0: when bit +1Eh of [13D6h] clears (toggle switch obj22 inverts the word), clears the 32x32 solid area and enters state 1. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +14h, +1Ch, collision map
+; side effects: none
+; evidence: shr ax,cl / jc / mov byte [di+14h],1 / call sub_445B
+obj28_update_solid:
     mov cl,[di+0x1e]                         ; 49F79
     mov ax,[0x13d6]                          ; 49F7C
     inc cl                                   ; 49F7F
@@ -17701,11 +19803,16 @@ obj28_update_case0:
     mov ax,[di+0x4]                          ; 49F95
     sub ax,0x100                             ; 49F98
     mov bx,0x404                             ; 49F9B
-    call sub_445B                            ; 49F9E
+    call terrain_rect_clear                  ; 49F9E
 loc_9FA1:
     ret                                      ; 49FA1
 
-obj28_update_case1:
+; State 1: after 16 frames enters state 2. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +14h, +1Ch
+; side effects: none
+; evidence: cmp ax,10h / mov byte [di+14h],2
+obj28_update_vanishing:
     mov ax,[di+0x1c]                         ; 49FA2
     cmp ax,0x10                              ; 49FA5
     jc short loc_9FB3                        ; 49FA8
@@ -17714,7 +19821,12 @@ obj28_update_case1:
 loc_9FB3:
     ret                                      ; 49FB3
 
-obj28_update_case2:
+; State 2: when the [13D6h] bit is set again enters state 3. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +14h, +1Ch
+; side effects: none
+; evidence: shr ax,cl / jnc / mov byte [di+14h],3
+obj28_update_absent:
     mov cl,[di+0x1e]                         ; 49FB4
     mov ax,[0x13d6]                          ; 49FB7
     inc cl                                   ; 49FBA
@@ -17725,7 +19837,12 @@ obj28_update_case2:
 loc_9FC9:
     ret                                      ; 49FC9
 
-obj28_update_case3:
+; State 3: after 16 frames re-marks the 32x32 solid area and enters state 0. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +14h, +1Ch, collision map
+; side effects: none
+; evidence: cmp ax,10h / mov bx,404h / call sub_4436
+obj28_update_appearing:
     mov ax,[di+0x1c]                         ; 49FCA
     cmp ax,0x10                              ; 49FCD
     jc short loc_9FEE                        ; 49FD0
@@ -17736,19 +19853,24 @@ obj28_update_case3:
     mov ax,[di+0x4]                          ; 49FE2
     sub ax,0x100                             ; 49FE5
     mov bx,0x404                             ; 49FE8
-    call sub_4436                            ; 49FEB
+    call terrain_rect_set                    ; 49FEB
 loc_9FEE:
     ret                                      ; 49FEE
 
 ; jump table tbl_9FEF: 4 words, bound: adjacent (first use at 4A006)
 tbl_9FEF:
-    dw obj28_update_case0
-    dw obj28_update_case1
-    dw obj28_update_case2
-    dw obj28_update_case3
+    dw obj28_update_solid
+    dw obj28_update_vanishing
+    dw obj28_update_absent
+    dw obj28_update_appearing
     db 0x90   ; 49FF7
 
-obj28_update:
+; Type 28h update: marks updated, counts +1Ch, dispatches through tbl_9FEF following bit +1Eh of [13D6h]. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: see cases
+; side effects: none
+; evidence: jmp [cs:bx+tbl_9FEF]
+obj28_update_toggle_block:
     or byte [di+0x1],0x2                     ; 49FF8
     inc word [di+0x1c]                       ; 49FFC
     rr xor, bx, bx                           ; 49FFF
@@ -17756,7 +19878,12 @@ obj28_update:
     shl bx,1                                 ; 4A004
     jmp [cs:bx+tbl_9FEF]                     ; 4A006
 
-obj28_draw_case0:
+; Draws the solid block as the 12-sprite 32x32 frame from tile base [142Ah], attribute 2400h. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: 12 sprite entries (+30h)
+; side effects: none
+; evidence: cmp word [1382h],17C8h / bp=[142Ah]|2400h / loop cx=4 ...
+obj28_draw_solid:
     cmp word [0x1382],0x17c8                 ; 4A00B
     jc short loc_A014                        ; 4A011
     ret                                      ; 4A013
@@ -17810,7 +19937,12 @@ loc_A07A:
     loop loc_A07A                            ; 4A086
     ret                                      ; 4A088
 
-obj28_draw_case1:
+; Draws the block breaking apart: corner and edge sprites displaced outward by +1Ch/2. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: 12 sprite entries
+; side effects: none
+; evidence: mov ax,[di+1Ch] / shr ax,1 / mov ch,al / add ah,ch / add al,ch
+obj28_draw_vanishing:
     cmp word [0x1382],0x17c8                 ; 4A089
     jc short loc_A092                        ; 4A08F
     ret                                      ; 4A091
@@ -17918,10 +20050,20 @@ loc_A092:
     add bx,byte +0x4                         ; 4A189
     ret                                      ; 4A18C
 
-obj28_draw_case2:
+; State-2 draw: nothing. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: none
+; side effects: none
+; evidence: ret
+obj28_draw_absent:
     ret                                      ; 4A18D
 
-obj28_draw_case3:
+; Draws the block re-forming: sprites displaced by +1Ch/2 around a smaller centre (offsets inward). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: 12 sprite entries
+; side effects: none
+; evidence: sub dh,8 / sub dl,8 / sub ah,ch / sub al,ch
+obj28_draw_appearing:
     cmp word [0x1382],0x17c8                 ; 4A18E
     jc short loc_A197                        ; 4A194
     ret                                      ; 4A196
@@ -18025,23 +20167,33 @@ loc_A197:
 
 ; jump table tbl_A282: 4 words, bound: adjacent (first use at 4A291)
 tbl_A282:
-    dw obj28_draw_case0
-    dw obj28_draw_case1
-    dw obj28_draw_case2
-    dw obj28_draw_case3
+    dw obj28_draw_solid
+    dw obj28_draw_vanishing
+    dw obj28_draw_absent
+    dw obj28_draw_appearing
 
-obj28_draw:
+; Draw dispatcher for type 28h through tbl_A282 by state (each case checks sprite-list room itself). [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: mov bl,[di+14h] / jmp [cs:bx+tbl_A282]
+obj28_draw_toggle_block:
     rr xor, bx, bx                           ; 4A28A
     mov bl,[di+0x14]                         ; 4A28C
     shl bx,1                                 ; 4A28F
     jmp [cs:bx+tbl_A282]                     ; 4A291
 
-sub_A296:
+; Allocates an effect slot (sub_B585) and creates a type-3Ch object (flags 09h) at AX,DX with direction +1Fh = CL and level-record id +15h = CH. [medium, reviewed: range_7B9C_A99F.json]
+; in:  AX = x, DX = y, CL = direction (1 up, 2 right, other left), CH = record id
+; out: new type-3Ch slot
+; side effects: pusha/popa
+; evidence: call sub_B585 / call sub_B4F0 / mov [di+1Fh],cl / mov [di+15h],ch / mov ax,093Ch / mov [di],ax
+spawn_explosion_chain:
     pusha                                    ; 4A296
-    call sub_B585                            ; 4A297
+    call obj_alloc_low_slot                  ; 4A297
     test di,di                               ; 4A29A
     jz short loc_A2B3                        ; 4A29C
-    call sub_B4F0                            ; 4A29E
+    call obj_clear_slot                      ; 4A29E
     mov [di+0x2],ax                          ; 4A2A1
     mov [di+0x4],dx                          ; 4A2A4
     mov [di+0x1f],cl                         ; 4A2A7
@@ -18053,7 +20205,12 @@ loc_A2B3:
     popa                                     ; 4A2B3
     ret                                      ; 4A2B4
 
-obj3C_update:
+; Type 3Ch: every 7th frame steps 0C0h (12 px) in direction +1Fh (1 = up, 2 = right, else left) and drops a type-29h fragment there (sub_A326), playing sound 1Dh on even steps while visible (+1 bit 0); after 6 steps clears the record's spawned bit and deletes itself (sub_61F8). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +2/+4, +14h, +1Ch; slot deleted at the end
+; side effects: sound 1Dh; sets +1 bits 1 and 3
+; evidence: cmp ax,6 / cmp byte [di+14h],6 / jmp sub_61F8; test byte [di+1],1 / mov ax,1Dh; sub dx,0C0h / add ax,0C0h / sub ax,0C0h; xor cl,cl / jmp sub_A326
+obj3c_update_explosion_chain:
     or byte [di+0x1],0xa                     ; 4A2B5
     inc word [di+0x1c]                       ; 4A2B9
     mov ax,[di+0x1c]                         ; 4A2BC
@@ -18061,7 +20218,7 @@ obj3C_update:
     ja short loc_A2CE                        ; 4A2C2
     cmp byte [di+0x14],0x6                   ; 4A2C4
     jnz short loc_A2CD                       ; 4A2C8
-    jmp near sub_61F8                        ; 4A2CA
+    jmp near obj_delete_clear_spawn_bit      ; 4A2CA
 loc_A2CD:
     ret                                      ; 4A2CD
 loc_A2CE:
@@ -18072,7 +20229,7 @@ loc_A2CE:
     cmp al,0x0                               ; 4A2D9
     jnz short loc_A2E3                       ; 4A2DB
     mov ax,0x1d                              ; 4A2DD
-    call sub_DD97                            ; 4A2E0
+    call sound_play                          ; 4A2E0
 loc_A2E3:
     inc byte [di+0x14]                       ; 4A2E3
     mov word [di+0x1c],0x0                   ; 4A2E6
@@ -18099,14 +20256,19 @@ loc_A315:
     mov dx,[di+0x4]                          ; 4A31E
 loc_A321:
     rr xor, cl, cl                           ; 4A321
-    jmp near sub_A326                        ; 4A323
+    jmp near spawn_explosion_fragment        ; 4A323
 
-sub_A326:
+; Takes the highest free slot in 0400h-07E0h (lvl03_check searches downward) and creates a type-29h fragment at AX,DX with size shift +1Eh = CL. [medium, reviewed: range_7B9C_A99F.json]
+; in:  AX = x, DX = y, CL = size shift
+; out: new type-29h slot (none if full)
+; side effects: pusha/popa
+; evidence: call lvl03_check / call sub_B4F0 / mov [di+1Eh],cl / mov ax,0129h / mov [di],ax. Unreferenced code at 4:A343-A370 also writes type 29h.
+spawn_explosion_fragment:
     pusha                                    ; 4A326
-    call lvl03_check                         ; 4A327
+    call lvl03_check_alloc_slot_down         ; 4A327
     cmp di,byte +0x0                         ; 4A32A
     jz short loc_A341                        ; 4A32D
-    call sub_B4F0                            ; 4A32F
+    call obj_clear_slot                      ; 4A32F
     mov [di+0x2],ax                          ; 4A332
     mov [di+0x4],dx                          ; 4A335
     mov [di+0x1e],cl                         ; 4A338
@@ -18120,7 +20282,12 @@ loc_A341:
     db 0x44,0x1C,0x88,0x44,0x14,0x58,0xC3,0x50,0x88,0x45,0x1E,0xC6,0x05,0x29,0x33,0xC0   ; 4A353
     db 0x89,0x45,0x06,0x89,0x45,0x08,0x89,0x45,0x1C,0x88,0x45,0x14,0x58,0xC3,0x90   ; 4A363
 
-obj29_update:
+; Type 29h fragment: increments +14h each frame and deletes itself after 8 frames. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +14h; slot deleted
+; side effects: none
+; evidence: inc al / mov [di+14h],al / cmp al,7 / ja / mov byte [di],0
+obj29_update_expire:
     or byte [di+0x1],0x2                     ; 4A372
     mov al,[di+0x14]                         ; 4A376
     inc al                                   ; 4A379
@@ -18133,7 +20300,12 @@ loc_A383:
     ret                                      ; 4A386
     db 0x90   ; 4A387
 
-obj29_draw:
+; Draws the fragment with tile 1E3h (attribute 2800h) through loc_CDB6, with size parameters derived from (+14h >> +1Eh) & 7 (CH = n/2 + 4, CL = n + 4). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: mov bp,1E3h / or bp,2800h / shr al,cl / and al,7 / add ah,4 / add al,4 / jmp loc_CDB6
+obj29_draw_grow:
     cmp word [0x1382],0x17d8                 ; 4A388
     jc short loc_A391                        ; 4A38E
     ret                                      ; 4A390
@@ -18151,7 +20323,12 @@ loc_A391:
     rr mov, cx, ax                           ; 4A3AB
     jmp near loc_CDB6                        ; 4A3AD
 
-sub_A3B0:
+; Copies 256 bytes (16 16-byte 2bpp tiles) of sprite tile data from 7000:9280 to 0000:AX (tile RAM). [high, reviewed: range_7B9C_A99F.json]
+; in:  AX = destination offset in segment 0 (tile RAM, 2000h + 16*tile)
+; out: tile RAM at 0000:AX..+100h
+; side effects: Leaves DS = 7000h (caller lvl1B_tick restores DS = 0); clobbers CX, SI, DI, ES.
+; evidence: mov di,ax / mov cx,80h / ds=7000h / si=9280 / es=0 / rep movsw
+lvl1b_tiles_copy:
     rr mov, di, ax                           ; 4A3B0
     mov cx,0x80                              ; 4A3B2
     mov ax,0x7000                            ; 4A3B5
@@ -18162,7 +20339,12 @@ sub_A3B0:
     rep movsw                                ; 4A3C1
     ret                                      ; 4A3C3
 
-lvl1B_tick:
+; Once per Vision: if the VRAM tile base [142Ch] is still 0, allocates 16 tiles downward from the tile allocator [1396h] (gives up if the new value would fall below 96h), stores the base tile in [142Ch] and copies the tiles via sub_A3B0. [high, reviewed: range_7B9C_A99F.json]
+; in:  ES:DI = level record, ES = 8000h (called once per record by sub_B4A2 from sub_B053 during Vision load, kind table 8:0192)
+; out: [1396h] -= 16, [142Ch] = new base tile; tile RAM 2000h+16*base
+; side effects: Calls sub_A3B0 (sets DS = 7000h) then restores DS = 0; all registers preserved (push ax/pusha).
+; evidence: cmp word [142Ch],0 / ax=[1396h]-10h / cmp ax,96h jnc / mov [1396h],ax / mov [142Ch],ax / shl ax,4 / add ax,2000h / call sub_A3B0. [1396h] is reset to 14Bh and 1400h-142Fh cleared by sub_146A (state04_vision_load).
+lvl1b_load_tiles:
     cmp word [0x142c],byte +0x0              ; 4A3C4
     jnz short loc_A3EF                       ; 4A3C9
     push ax                                  ; 4A3CB
@@ -18178,7 +20360,7 @@ loc_A3D9:
     mov [0x142c],ax                          ; 4A3DD
     shl ax,byte 0x4                          ; 4A3E0
     add ax,0x2000                            ; 4A3E3
-    call sub_A3B0                            ; 4A3E6
+    call lvl1b_tiles_copy                    ; 4A3E6
     rr xor, ax, ax                           ; 4A3E9
     mov ds,ax                                ; 4A3EB
     popa                                     ; 4A3ED
@@ -18186,7 +20368,12 @@ loc_A3D9:
 loc_A3EF:
     ret                                      ; 4A3EF
 
-lvl1B_spawn:
+; If bit (CH & 0Fh) of [13D8h] is set, creates a type-2Ah block (8-px aligned) in state 0 and marks a 32x32 solid area; otherwise leaves the slot empty (type not written) and only clears the area (block already destroyed). [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: slot +0 = 012Ah or untouched, +2/+4, +1Eh, +14h; collision map
+; side effects: none
+; evidence: mov ax,[13D8h] / shr ax,cl / jnc loc_A432 (no type store) / mov al,2Ah / mov bx,404h / call sub_4436
+lvl1b_spawn_breakable_block:
     mov cl,0x4                               ; 4A3F0
     shl ax,cl                                ; 4A3F2
     shl dx,cl                                ; 4A3F4
@@ -18210,7 +20397,7 @@ lvl1B_spawn:
     mov ax,[di+0x4]                          ; 4A425
     sub ax,0x100                             ; 4A428
     mov bx,0x404                             ; 4A42B
-    call sub_4436                            ; 4A42E
+    call terrain_rect_set                    ; 4A42E
     ret                                      ; 4A431
 loc_A432:
     mov byte [di+0x14],0x2                   ; 4A432
@@ -18219,10 +20406,15 @@ loc_A432:
     mov ax,[di+0x4]                          ; 4A43D
     sub ax,0x100                             ; 4A440
     mov bx,0x404                             ; 4A443
-    call sub_445B                            ; 4A446
+    call terrain_rect_clear                  ; 4A446
     ret                                      ; 4A449
 
-obj2A_update:
+; When +0Ch bit 12 is set (hit by an explosion), counts +1Ch to 96 frames, then clears the 32x32 solid area, plays sound 13h, spawns effect 3Fh (subtype 3) and deletes itself. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +1Ch; collision map; slot deleted
+; side effects: sound 13h, sub_D4A0 spawn
+; evidence: test word [di+0Ch],1000h / cmp word [di+1Ch],60h / call sub_445B / mov ax,13h / mov cx,3 / call sub_D4A0
+obj2a_update_breakable_block:
     or byte [di+0x1],0x2                     ; 4A44A
     test word [di+0xc],0x1000                ; 4A44E
     jz short loc_A486                        ; 4A453
@@ -18234,18 +20426,23 @@ obj2A_update:
     mov ax,[di+0x4]                          ; 4A465
     sub ax,0x100                             ; 4A468
     mov bx,0x404                             ; 4A46B
-    call sub_445B                            ; 4A46E
+    call terrain_rect_clear                  ; 4A46E
     mov ax,0x13                              ; 4A471
-    call sub_DD97                            ; 4A474
+    call sound_play                          ; 4A474
     mov ax,[di+0x2]                          ; 4A477
     mov dx,[di+0x4]                          ; 4A47A
     mov cx,0x3                               ; 4A47D
-    call sub_D4A0                            ; 4A480
+    call spawn_sparkle_effect                ; 4A480
     mov byte [di],0x0                        ; 4A483
 loc_A486:
     ret                                      ; 4A486
 
-obj2A_draw:
+; Draws the block as a 32x32 sprite group (loc_D118, tiles [142Ch], attribute 2800h); while breaking it is hidden on alternate 8-frame periods. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: test word [di+0Ch],1000h / shr ax,4 / jc ret / bp=[142Ch]|2800h / jmp loc_D118
+obj2a_draw_blink:
     test word [di+0xc],0x1000                ; 4A487
     jz short loc_A496                        ; 4A48C
     mov ax,[di+0x1c]                         ; 4A48E
@@ -18258,10 +20455,15 @@ loc_A496:
 loc_A4A1:
     ret                                      ; 4A4A1
 
-coll_2A_29:
+; Breakable block (DI) vs explosion fragment (SI): within 1B0h, clears its bit in [13D8h] (stays destroyed) and sets +0Ch bit 12 to start the break timer. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 2A (matrix row), SI = object of type 29 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: [13D8h] bit cleared; DI+0Ch |= 1000h
+; side effects: none
+; evidence: mov bx,1B0h / call sub_6124 / not ax / and [13D8h],ax / or word [di+0Ch],1000h
+coll_2a_29_crack_block:
     mov bx,0x1b0                             ; 4A4A2
     mov cx,0x1b0                             ; 4A4A5
-    call sub_6124                            ; 4A4A8
+    call obj_within_box                      ; 4A4A8
     jnc short loc_A4C0                       ; 4A4AB
     mov ax,0x1                               ; 4A4AD
     mov cl,[di+0x1e]                         ; 4A4B0
@@ -18272,14 +20474,24 @@ coll_2A_29:
 loc_A4C0:
     ret                                      ; 4A4C0
 
-coll_29_2A:
+; Swaps DI and SI, calls coll_2A_29 (fragment cracks block) with the roles reversed, swaps back. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_2A_29
+; side effects: as coll_2A_29
+; evidence: xchg di,si / call coll_2A_29 / xchg di,si / ret
+coll_29_2a_crack_block_rev:
     xchg di,si                               ; 4A4C1
-    call coll_2A_29                          ; 4A4C3
+    call coll_2a_29_crack_block              ; 4A4C3
     xchg di,si                               ; 4A4C6
     ret                                      ; 4A4C8
     db 0x90   ; 4A4C9
 
-lvl1C_spawn:
+; Creates a type-2Bh object at (AX*16, DX*16): +18h = y - BP*16 (top of the zone), +1Ah = CH (mode 0/1). [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: slot +0 = 012Bh, +2/+4, +18h, +1Ah
+; side effects: none
+; evidence: shl bp,cl / sub dx,bp / mov [di+18h],dx / mov al,ch / mov [di+1Ah],ax
+lvl1c_spawn_grab_column:
     mov cl,0x4                               ; 4A4CA
     shl ax,cl                                ; 4A4CC
     shl dx,cl                                ; 4A4CE
@@ -18296,7 +20508,12 @@ lvl1C_spawn:
     mov [di+0x1a],ax                         ; 4A4E7
     ret                                      ; 4A4EA
 
-obj2B_update_case1:
+; Mode 1: unless blocked by mapped-input bits ([1390h] 10h/40h/A0h) or player contact bits 44h ([3D0h]), If the player's x is within -4..+5 px of the object and its y lies between +18h and the object's y, clears player [3CCh] bits 6-7, snaps player x to the object x and zeroes player x-velocity [3C6h], setting [3D2h] bit 2. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot; player slot 03C0h; [1390h] mapped held keys
+; out: [3CCh], [3D2h] |= 4, [3C2h], [3C6h]
+; side effects: none
+; evidence: test word [1390h],10h/40h/0A0h; test al,44h; add ax,40h / cmp ax,90h; cmp ax,cx jl / cmp ax,dx jg; or word [3D2h],4
+obj2b_update_grab_mode1:
     test word [0x1390],0x10                  ; 4A4EB
     jnz short loc_A50C                       ; 4A4F1
     mov ax,[0x3d0]                           ; 4A4F3
@@ -18334,7 +20551,12 @@ loc_A50C:
 loc_A557:
     ret                                      ; 4A557
 
-obj2B_update_case0:
+; Mode 0: If the player's x is within -4..+5 px of the object and its y lies between +18h and the object's y, clears player [3CCh] bits 6-7, snaps player x to the object x and zeroes player x-velocity [3C6h], setting [3D2h] bit 1; skipped near the top (within 140h) while mapped input A0h is held, or when A0h is held and [3D0h] bit 7 is set. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot; player slot; [1390h]
+; out: [3CCh], [3D2h] |= 2, [3C2h], [3C6h]
+; side effects: none
+; evidence: cmp cx,140h / test word [1390h],0A0h / test byte [3D0h],80h / or word [3D2h],2
+obj2b_update_grab_mode0:
     mov ax,[0x3c2]                           ; 4A558
     mov dx,[di+0x2]                          ; 4A55B
     and ax,0xfff0                            ; 4A55E
@@ -18375,10 +20597,15 @@ loc_A5C4:
 
 ; jump table tbl_A5C5: 2 words, bound: adjacent (first use at 4A5E6)
 tbl_A5C5:
-    dw obj2B_update_case0
-    dw obj2B_update_case1
+    dw obj2b_update_grab_mode0
+    dw obj2b_update_grab_mode1
 
-obj2B_update:
+; Type 2Bh update: does nothing while player [3CCh] bit 10 is set or (bit 4 set and player vy < -10h); otherwise dispatches on mode +1Ah through tbl_A5C5 to attach the player to the column. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: see cases
+; side effects: none
+; evidence: test ax,400h / test ax,10h / cmp byte [3C8h],0F0h / mov bx,[di+1Ah] / jmp [cs:bx+tbl_A5C5]
+obj2b_update_grab_column:
     or byte [di+0x1],0x2                     ; 4A5C9
     mov ax,[0x3cc]                           ; 4A5CD
     test ax,0x400                            ; 4A5D0
@@ -18394,7 +20621,12 @@ loc_A5E1:
 loc_A5EB:
     ret                                      ; 4A5EB
 
-sub_A5EC:
+; Copies 256 bytes (16 16-byte 2bpp tiles) of sprite tile data from 7000:9382 to 0000:AX (tile RAM). [high, reviewed: range_7B9C_A99F.json]
+; in:  AX = destination offset in segment 0 (tile RAM, 2000h + 16*tile)
+; out: tile RAM at 0000:AX..+100h
+; side effects: Leaves DS = 7000h (caller lvl1D_tick restores DS = 0); clobbers CX, SI, DI, ES.
+; evidence: mov di,ax / mov cx,80h / ds=7000h / si=9382 / es=0 / rep movsw
+lvl1d_tiles_copy:
     rr mov, di, ax                           ; 4A5EC
     mov cx,0x80                              ; 4A5EE
     mov ax,0x7000                            ; 4A5F1
@@ -18405,7 +20637,12 @@ sub_A5EC:
     rep movsw                                ; 4A5FD
     ret                                      ; 4A5FF
 
-lvl1D_tick:
+; Once per Vision: if the VRAM tile base [142Eh] is still 0, allocates 16 tiles downward from the tile allocator [1396h] (gives up if the new value would fall below 96h), stores the base tile in [142Eh] and copies the tiles via sub_A5EC. [high, reviewed: range_7B9C_A99F.json]
+; in:  ES:DI = level record, ES = 8000h (called once per record by sub_B4A2 from sub_B053 during Vision load, kind table 8:0192)
+; out: [1396h] -= 16, [142Eh] = new base tile; tile RAM 2000h+16*base
+; side effects: Calls sub_A5EC (sets DS = 7000h) then restores DS = 0; all registers preserved (push ax/pusha).
+; evidence: cmp word [142Eh],0 / ax=[1396h]-10h / cmp ax,96h jnc / mov [1396h],ax / mov [142Eh],ax / shl ax,4 / add ax,2000h / call sub_A5EC. [1396h] is reset to 14Bh and 1400h-142Fh cleared by sub_146A (state04_vision_load).
+lvl1d_load_tiles:
     cmp word [0x142e],byte +0x0              ; 4A600
     jnz short loc_A62B                       ; 4A605
     push ax                                  ; 4A607
@@ -18421,7 +20658,7 @@ loc_A615:
     mov [0x142e],ax                          ; 4A619
     shl ax,byte 0x4                          ; 4A61C
     add ax,0x2000                            ; 4A61F
-    call sub_A5EC                            ; 4A622
+    call lvl1d_tiles_copy                    ; 4A622
     rr xor, ax, ax                           ; 4A625
     mov ds,ax                                ; 4A627
     popa                                     ; 4A629
@@ -18429,7 +20666,12 @@ loc_A615:
 loc_A62B:
     ret                                      ; 4A62B
 
-lvl1D_spawn:
+; Creates a type-2Ch gate (8-px aligned) with side +1Eh = CH and marks an 8x32 solid column (BL = 1, BH = 4) offset to one side by +1Eh; the column origin is kept in +18h/+1Ah. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: slot +0 = 012Ch, +2/+4, +1Eh, +18h, +1Ah; collision map
+; side effects: none
+; evidence: add dx,80h / cmp ch,0 / sub dx,100h / mov [di+18h],dx / mov [di+1Ah],ax / mov bx,401h / call sub_4436
+lvl1d_spawn_one_way_gate:
     mov cl,0x4                               ; 4A62C
     shl ax,cl                                ; 4A62E
     shl dx,cl                                ; 4A630
@@ -18452,11 +20694,16 @@ loc_A65B:
     mov [di+0x18],dx                         ; 4A65E
     mov [di+0x1a],ax                         ; 4A661
     mov bx,0x401                             ; 4A664
-    call sub_4436                            ; 4A667
+    call terrain_rect_set                    ; 4A667
     ret                                      ; 4A66A
     db 0x90   ; 4A66B
 
-obj2C_update:
+; Open timer +14h: when it equals 8 (just set by contact) clears the solid column and plays sound 27h once (+1Fh = 1); when it reaches 1 re-marks the column (+1Fh = 0); decrements +14h towards 0 every frame. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +14h, +1Fh, collision map
+; side effects: sound 27h
+; evidence: cmp cl,8 / call sub_445B / mov ax,27h; cmp cl,1 / call sub_4436; neg cl / adc cl,0 / neg cl
+obj2c_update_one_way_gate:
     or byte [di+0x1],0x2                     ; 4A66C
     mov dx,[di+0x18]                         ; 4A670
     mov ax,[di+0x1a]                         ; 4A673
@@ -18464,18 +20711,18 @@ obj2C_update:
     mov cl,[di+0x14]                         ; 4A679
     cmp cl,0x8                               ; 4A67C
     jnz short loc_A697                       ; 4A67F
-    call sub_445B                            ; 4A681
+    call terrain_rect_clear                  ; 4A681
     cmp byte [di+0x1f],0x0                   ; 4A684
     jnz short loc_A694                       ; 4A688
     mov ax,0x27                              ; 4A68A
-    call sub_DD97                            ; 4A68D
+    call sound_play                          ; 4A68D
     mov byte [di+0x1f],0x1                   ; 4A690
 loc_A694:
     jmp near loc_A6A3                        ; 4A694
 loc_A697:
     cmp cl,0x1                               ; 4A697
     jnz short loc_A6A3                       ; 4A69A
-    call sub_4436                            ; 4A69C
+    call terrain_rect_set                    ; 4A69C
     mov byte [di+0x1f],0x0                   ; 4A69F
 loc_A6A3:
     neg cl                                   ; 4A6A3
@@ -18484,7 +20731,12 @@ loc_A6A3:
     mov [di+0x14],cl                         ; 4A6AA
     ret                                      ; 4A6AD
 
-obj2C_draw:
+; Draws the gate from tiles [142Eh] (+8 while open), attribute 2800h, through loc_CEB8 or the mirrored loc_CF16 depending on side +1Eh. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: add bp,8 / cmp byte [di+14h],0 / sub bp,8 / cmp byte [di+1Eh],0 / jmp loc_CEB8 | loc_CF16
+obj2c_draw_one_way_gate:
     cmp word [0x1382],0x17d8                 ; 4A6AE
     jc short loc_A6B7                        ; 4A6B4
     ret                                      ; 4A6B6
@@ -18502,8 +20754,13 @@ loc_A6CB:
 loc_A6D4:
     jmp near loc_CF16                        ; 4A6D4
 
+; Gate (DI) vs player and movable objects (SI): if SI is on the allowed side (x <= gate x for side 0, >= for side 1), sets DI+14h = 8 (open). [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 2C (matrix row), SI = object of type 01/0B/0D/10/12/15/27 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: DI+14h = 8
+; side effects: none
+; evidence: cmp byte [di+1Eh],0 / cmp dx,ax / mov byte [di+14h],8
 ; dispatch roles: coll_2C_01, coll_2C_0B, coll_2C_0D, coll_2C_10, coll_2C_12, coll_2C_15, coll_2C_27
-coll_2C_01:
+coll_2c_01_open_from_side:
     mov ax,[di+0x2]                          ; 4A6D7
     mov dx,[si+0x2]                          ; 4A6DA
     cmp byte [di+0x1e],0x0                   ; 4A6DD
@@ -18519,8 +20776,13 @@ loc_A6EC:
     mov byte [di+0x14],0x8                   ; 4A6F0
     ret                                      ; 4A6F4
 
+; Mirror of coll_2C_01_open_from_side with the gate in SI. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 01/0B/0D/10/12/15/27 (matrix row), SI = object of type 2C (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: SI+14h = 8
+; side effects: none
+; evidence: cmp byte [si+1Eh],0 / cmp dx,ax / mov byte [si+14h],8
 ; dispatch roles: coll_01_2C, coll_0B_2C, coll_0D_2C, coll_10_2C, coll_12_2C, coll_15_2C, coll_27_2C
-coll_01_2C:
+coll_01_2c_open_from_side:
     mov ax,[si+0x2]                          ; 4A6F5
     mov dx,[di+0x2]                          ; 4A6F8
     cmp byte [si+0x1e],0x0                   ; 4A6FB
@@ -18537,7 +20799,12 @@ loc_A70A:
     ret                                      ; 4A712
     db 0x90   ; 4A713
 
-sub_A714:
+; Copies 576 bytes (36 16-byte 2bpp tiles) of sprite tile data from 7000:6AE0 to 0000:AX (tile RAM). [high, reviewed: range_7B9C_A99F.json]
+; in:  AX = destination offset in segment 0 (tile RAM, 2000h + 16*tile)
+; out: tile RAM at 0000:AX..+240h
+; side effects: Leaves DS = 7000h (caller lvl1E_tick restores DS = 0); clobbers CX, SI, DI, ES.
+; evidence: mov di,ax / mov cx,120h / ds=7000h / si=6AE0 / es=0 / rep movsw
+lvl1e_tiles_copy:
     rr mov, di, ax                           ; 4A714
     mov cx,0x120                             ; 4A716
     mov ax,0x7000                            ; 4A719
@@ -18548,7 +20815,12 @@ sub_A714:
     rep movsw                                ; 4A725
     ret                                      ; 4A727
 
-lvl1E_tick:
+; Once per Vision: if the VRAM tile base [1418h] is still 0, allocates 36 tiles downward from the tile allocator [1396h] (gives up if the new value would fall below 96h), stores the base tile in [1418h] and copies the tiles via sub_A714. [high, reviewed: range_7B9C_A99F.json]
+; in:  ES:DI = level record, ES = 8000h (called once per record by sub_B4A2 from sub_B053 during Vision load, kind table 8:0192)
+; out: [1396h] -= 36, [1418h] = new base tile; tile RAM 2000h+16*base
+; side effects: Calls sub_A714 (sets DS = 7000h) then restores DS = 0; all registers preserved (push ax/pusha).
+; evidence: cmp word [1418h],0 / ax=[1396h]-24h / cmp ax,96h jnc / mov [1396h],ax / mov [1418h],ax / shl ax,4 / add ax,2000h / call sub_A714. [1396h] is reset to 14Bh and 1400h-142Fh cleared by sub_146A (state04_vision_load).
+lvl1e_load_tiles:
     cmp word [0x1418],byte +0x0              ; 4A728
     jnz short loc_A753                       ; 4A72D
     push ax                                  ; 4A72F
@@ -18564,7 +20836,7 @@ loc_A73D:
     mov [0x1418],ax                          ; 4A741
     shl ax,byte 0x4                          ; 4A744
     add ax,0x2000                            ; 4A747
-    call sub_A714                            ; 4A74A
+    call lvl1e_tiles_copy                    ; 4A74A
     rr xor, ax, ax                           ; 4A74D
     mov ds,ax                                ; 4A74F
     popa                                     ; 4A751
@@ -18572,7 +20844,12 @@ loc_A73D:
 loc_A753:
     ret                                      ; 4A753
 
-lvl1E_spawn:
+; Places a type-1Bh delayed spawner that becomes type 2Dh after CH*4 frames; +0Ah = +0Bh = 80h, +0Ch |= 2. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: slot +0 = 011Bh, +2/+4, +14h = CH, +1Eh = 2Dh
+; side effects: none
+; evidence: mov al,1Bh / mov byte [di+1Eh],2Dh / or word [di+0Ch],2
+lvl1e_spawn_delayed_obj2d:
     mov cl,0x4                               ; 4A754
     shl ax,cl                                ; 4A756
     shl dx,cl                                ; 4A758
@@ -18589,7 +20866,12 @@ lvl1E_spawn:
     ret                                      ; 4A77A
     db 0x90   ; 4A77B
 
-obj2D_update:
+; Type 2Dh update: same body as obj18_update (timers, +0Ch bit 4, sub_6670 movement handler, sub_622B unless +13h) plus the dead 'cmp al,18h' clamp. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: position via sub_622B
+; side effects: none
+; evidence: inc byte [di+14h] / call sub_6670 / cmp byte [di+13h],0 / jmp sub_622B
+obj2d_update_scripted_move:
     or byte [di+0x1],0x2                     ; 4A77C
     inc byte [di+0x14]                       ; 4A780
     inc word [di+0x1c]                       ; 4A783
@@ -18598,14 +20880,19 @@ obj2D_update:
     jl short loc_A791                        ; 4A78D
     mov al,0x18                              ; 4A78F
 loc_A791:
-    call sub_6670                            ; 4A791
+    call mscript_run                         ; 4A791
     cmp byte [di+0x13],0x0                   ; 4A794
     jnz short loc_A79D                       ; 4A798
-    jmp near sub_622B                        ; 4A79A
+    jmp near obj_apply_velocity              ; 4A79A
 loc_A79D:
     ret                                      ; 4A79D
 
-obj2D_draw:
+; Draws type 2Dh like obj07_draw: tile base [1418h] | 2800h via tbl_D31E[play_flags & 1]. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: cmp word [1382h],17D4h / bp=[1418h]|2800h / jmp [cs:bx+tbl_D31E]
+obj2d_draw_dyn_tiles:
     cmp word [0x1382],0x17d4                 ; 4A79E
     jc short loc_A7A7                        ; 4A7A4
     ret                                      ; 4A7A6
@@ -18617,28 +20904,48 @@ loc_A7A7:
     shl bx,1                                 ; 4A7B7
     jmp [cs:bx+tbl_D31E]                     ; 4A7B9
 
-coll_2D_02:
+; Swaps DI and SI, calls coll_02_2D (capture of a 2Dh enemy) with the roles reversed, swaps back. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; out: as coll_02_2D
+; side effects: as coll_02_2D
+; evidence: xchg di,si / call coll_02_2D / xchg di,si / ret
+coll_2d_02_capture_lift_rev:
     xchg di,si                               ; 4A7BE
-    call coll_02_2D                          ; 4A7C0
+    call coll_02_2d_capture_lift             ; 4A7C0
     xchg di,si                               ; 4A7C3
     ret                                      ; 4A7C5
 
-coll_02_2D:
+; Object 02h (DI) touching a 2Dh enemy (SI): sets [3D2h] bit 0, player y-acceleration [3C9h] = FFh (upward), captures SI as type 09h via sub_60D4 (held object, sound 0Ah, effect 3Fh, DI deleted, [13C0h]++) and stops sound 0Dh (sub_DDDD). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 02 (matrix row), SI = object of type 2D (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: [3D2h] |= 1; [3C9h] = FFh; SI type 09h; [3D6h] = SI
+; side effects: sound 0Ah started, sound 0Dh stopped
+; evidence: or word [3D2h],1 / mov byte [3C9h],0FFh / mov dl,9 / call sub_60D4 / mov ax,0Dh / call sub_DDDD
+coll_02_2d_capture_lift:
     or word [0x3d2],0x1                      ; 4A7C6
     mov byte [0x3c9],0xff                    ; 4A7CC
     mov dl,0x9                               ; 4A7D1
-    call sub_60D4                            ; 4A7D3
+    call shot_grab_enemy                     ; 4A7D3
     mov ax,0xd                               ; 4A7D6
-    call sub_DDDD                            ; 4A7D9
+    call sound_stop_id                       ; 4A7D9
     ret                                      ; 4A7DC
 
-lvl22_spawn:
-    call lvl21_spawn                         ; 4A7DD
+; Runs lvl21_spawn and then sets +1Eh = 1 (large variant: worth 5, drawn as two sprites, sound 0Fh). [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: as lvl21_spawn + DI+1Eh = 1
+; side effects: none
+; evidence: call lvl21_spawn / mov byte [di+1Eh],1. Note: when the stone was already collected, lvl21_spawn leaves the slot empty but +1Eh is still written.
+lvl22_spawn_big_dream_stone:
+    call lvl21_spawn_dream_stone             ; 4A7DD
     mov byte [di+0x1e],0x1                   ; 4A7E0
     ret                                      ; 4A7E4
     db 0x90   ; 4A7E5
 
-lvl21_spawn:
+; Creates a type-32h collectible with id +14h = CH & 1Fh unless bit id of the 32-bit mask [13DAh]/[13DCh] is already set; +0Ah = +0Bh = 4. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: slot +0 = 0132h, +2/+4, +14h, +0Ah/+0Bh
+; side effects: none
+; evidence: and ch,1Fh / mov ax,[13DAh] / [13DCh] for ids >= 16 / shr ax,cl / jnc / mov al,32h
+lvl21_spawn_dream_stone:
     mov cl,0x4                               ; 4A7E6
     shl ax,cl                                ; 4A7E8
     shl dx,cl                                ; 4A7EA
@@ -18669,12 +20976,22 @@ loc_A814:
     ret                                      ; 4A822
     db 0x90   ; 4A823
 
-obj32_update:
+; Only marks the slot updated. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +1 bit 1
+; side effects: none
+; evidence: or byte [di+1],2 / ret
+obj32_update_idle:
     or byte [di+0x1],0x2                     ; 4A824
     ret                                      ; 4A828
     db 0x90   ; 4A829
 
-obj32_draw:
+; Small stone (+1Eh = 0): one 8x8 sprite 2FBDh; large stone: two sprites 2FBBh/2FBCh stacked (orientation-aware). [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: cmp byte [di+1Eh],0 / mov ax,2FBDh; mov ax,2FBBh / inc ax
+obj32_draw_dream_stone:
     cmp byte [di+0x1e],0x0                   ; 4A82A
     jnz short loc_A851                       ; 4A82E
     cmp word [0x1382],0x17f4                 ; 4A830
@@ -18722,7 +21039,12 @@ loc_A885:
     ret                                      ; 4A89C
     db 0x90   ; 4A89D
 
-coll_01_32:
+; Player touches a type-32h stone within +/-0C0h horizontally: sets its id bit in [13DAh]/[13DCh], adds 1 (small) or 5 (large) to [13DEh], deletes it, spawns effect 3Fh (subtype 0) and plays sound 0Eh + size. [medium, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 01 (matrix row), SI = object of type 32 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: [13DAh]/[13DCh] bit set; [13DEh] += 1 or 5; SI type 0
+; side effects: sound 0Eh/0Fh; sub_D4A0 spawn
+; evidence: add ax,0C0h / cmp ax,180h; or [13DAh],ax; mov al,[si+1Eh] / shl dl,2 / inc dl / add [13DEh],dl; add ax,0Eh / call sub_DD97. 1-vs-5 values match the dream-stone tally of state07_vision_clear (name is an inference).
+coll_01_32_collect_dream_stone:
     mov ax,[di+0x2]                          ; 4A89E
     sub ax,[si+0x2]                          ; 4A8A1
     add ax,0xc0                              ; 4A8A4
@@ -18747,28 +21069,38 @@ loc_A8C9:
     shl dl,1                                 ; 4A8D3
     shl dl,1                                 ; 4A8D5
     inc dl                                   ; 4A8D7
-    add [0x13de],dl                          ; 4A8D9
+    add [dream_stones],dl                    ; 4A8D9
     push ax                                  ; 4A8DD
     mov byte [si],0x0                        ; 4A8DE
     mov ax,[si+0x2]                          ; 4A8E1
     mov dx,[si+0x4]                          ; 4A8E4
     rr xor, cx, cx                           ; 4A8E7
-    call sub_D4A0                            ; 4A8E9
+    call spawn_sparkle_effect                ; 4A8E9
     pop ax                                   ; 4A8EC
-    call sub_DD97                            ; 4A8ED
+    call sound_play                          ; 4A8ED
 loc_A8F0:
     ret                                      ; 4A8F0
     db 0x90   ; 4A8F1
 
-lvl27_spawn:
+; Runs lvl26_spawn only while lives ([13E1h]) is below 3. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: as lvl26_spawn
+; side effects: none
+; evidence: cmp byte [lives],3 / jnc ret / call lvl26_spawn
+lvl27_spawn_1up_if_lives_lt3:
     cmp byte [lives],0x3                     ; 4A8F2
     jnc short loc_A8FC                       ; 4A8F7
-    call lvl26_spawn                         ; 4A8F9
+    call lvl26_spawn_1up                     ; 4A8F9
 loc_A8FC:
     ret                                      ; 4A8FC
     db 0x90   ; 4A8FD
 
-lvl26_spawn:
+; Creates a type-33h item with id +14h = CH & 7 unless bit id of [13E9h] (already taken) is set; +0Ah = +0Bh = 4. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: slot +0 = 0133h, +2/+4, +14h, +0Ah/+0Bh
+; side effects: none
+; evidence: and ch,7 / mov al,[13E9h] / shr al,cl / jc / mov al,33h
+lvl26_spawn_1up:
     pusha                                    ; 4A8FE
     mov cl,0x4                               ; 4A8FF
     shl ax,cl                                ; 4A901
@@ -18791,12 +21123,22 @@ loc_A92A:
     popa                                     ; 4A92A
     ret                                      ; 4A92B
 
-obj33_update:
+; Only marks the slot updated. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot (called from objects_update with ES = 8000h)
+; out: +1 bit 1
+; side effects: none
+; evidence: or byte [di+1],2 / ret
+obj33_update_idle:
     or byte [di+0x1],0x2                     ; 4A92C
     ret                                      ; 4A930
     db 0x90   ; 4A931
 
-obj33_draw:
+; Draws the item as a 16x16 group, tile 1BFh attribute 2800h (loc_D092). [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
+; side effects: none
+; evidence: cmp word [1382h],17E8h / mov bp,29BFh / jmp loc_D092
+obj33_draw_16px:
     cmp word [0x1382],0x17e8                 ; 4A932
     jc short loc_A93B                        ; 4A938
     ret                                      ; 4A93A
@@ -18805,7 +21147,12 @@ loc_A93B:
     jmp near loc_D092                        ; 4A93E
     db 0x90   ; 4A941
 
-coll_01_33:
+; Player touches a type-33h item: sets its bit in [13E9h], increments lives ([13E1h], capped at 99), plays sound 19h, deletes it, spawns effect 3Fh (subtype 2) and redraws the lives counter (sub_C718). [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = object of type 01 (matrix row), SI = object of type 33 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
+; out: [13E9h] bit set; lives +1 (<= 99); SI type 0
+; side effects: sound 19h; HUD tiles; sub_D4A0 spawn
+; evidence: or [13E9h],al / cmp byte [lives],63h / adc byte [lives],0 / mov ax,19h / call sub_DD97 / call sub_D4A0 / jmp sub_C718
+coll_01_33_collect_1up:
     mov al,0x1                               ; 4A942
     mov cl,[si+0x14]                         ; 4A944
     shl al,cl                                ; 4A947
@@ -18814,17 +21161,22 @@ coll_01_33:
     adc byte [lives],0x0                     ; 4A952
     mov byte [si],0x0                        ; 4A957
     mov ax,0x19                              ; 4A95A
-    call sub_DD97                            ; 4A95D
+    call sound_play                          ; 4A95D
     push ax                                  ; 4A960
     mov byte [si],0x0                        ; 4A961
     mov ax,[si+0x2]                          ; 4A964
     mov dx,[si+0x4]                          ; 4A967
     mov cx,0x2                               ; 4A96A
-    call sub_D4A0                            ; 4A96D
+    call spawn_sparkle_effect                ; 4A96D
     pop ax                                   ; 4A970
-    jmp near sub_C718                        ; 4A971
+    jmp near hud_draw_lives                  ; 4A971
 
-lvl28_spawn:
+; Creates a type-34h object with id +14h = CH & 7 unless bit id of [13E8h] is set; +0Ah = +0Bh = 4. [high, reviewed: range_7B9C_A99F.json]
+; in:  DI = cleared free slot, AX/DX = level-record x/y in pixels, CH = record byte +3, BP = record word +0Eh, SI = 2*kind (called from sub_B431 through kind table 8:00DA)
+; out: slot +0 = 0134h, +2/+4, +14h, +0Ah/+0Bh
+; side effects: none
+; evidence: and ch,7 / mov al,[13E8h] / shr al,cl / jc / mov al,34h
+lvl28_spawn_obj34_once:
     mov cl,0x4                               ; 4A974
     shl ax,cl                                ; 4A976
     shl dx,cl                                ; 4A978
@@ -18845,12 +21197,22 @@ lvl28_spawn:
 loc_A99F:
     ret                                      ; 4A99F
 
-obj34_update:
+; Update handler for object type 34h: only sets bit 1 of byte +1 (the per-frame 'updated' flag that the draw pass clears) and returns; the object has no motion. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object slot
+; out: byte [DI+1] |= 2
+; side effects: none
+; evidence: or byte [di+0x1],0x2 / ret; objects_update skips slots with bit1 set, state19_world_record_case0 clears it (and bh,0xfd at 4062C)
+obj34_update_static:
     or byte [di+0x1],0x2                     ; 4A9A0
     ret                                      ; 4A9A4
     db 0x90   ; 4A9A5
 
-obj34_draw:
+; Draw handler for type 34h: if the sprite table write pointer [1382h] is below 17E8h, draws a 2x2 sprite group with base tile word 2DB3h via loc_D092 (the same tile pair used for the HUD hearts in sub_C49C). [medium, reviewed: range_A9A0_FFFF.json]
+; in:  DI = slot, DH/DL = screen x/y from the draw pass
+; out: sprite entries at [1382h], [1382h] += 10h
+; side effects: none
+; evidence: cmp word [0x1382],0x17e8 / mov bp,0x2db3 / jmp loc_D092; sub_C49C uses si=0x2db3 for hearts
+obj34_draw_heart:
     cmp word [0x1382],0x17e8                 ; 4A9A6
     jc short loc_A9AF                        ; 4A9AC
     ret                                      ; 4A9AE
@@ -18859,28 +21221,38 @@ loc_A9AF:
     jmp near loc_D092                        ; 4A9B2
     db 0x90   ; 4A9B5
 
-coll_01_34:
+; Collision callback type 01 (player) vs 34h: sets bit [SI+14h] in [13E8h] (collected mask), increments [13E0h] (lives_reserve, behaves as heart/health count) saturating at 3, plays sound 10h, deletes the pickup, spawns a sparkle effect (sub_D4A0 variant 2) at its position and redraws the heart HUD (sub_C55E). [medium, reviewed: range_A9A0_FFFF.json]
+; in:  SI = pickup object, DI = player
+; out: [13E8h] |= 1<<[SI+14h]; [13E0h] = min(3, [13E0h]+1); byte [SI] = 0
+; side effects: sound 10h started; effect object allocated; BG map hearts redrawn
+; evidence: cmp al,0x3 / adc al,0x0 on [lives_reserve]; mov ax,0x10 / call sub_DD97; mov byte [si],0; cx=2 call sub_D4A0; jmp sub_C55E
+coll_01_34_heart_pickup:
     mov al,0x1                               ; 4A9B6
     mov cl,[si+0x14]                         ; 4A9B8
     shl al,cl                                ; 4A9BB
     or [0x13e8],al                           ; 4A9BD
-    mov al,[lives_reserve]                   ; 4A9C1
+    mov al,[hearts]                          ; 4A9C1
     cmp al,0x3                               ; 4A9C4
     adc al,0x0                               ; 4A9C6
-    mov [lives_reserve],al                   ; 4A9C8
+    mov [hearts],al                          ; 4A9C8
     mov ax,0x10                              ; 4A9CB
-    call sub_DD97                            ; 4A9CE
+    call sound_play                          ; 4A9CE
     push ax                                  ; 4A9D1
     mov byte [si],0x0                        ; 4A9D2
     mov ax,[si+0x2]                          ; 4A9D5
     mov dx,[si+0x4]                          ; 4A9D8
     mov cx,0x2                               ; 4A9DB
-    call sub_D4A0                            ; 4A9DE
+    call spawn_sparkle_effect                ; 4A9DE
     pop ax                                   ; 4A9E1
-    jmp near sub_C55E                        ; 4A9E2
+    jmp near hud_draw_hearts                 ; 4A9E2
     db 0x90   ; 4A9E5
 
-sub_A9E6:
+; Copies 120h words (24h tiles of 16 bytes) of graphics from ROM 7000:7580 to RAM address AX (tile RAM). Leaves DS = 7000h (caller restores). [high, reviewed: range_A9A0_FFFF.json]
+; in:  AX = destination offset in segment 0
+; out: tile RAM at AX..AX+23Fh
+; side effects: DS = 7000h, ES = 0 on return
+; evidence: mov cx,0x120 / ds=0x7000 / si=0x7580 / rep movsw
+copy_tiles_7580_for_obj2e:
     rr mov, di, ax                           ; 4A9E6
     mov cx,0x120                             ; 4A9E8
     mov ax,0x7000                            ; 4A9EB
@@ -18891,7 +21263,12 @@ sub_A9E6:
     rep movsw                                ; 4A9F7
     ret                                      ; 4A9F9
 
-lvl25_tick:
+; Per-spawn-kind preload hook for kind 25h (run once at Vision load by sub_B4A2): if not yet done, allocates 24h tiles from the downward tile allocator [1396h] (floor 96h) into [141Ch] and copies obj2E graphics there; likewise 10h tiles into [141Eh] for obj2F graphics (sub_AB6E). [high, reviewed: range_A9A0_FFFF.json]
+; in:  [141Ch], [141Eh], [1396h]
+; out: [1396h] decreased, [141Ch]/[141Eh] = first tile index; tile RAM 2000h + tile*16 filled
+; side effects: DS reset to 0
+; evidence: sub ax,0x24 / cmp ax,0x96 / mov [0x141c],ax / shl ax,4 / add ax,0x2000 / call sub_A9E6; second half uses 0x10 and sub_AB6E; obj2E_draw/obj2F_draw use [141Ch]/[141Eh]
+lvl25_tick_alloc_obj2e_tiles:
     cmp word [0x141c],byte +0x0              ; 4A9FA
     jnz short loc_AA25                       ; 4A9FF
     push ax                                  ; 4AA01
@@ -18907,7 +21284,7 @@ loc_AA0F:
     mov [0x141c],ax                          ; 4AA13
     shl ax,byte 0x4                          ; 4AA16
     add ax,0x2000                            ; 4AA19
-    call sub_A9E6                            ; 4AA1C
+    call copy_tiles_7580_for_obj2e           ; 4AA1C
     rr xor, ax, ax                           ; 4AA1F
     mov ds,ax                                ; 4AA21
     popa                                     ; 4AA23
@@ -18928,7 +21305,7 @@ loc_AA3A:
     mov [0x141e],ax                          ; 4AA3E
     shl ax,byte 0x4                          ; 4AA41
     add ax,0x2000                            ; 4AA44
-    call sub_AB6E                            ; 4AA47
+    call copy_tiles_7a00_for_obj2f           ; 4AA47
     rr xor, ax, ax                           ; 4AA4A
     mov ds,ax                                ; 4AA4C
     popa                                     ; 4AA4E
@@ -18937,7 +21314,12 @@ loc_AA50:
     ret                                      ; 4AA50
     db 0x90   ; 4AA51
 
-lvl25_spawn:
+; Spawn initialiser for spawn kind 25h: places object at (AX,DX) pixels (stored x16), type 1Bh with byte+1 = 1, [+1Eh] = 2Eh, [+14h] = CH, [+0Ah]/[+0Bh] = 80h, [+9] = 1, sets bit 1 of [+0Ch]. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = slot, AX/DX = position in pixels, CH = parameter
+; out: object slot fields
+; side effects: none
+; evidence: mov al,0x1b / mov ah,0x1 / mov [di],ax / mov byte [di+0x1e],0x2e / mov [di+0x14],ch
+lvl25_spawn_obj1b:
     mov cl,0x4                               ; 4AA52
     shl ax,cl                                ; 4AA54
     shl dx,cl                                ; 4AA56
@@ -18955,7 +21337,12 @@ lvl25_spawn:
     ret                                      ; 4AA7C
     db 0x90   ; 4AA7D
 
-obj2E_update_case0:
+; obj2E state 0: increments timer [+1Ch]; if Manhattan distance to the player (03C2h/03C4h) is <= [+18h] and the map-contact byte ([+10h] lo|hi) has bit 2, advances to state 1 and clears [+1Fh]/[+14h]; then steps animation (sub_6670), moves by velocity (sub_622B) unless [+13h] set, and tail-calls sub_6146. [medium, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object
+; out: [DI+1Eh] incremented on trigger
+; side effects: calls sub_6670/sub_622B/sub_6146
+; evidence: mov ax,[0x3c2] / sub ax,[di+0x2] / cwd/xor/sub (abs) ... cmp ax,[di+0x18] / test al,0x4 / inc byte [di+0x1e]
+obj2e_update_wait_player_near:
     inc word [di+0x1c]                       ; 4AA7E
     mov ax,[0x3c2]                           ; 4AA81
     sub ax,[di+0x2]                          ; 4AA84
@@ -18980,22 +21367,27 @@ obj2E_update_case0:
     mov byte [di+0x1f],0x0                   ; 4AAAC
     mov byte [di+0x14],0x0                   ; 4AAB0
 loc_AAB4:
-    call sub_6670                            ; 4AAB4
+    call mscript_run                         ; 4AAB4
     cmp byte [di+0x13],0x0                   ; 4AAB7
     jnz short loc_AAC0                       ; 4AABB
-    call sub_622B                            ; 4AABD
+    call obj_apply_velocity                  ; 4AABD
 loc_AAC0:
-    jmp near sub_6146                        ; 4AAC0
+    jmp near obj_walk_terrain                ; 4AAC0
     db 0x90   ; 4AAC3
 
+; obj2E states 1 and 3: holds horizontal velocity at 0 for 50 frames, then advances the state (mod 4); on entering state 2 sets facing bits of [+0Ch] toward the player (2 = player to the right, 1 = left) and swaps the animation pointers [+16h]/[+1Ah]. [medium, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object
+; out: [+1Eh], [+1Fh], [+14h], [+0Ch], [+16h]/[+1Ah]
+; side effects: calls sub_622B/sub_6146
+; evidence: cmp byte [di+0x1f],0x32 / and al,0x3 / mov [di+0x1e],al / or [di+0xc],dx / swap [di+0x16],[di+0x1a]
 ; dispatch roles: obj2E_update_case1, obj2E_update_case3
-obj2E_update_case1:
+obj2e_update_pause_turn:
     inc byte [di+0x1f]                       ; 4AAC4
     cmp byte [di+0x1f],0x32                  ; 4AAC7
     ja short loc_AAD8                        ; 4AACB
     mov word [di+0x6],0x0                    ; 4AACD
-    call sub_622B                            ; 4AAD2
-    jmp near sub_6146                        ; 4AAD5
+    call obj_apply_velocity                  ; 4AAD2
+    jmp near obj_walk_terrain                ; 4AAD5
 loc_AAD8:
     mov byte [di+0x1f],0x0                   ; 4AAD8
     mov byte [di+0x14],0x0                   ; 4AADC
@@ -19021,24 +21413,34 @@ loc_AB04:
 loc_AB13:
     ret                                      ; 4AB13
 
-obj2E_update_case2:
+; obj2E state 2: counts [+14h] up to 40h (saturating), steps animation (sub_6670), zeroes horizontal velocity, moves (sub_622B), tail-calls sub_6146. [medium, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object
+; out: [+14h], [+6]
+; side effects: calls sub_6670/sub_622B/sub_6146
+; evidence: cmp al,0x40 / adc al,0x0; mov word [di+0x6],0
+obj2e_update_animate_still:
     mov al,[di+0x14]                         ; 4AB14
     cmp al,0x40                              ; 4AB17
     adc al,0x0                               ; 4AB19
     mov [di+0x14],al                         ; 4AB1B
-    call sub_6670                            ; 4AB1E
+    call mscript_run                         ; 4AB1E
     mov word [di+0x6],0x0                    ; 4AB21
-    call sub_622B                            ; 4AB26
-    jmp near sub_6146                        ; 4AB29
+    call obj_apply_velocity                  ; 4AB26
+    jmp near obj_walk_terrain                ; 4AB29
 
 ; jump table tbl_AB2C: 4 words, bound: mask (first use at 4AB49)
 tbl_AB2C:
-    dw obj2E_update_case0
-    dw obj2E_update_case1
-    dw obj2E_update_case2
-    dw obj2E_update_case1
+    dw obj2e_update_wait_player_near
+    dw obj2e_update_pause_turn
+    dw obj2e_update_animate_still
+    dw obj2e_update_pause_turn
 
-obj2E_update:
+; Update handler for type 2Eh: sets the updated flag, clamps AL to 18h (value then unused) and dispatches on [+1Eh] & 3 through tbl_AB2C (states 0,1,2,1). [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object
+; out: byte [DI+1] |= 2
+; side effects: none
+; evidence: and bx,0x3 / jmp [cs:bx+tbl_AB2C]
+obj2e_update_dispatch:
     or byte [di+0x1],0x2                     ; 4AB34
     cmp al,0x18                              ; 4AB38
     jl short loc_AB3E                        ; 4AB3A
@@ -19050,7 +21452,12 @@ loc_AB3E:
     shl bx,1                                 ; 4AB47
     jmp [cs:bx+tbl_AB2C]                     ; 4AB49
 
-obj2E_draw:
+; Draw handler for type 2Eh: if sprite room (< 17D4h), BP = [141Ch] | 2800h (tiles loaded by lvl25 preload) and dispatches on play_flags bit 0 (vertical orientation) to obj2E_draw_case0/1. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object, DH/DL = screen position
+; out: sprite table
+; side effects: none
+; evidence: mov bp,[0x141c] / or bp,0x2800 / and bx,0x1 (play_flags) / jmp [cs:bx+tbl_D31E]
+obj2e_draw_dispatch:
     cmp word [0x1382],0x17d4                 ; 4AB4E
     jc short loc_AB57                        ; 4AB54
     ret                                      ; 4AB56
@@ -19062,7 +21469,12 @@ loc_AB57:
     shl bx,1                                 ; 4AB67
     jmp [cs:bx+tbl_D31E]                     ; 4AB69
 
-sub_AB6E:
+; Copies 80h words (10h tiles) from ROM 7000:7A00 to RAM address AX (tile RAM). Leaves DS = 7000h. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AX = destination
+; out: tile RAM
+; side effects: DS = 7000h on return
+; evidence: mov cx,0x80 / si=0x7a00 / rep movsw
+copy_tiles_7a00_for_obj2f:
     rr mov, di, ax                           ; 4AB6E
     mov cx,0x80                              ; 4AB70
     mov ax,0x7000                            ; 4AB73
@@ -19073,12 +21485,17 @@ sub_AB6E:
     rep movsw                                ; 4AB7F
     ret                                      ; 4AB81
 
-sub_AB82:
+; Allocates a slot (lvl00_check), clears it and creates object type 2Fh at (AX, DX-20h) with [+15h] = FFh and x velocity [+6] = 10h if CX bit 1 set else F0h; plays sound 16h. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AX/DX = position (1/16 px), CX = facing flags
+; out: new object slot
+; side effects: sound 16h
+; evidence: mov al,0x2f / mov ah,0x1 / mov dl,0x10 / test cx,0x2 / mov dl,0xf0 / mov ax,0x16 / call sub_DD97; caller 4:63D1 passes [di+2],[di+4],[di+0Ch]
+spawn_obj2f_projectile:
     pusha                                    ; 4AB82
-    call lvl00_check                         ; 4AB83
+    call lvl00_check_alloc_slot_up           ; 4AB83
     test di,di                               ; 4AB86
     jz short loc_ABB3                        ; 4AB88
-    call sub_B4F0                            ; 4AB8A
+    call obj_clear_slot                      ; 4AB8A
     mov [di+0x2],ax                          ; 4AB8D
     sub dx,byte +0x20                        ; 4AB90
     mov [di+0x4],dx                          ; 4AB93
@@ -19093,32 +21510,42 @@ sub_AB82:
 loc_ABAA:
     mov [di+0x6],dl                          ; 4ABAA
     mov ax,0x16                              ; 4ABAD
-    call sub_DD97                            ; 4ABB0
+    call sound_play                          ; 4ABB0
 loc_ABB3:
     popa                                     ; 4ABB3
     ret                                      ; 4ABB4
     db 0x90   ; 4ABB5
 
-obj2F_update:
+; Update for type 2Fh: animation counter [+14h]++, lifetime [+1Ch]++; moves by velocity and runs map collision (sub_43E5); destroys itself (jmp sub_79A6) after 200 frames or when collision result [+11h] bits 0-1 are set. [medium, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object
+; out: [+10h] collision word, [+14h], [+1Ch]
+; side effects: may delete via sub_79A6
+; evidence: cmp word [di+0x1c],0xc8 / call sub_43E5 / test bh,0x3 / jmp sub_79A6
+obj2f_update_projectile:
     or byte [di+0x1],0x2                     ; 4ABB6
     inc byte [di+0x14]                       ; 4ABBA
     inc word [di+0x1c]                       ; 4ABBD
     cmp word [di+0x1c],0xc8                  ; 4ABC0
     ja short loc_ABE1                        ; 4ABC5
-    call sub_622B                            ; 4ABC7
+    call obj_apply_velocity                  ; 4ABC7
     mov bx,[di+0x10]                         ; 4ABCA
     mov ch,0x1                               ; 4ABCD
     mov ax,[di+0x4]                          ; 4ABCF
     mov dx,[di+0x2]                          ; 4ABD2
-    call sub_43E5                            ; 4ABD5
+    call terrain_attr_at                     ; 4ABD5
     mov [di+0x10],bx                         ; 4ABD8
     test bh,0x3                              ; 4ABDB
     jnz short loc_ABE1                       ; 4ABDE
     ret                                      ; 4ABE0
 loc_ABE1:
-    jmp near sub_79A6                        ; 4ABE1
+    jmp near obj_kill_with_burst             ; 4ABE1
 
-obj2F_draw:
+; Draw for type 2Fh: base tile [141Eh] | 2800h plus a 4-frame animation offset (([+14h] >> 1) & 0Ch), drawn as a 2x2 sprite group via loc_D092. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object, DH/DL = screen position
+; out: sprite table
+; side effects: none
+; evidence: mov bp,[0x141e] / shr ax,1 / and ax,0xc / add bp,ax / jmp loc_D092
+obj2f_draw_spin4:
     cmp word [0x1382],0x17e8                 ; 4ABE4
     jc short loc_ABED                        ; 4ABEA
     ret                                      ; 4ABEC
@@ -19133,10 +21560,10 @@ loc_ABED:
     jmp near loc_D092                        ; 4AC01
 loc_AC04:
     pusha                                    ; 4AC04
-    call lvl03_check                         ; 4AC05
+    call lvl03_check_alloc_slot_down         ; 4AC05
     test di,di                               ; 4AC08
     jz short loc_AC1D                        ; 4AC0A
-    call sub_B4F0                            ; 4AC0C
+    call obj_clear_slot                      ; 4AC0C
     mov [di+0x2],ax                          ; 4AC0F
     mov [di+0x4],dx                          ; 4AC12
     mov [di+0x1e],cl                         ; 4AC15
@@ -19146,7 +21573,12 @@ loc_AC1D:
     popa                                     ; 4AC1D
     ret                                      ; 4AC1E
 
-obj30_update:
+; Update for type 30h: increments [+14h] and deletes the object after 12 frames. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object
+; out: [+14h]; byte [DI] = 0 at 12
+; side effects: none
+; evidence: cmp byte [di+0x14],0xc / mov byte [di],0x0
+obj30_update_expire_12f:
     or byte [di+0x1],0x2                     ; 4AC1F
     inc byte [di+0x14]                       ; 4AC23
     cmp byte [di+0x14],0xc                   ; 4AC26
@@ -19155,12 +21587,17 @@ obj30_update:
 loc_AC2F:
     ret                                      ; 4AC2F
 
-sub_AC30:
+; Allocates a slot (lvl00_check) and creates object type 36h with byte+1 = 08h (bit 3 = processed regardless of screen position) and countdown [+1Ch] = 6. [high, reviewed: range_A9A0_FFFF.json]
+; in:  none (called from Vision load at 4:252C)
+; out: new object slot
+; side effects: none
+; evidence: mov ax,0x836 / mov [di],ax / mov word [di+0x1c],0x6
+spawn_obj36_pulse:
     pusha                                    ; 4AC30
-    call lvl00_check                         ; 4AC31
+    call lvl00_check_alloc_slot_up           ; 4AC31
     test di,di                               ; 4AC34
     jz short loc_AC45                        ; 4AC36
-    call sub_B4F0                            ; 4AC38
+    call obj_clear_slot                      ; 4AC38
     mov ax,0x836                             ; 4AC3B
     mov [di],ax                              ; 4AC3E
     mov word [di+0x1c],0x6                   ; 4AC40
@@ -19168,7 +21605,12 @@ loc_AC45:
     popa                                     ; 4AC45
     ret                                      ; 4AC46
 
-obj36_update:
+; Update for type 36h: ORs 4 into the player slot word [03D2h] every frame and counts [+1Ch] down; deletes itself when it reaches 0. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object
+; out: [03D2h] |= 4; [+1Ch]--
+; side effects: none
+; evidence: or word [0x3d2],0x4 / dec ax / neg ax / sbb ax,ax / and [di],al
+obj36_update_player_flag_6f:
     or byte [di+0x1],0x2                     ; 4AC47
     or word [0x3d2],0x4                      ; 4AC4B
     mov ax,[di+0x1c]                         ; 4AC51
@@ -19180,12 +21622,17 @@ obj36_update:
     ret                                      ; 4AC5E
     db 0xFF   ; 4AC5F
 
-sub_AC60:
+; Boot-time internal-EEPROM bookkeeping (called from reset): loads the 10-byte record of game ID 1 from the console EEPROM directory into 12CAh (sub_E9D0). If absent, writes the default record 03 BE FC DD B1 00 00 00 00 00 (4000:ACA8). If present but its first byte is not 3, copies the old record to 12C0h and rewrites the default. The record is not read anywhere else in bank 4. [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: RAM 12CAh-12D3h (and 12C0h-12C9h on version mismatch)
+; side effects: internal EEPROM words written via ieep_write_word
+; evidence: bx=0x1 dx=0x12ca call sub_E9D0 / jc init / cmp al,0x3; defaults at ACA8; grep finds 12CAh only here
+ieep_register_game_record:
     mov ax,0x4000                            ; 4AC60
     mov es,ax                                ; 4AC63
     mov bx,0x1                               ; 4AC65
     mov dx,0x12ca                            ; 4AC68
-    call sub_E9D0                            ; 4AC6B
+    call ieep_load_game_record               ; 4AC6B
     jc short loc_AC78                        ; 4AC6E
     mov al,[0x12ca]                          ; 4AC70
     cmp al,0x3                               ; 4AC73
@@ -19203,7 +21650,7 @@ loc_AC81:
     loop loc_AC81                            ; 4AC88
     mov bx,0x1                               ; 4AC8A
     mov dx,0x12ca                            ; 4AC8D
-    call sub_E9E6                            ; 4AC90
+    call ieep_save_game_record               ; 4AC90
     ret                                      ; 4AC93
 loc_AC94:
     mov si,0x12ca                            ; 4AC94
@@ -19220,7 +21667,12 @@ loc_AC9D:
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0x00,0x80,0x00,0x80,0x00,0x80,0x00,0x80   ; 4ACB8
     db 0x00,0x80,0x00,0x30,0x00,0x30,0x00,0x30   ; 4ACC8
 
-sub_ACD0:
+; From progress_code (WVxx) selects the level-data segment [13C4h] (word table at 4000:ACC0: worlds 1-4 -> 8000h, 5-6 -> 3000h) and looks up the Vision/area record pointer through table 8:02EA[world] -> [vision] -> [area nibble], storing it in [13C6h]. [medium, reviewed: range_A9A0_FFFF.json]
+; in:  progress_code
+; out: [13C4h] = segment, [13C6h] = record pointer; ES = [13C4h] on return
+; side effects: none
+; evidence: mov ax,[cs:bx-0x5340] (=ACC0+bx) / mov [0x13c4],ax / mov dx,[es:bx+0x2ea] ... mov [0x13c6],ax
+load_vision_record_ptr:
     mov bx,[progress_code]                   ; 4ACD0
     push bx                                  ; 4ACD4
     mov cl,0xc                               ; 4ACD5
@@ -19258,7 +21710,12 @@ sub_ACD0:
     pop es                                   ; 4AD23
     ret                                      ; 4AD24
 
-sub_AD25:
+; Initialises the persistent save block 1480h-14B9h for a new game: zeroes 1Dh words, sets both EX time records ([14B0h:14B2h], [14B4h:14B6h]) to 0004:1EB0h (=270000 frames = 60:00.00 at 75 Hz), lives [149Fh] = 3 and furthest progress [148Fh] = 11h (World 1 Vision 1). [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: RAM 1480h-14B9h
+; side effects: none
+; evidence: mov cx,0x1d / mov word [0x14b2],0x1eb0 / mov word [0x14b0],0x4 / mov byte [0x149f],0x3 / mov byte [0x148f],0x11
+save_block_init:
     push ax                                  ; 4AD25
     push cx                                  ; 4AD26
     push di                                  ; 4AD27
@@ -19281,7 +21738,12 @@ loc_AD32:
     pop ax                                   ; 4AD5D
     ret                                      ; 4AD5E
 
-sub_AD5F:
+; Updates the save block when a Vision is cleared: advances furthest progress [148Fh] (FFh after World 5 -> sets [1399h] bit5), or records EX Vision clears in [14A7h]; stores lives in [149Fh]; keeps the best dream-stone count ([13DEh]) per Vision at 1480h+(W-1)*8+(V-1) and the per-world total (max 180) at +6; sets perfect-world bits in [1497h] when a world total reaches B4h; keeps best EX times (61xx/62xx) from [1440h:1442h]; saves key-config bits to [14B8h] and the current WV to [14AFh]. Flag bits in [1399h] report what changed. [medium, reviewed: range_A9A0_FFFF.json]
+; in:  progress_code, [13DEh] stones, lives, [1440h:1442h] timer, play_flags
+; out: 1480h-14B8h, [1399h]
+; side effects: none
+; evidence: cmp al,0x60 / or byte [0x1399],0x20; cmp al,[si] / mov [si],al; cmp al,0xb4 / or [0x1497],al; cmp cl,0x61 ... mov [0x14b2],ax; mov [0x14af],ah
+save_block_record_vision_clear:
     pusha                                    ; 4AD5F
     and byte [0x1399],0xdf                   ; 4AD60
     or byte [0x1399],0x8                     ; 4AD65
@@ -19334,7 +21796,7 @@ loc_ADBA:
     and ax,0xf                               ; 4ADD8
     dec ax                                   ; 4ADDB
     rr add, si, ax                           ; 4ADDC
-    mov al,[0x13de]                          ; 4ADDE
+    mov al,[dream_stones]                    ; 4ADDE
     cmp al,[si]                              ; 4ADE1
     jna short loc_ADE7                       ; 4ADE3
     mov [si],al                              ; 4ADE5
@@ -19439,14 +21901,24 @@ loc_AEC8:
     popa                                     ; 4AEDD
     ret                                      ; 4AEDE
 
-sub_AEDF:
+; Returns AX = FFFFh if bit (AL-1) of the EX-Vision-cleared mask [14A7h] is set, else 0. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AL = EX Vision number (1-based)
+; out: AX
+; side effects: none
+; evidence: mov cl,al / mov al,[0x14a7] / shr al,cl / sbb ax,ax
+ex_vision_cleared_test:
     rr mov, cl, al                           ; 4AEDF
     mov al,[0x14a7]                          ; 4AEE1
     shr al,cl                                ; 4AEE4
     rr sbb, ax, ax                           ; 4AEE6
     ret                                      ; 4AEE8
 
-sub_AEE9:
+; Returns AX = best dream-stone total of the current world (byte +6 of the 8-byte world record at 1480h + (W-1)*8). [high, reviewed: range_A9A0_FFFF.json]
+; in:  progress_code
+; out: AX
+; side effects: none
+; evidence: and ax,0xf0 / sub ax,0x10 / shr ax,1 / add di,ax / mov al,[di+0x6]
+get_world_stone_total:
     push di                                  ; 4AEE9
     mov di,0x1480                            ; 4AEEA
     mov ax,[progress_code]                   ; 4AEED
@@ -19461,7 +21933,12 @@ sub_AEE9:
     ret                                      ; 4AF02
     db 0x90   ; 4AF03
 
-sub_AF04:
+; Converts a frame count DX:AX (75 frames/s) to minutes (/4500) and seconds (/75), each returned as a two-digit BCD-style byte, plus hundredths looked up from the 75-entry table 8:0080 (BCD 00,01,03,04,...,99). [high, reviewed: range_A9A0_FFFF.json]
+; in:  DX:AX = frame count
+; out: AX = minutes (tens<<4|ones), BX = seconds (BCD), CX = hundredths from table
+; side effects: ES = 8000h, SI clobbered
+; evidence: mov bx,0x1194 / div bx; mov bh,0x4b / div bh; mov al,[es:bx+0x80]
+frames_to_min_sec_bcd:
     mov bx,0x1194                            ; 4AF04
     div bx                                   ; 4AF07
     mov bh,0x4b                              ; 4AF09
@@ -19495,7 +21972,12 @@ sub_AF04:
     pop ax                                   ; 4AF44
     ret                                      ; 4AF45
 
-sub_AF46:
+; Returns the best time of EX Vision 1 (AH = 61h) as DX:AX = [14B0h]:[14B2h] or EX Vision 2 (AH = 62h) as [14B4h]:[14B6h]; otherwise returns AX=BX=CX=0 (DX unchanged). [high, reviewed: range_A9A0_FFFF.json]
+; in:  AH = progress byte (world/vision)
+; out: DX:AX
+; side effects: none
+; evidence: cmp ah,0x61 / mov ax,[0x14b2] / mov dx,[0x14b0]; cmp ah,0x62 / mov ax,[0x14b6]
+get_ex_time_record:
     cmp ah,0x61                              ; 4AF46
     jz short loc_AF57                        ; 4AF49
     cmp ah,0x62                              ; 4AF4B
@@ -19513,7 +21995,12 @@ loc_AF5F:
     mov dx,[0x14b4]                          ; 4AF62
     ret                                      ; 4AF66
 
-sub_AF67:
+; Initialises per-Vision play state when a Vision starts: clears spawn masks 13C8h-13CEh and the live/checkpoint variables 13C0h-13FDh, hearts [13E0h] = 3, lives from the save block (or 3 when [1399h] bit2), key-config bits of play_flags from [14B8h], loads the Vision record (sub_ACD0), start position [13E4h]/[13E6h] from the record header and the warp-point table pointer [13C2h] from 8:0556. [medium, reviewed: range_A9A0_FFFF.json]
+; in:  progress_code, [149Fh], [14B8h], [1399h]
+; out: 13C0h-13FDh, play_flags bits1-2, [13E3h]
+; side effects: calls sub_ACD0
+; evidence: mov byte [lives_reserve],0x3 / mov al,[0x149f] / mov [lives],al / and al,0x6 ... call sub_ACD0 / mov ax,[es:bx+0x556] / mov [0x13c2],ax
+vision_state_init:
     pusha                                    ; 4AF67
     push ds                                  ; 4AF68
     push es                                  ; 4AF69
@@ -19531,7 +22018,7 @@ sub_AF67:
     mov word [0x13d8],0xffff                 ; 4AF8C
     mov [0x13da],ax                          ; 4AF92
     mov [0x13dc],ax                          ; 4AF95
-    mov [0x13de],al                          ; 4AF98
+    mov [dream_stones],al                    ; 4AF98
     mov [0x13df],al                          ; 4AF9B
     mov [0x13fd],al                          ; 4AF9E
     mov [0x13e8],al                          ; 4AFA1
@@ -19549,7 +22036,7 @@ sub_AF67:
     mov [0x13fc],al                          ; 4AFCA
     mov [0x13f4],al                          ; 4AFCD
     mov [0x13f5],al                          ; 4AFD0
-    mov byte [lives_reserve],0x3             ; 4AFD3
+    mov byte [hearts],0x3                    ; 4AFD3
     mov byte [0x13f6],0x3                    ; 4AFD8
     mov al,[0x149f]                          ; 4AFDD
     mov [lives],al                           ; 4AFE0
@@ -19565,7 +22052,7 @@ loc_AFF7:
     or [play_flags],al                       ; 4B001
     and byte [0x13e3],0xf9                   ; 4B005
     or [0x13e3],al                           ; 4B00A
-    call sub_ACD0                            ; 4B00E
+    call load_vision_record_ptr              ; 4B00E
     mov di,[0x13c6]                          ; 4B011
     sub di,byte +0x4                         ; 4B015
     mov cl,0x4                               ; 4B018
@@ -19593,7 +22080,12 @@ loc_AFF7:
     popa                                     ; 4B051
     ret                                      ; 4B052
 
-sub_B053:
+; Clears the spawn bitmasks 13C8h-13CEh, reloads the Vision record pointer (sub_ACD0) and runs the per-kind preload hooks (sub_B4A2). [high, reviewed: range_A9A0_FFFF.json]
+; in:  progress_code
+; out: 13C8h-13CEh, [13C4h]/[13C6h]
+; side effects: whatever the preload hooks do (tile allocation, objects)
+; evidence: mov [0x13c8],ax ... call sub_ACD0 / call sub_B4A2
+vision_load_spawn_setup:
     pusha                                    ; 4B053
     rr xor, ax, ax                           ; 4B054
     mov ds,ax                                ; 4B056
@@ -19601,12 +22093,17 @@ sub_B053:
     mov [0x13ca],ax                          ; 4B05B
     mov [0x13cc],ax                          ; 4B05E
     mov [0x13ce],ax                          ; 4B061
-    call sub_ACD0                            ; 4B064
-    call sub_B4A2                            ; 4B067
+    call load_vision_record_ptr              ; 4B064
+    call run_spawn_kind_preloads             ; 4B067
     popa                                     ; 4B06A
     ret                                      ; 4B06B
 
-sub_B06C:
+; Like the spawn-mask reset of B053 but also clears [13C0h], reloads the Vision record pointer and the warp table pointer [13C2h], and restores play_flags bits 0-2 from the checkpoint copy [13E3h]. [high, reviewed: range_A9A0_FFFF.json]
+; in:  progress_code, [13E3h]
+; out: 13C0h-13CEh, [13C2h], play_flags
+; side effects: none
+; evidence: mov [0x13c0],ax / call sub_ACD0 / mov [0x13c2],ax / mov al,[0x13e3] / and al,0x7 / or [play_flags],al
+vision_resume_setup:
     pusha                                    ; 4B06C
     push ds                                  ; 4B06D
     push es                                  ; 4B06E
@@ -19617,7 +22114,7 @@ sub_B06C:
     mov [0x13cc],ax                          ; 4B079
     mov [0x13ce],ax                          ; 4B07C
     mov [0x13c0],ax                          ; 4B07F
-    call sub_ACD0                            ; 4B082
+    call load_vision_record_ptr              ; 4B082
     mov ax,0x8000                            ; 4B085
     mov es,ax                                ; 4B088
     mov bx,[progress_code]                   ; 4B08A
@@ -19640,7 +22137,12 @@ sub_B06C:
     popa                                     ; 4B0B9
     ret                                      ; 4B0BA
 
-sub_B0BB:
+; Copies the live Vision state to the checkpoint copy: 13D0h-13DEh (items, positions, stones) -> 13EAh-13FCh, collected masks 13E8h/13E9h -> 13F4h/13F5h, hearts/lives -> 13F6h/13F7h, play_flags & 87h -> low bits of [13E3h]. [high, reviewed: range_A9A0_FFFF.json]
+; in:  live state 13D0h-13E9h, play_flags
+; out: checkpoint 13E3h-13FCh
+; side effects: none
+; evidence: mov al,[0x13d0] / mov [0x13ea],al ... mov al,[lives] / mov [0x13f7],al
+checkpoint_save:
     push ax                                  ; 4B0BB
     mov al,[0x13d0]                          ; 4B0BC
     mov [0x13ea],al                          ; 4B0BF
@@ -19662,9 +22164,9 @@ sub_B0BB:
     mov [0x13f8],ax                          ; 4B0EF
     mov ax,[0x13dc]                          ; 4B0F2
     mov [0x13fa],ax                          ; 4B0F5
-    mov al,[0x13de]                          ; 4B0F8
+    mov al,[dream_stones]                    ; 4B0F8
     mov [0x13fc],al                          ; 4B0FB
-    mov al,[lives_reserve]                   ; 4B0FE
+    mov al,[hearts]                          ; 4B0FE
     mov [0x13f6],al                          ; 4B101
     mov al,[lives]                           ; 4B104
     mov [0x13f7],al                          ; 4B107
@@ -19675,7 +22177,12 @@ sub_B0BB:
     pop ax                                   ; 4B118
     ret                                      ; 4B119
 
-sub_B11A:
+; Inverse of checkpoint_save: copies 13EAh-13FCh back to 13D0h-13DEh (also [13DFh] = displayed stones), 13F4h/13F5h -> 13E8h/13E9h, 13F6h/13F7h -> hearts/lives. [high, reviewed: range_A9A0_FFFF.json]
+; in:  checkpoint 13EAh-13FCh
+; out: 13D0h-13E9h, lives
+; side effects: none
+; evidence: mov al,[0x13ea] / mov [0x13d0],al ... mov [0x13df],al ... mov [lives],al
+checkpoint_restore:
     push ax                                  ; 4B11A
     mov al,[0x13ea]                          ; 4B11B
     mov [0x13d0],al                          ; 4B11E
@@ -19698,16 +22205,21 @@ sub_B11A:
     mov ax,[0x13fa]                          ; 4B151
     mov [0x13dc],ax                          ; 4B154
     mov al,[0x13fc]                          ; 4B157
-    mov [0x13de],al                          ; 4B15A
+    mov [dream_stones],al                    ; 4B15A
     mov [0x13df],al                          ; 4B15D
     mov al,[0x13f6]                          ; 4B160
-    mov [lives_reserve],al                   ; 4B163
+    mov [hearts],al                          ; 4B163
     mov al,[0x13f7]                          ; 4B166
     mov [lives],al                           ; 4B169
     pop ax                                   ; 4B16C
     ret                                      ; 4B16D
 
-sub_B332_case4:
+; Warp-point type 4 (via sub_B332): when the remapped newly-pressed key word [1392h] has bit 10h (up), sets play_flags bit5 (state 7, Vision clear) and returns AX = 20h (non-zero stops the scan). [high, reviewed: range_A9A0_FFFF.json]
+; in:  [1392h]
+; out: play_flags |= 20h; AX = 0 or 20h
+; side effects: none
+; evidence: test word [0x1392],0x10 / mov al,0x20 / or [play_flags],al
+vision_exit_press_up:
     rr xor, ax, ax                           ; 4B16E
     test word [0x1392],0x10                  ; 4B170
     jnz short loc_B179                       ; 4B176
@@ -19717,7 +22229,12 @@ loc_B179:
     or [play_flags],al                       ; 4B17B
     ret                                      ; 4B17F
 
-sub_B332_case3:
+; Warp-point type 3: requires remapped held key bit 20h (right) in [1390h]. If triggered: target record index = high byte of the record word; progress_code low byte = target+0, start position [13E4h] = (target+2)<<4 & FF80h, [13E6h] = (target+4)<<4; [13E3h] bit7 = player facing ([03CCh] bit1 clear); play_flags |= 10h (main loop goes to state 5 = room transition). Returns AX = 10h when taken, else 0. [high, reviewed: range_A9A0_FFFF.json]
+; in:  ES:DI = warp record in level data (ES = 8000h), [13C2h] = record table base, [1390h]
+; out: progress_code, 13E3h-13E6h, play_flags
+; side effects: none
+; evidence: test word [0x1390],0x20; mov ax,[es:di] / mov bl,ah / shl bx,3 / add bx,[0x13c2] / mov al,[es:bx] / mov [progress_code],ax / ... mov al,0x10 / or [play_flags],al
+warp_point_hold_right:
     rr xor, ax, ax                           ; 4B180
     test word [0x1390],0x20                  ; 4B182
     jnz short loc_B18B                       ; 4B188
@@ -19749,7 +22266,12 @@ loc_B1CB:
     ret                                      ; 4B1D1
     db 0xC3   ; 4B1D2
 
-sub_B332_case2:
+; Warp-point type 2: requires held key bit 80h (left) in [1390h]. If triggered: target record index = high byte of the record word; progress_code low byte = target+0, start position [13E4h] = (target+2)<<4 & FF80h, [13E6h] = (target+4)<<4; [13E3h] bit7 = player facing ([03CCh] bit1 clear); play_flags |= 10h (main loop goes to state 5 = room transition). Returns AX = 10h when taken, else 0. [high, reviewed: range_A9A0_FFFF.json]
+; in:  ES:DI = warp record in level data (ES = 8000h), [13C2h] = record table base, [1390h]
+; out: progress_code, 13E3h-13E6h, play_flags
+; side effects: none
+; evidence: test word [0x1390],0x80; mov ax,[es:di] / mov bl,ah / shl bx,3 / add bx,[0x13c2] / mov al,[es:bx] / mov [progress_code],ax / ... mov al,0x10 / or [play_flags],al
+warp_point_hold_left:
     rr xor, ax, ax                           ; 4B1D3
     test word [0x1390],0x80                  ; 4B1D5
     jnz short loc_B1DE                       ; 4B1DB
@@ -19780,7 +22302,12 @@ loc_B21E:
     or [play_flags],al                       ; 4B220
     ret                                      ; 4B224
 
-sub_B332_case1:
+; Warp-point type 1: requires held key bit 40h (down) in [1390h]. If triggered: target record index = high byte of the record word; progress_code low byte = target+0, start position [13E4h] = (target+2)<<4 & FF80h, [13E6h] = (target+4)<<4; [13E3h] bit7 = player facing ([03CCh] bit1 clear); play_flags |= 10h (main loop goes to state 5 = room transition). Additionally sets [13E3h] bit6. Returns AX = 10h when taken, else 0. [high, reviewed: range_A9A0_FFFF.json]
+; in:  ES:DI = warp record in level data (ES = 8000h), [13C2h] = record table base, [1390h]
+; out: progress_code, 13E3h-13E6h, play_flags
+; side effects: none
+; evidence: test word [0x1390],0x40; ... or byte [0x13e3],0x40
+warp_point_hold_down:
     rr xor, ax, ax                           ; 4B225
     test word [0x1390],0x40                  ; 4B227
     jnz short loc_B230                       ; 4B22D
@@ -19812,7 +22339,12 @@ loc_B270:
     or byte [0x13e3],0x40                    ; 4B276
     ret                                      ; 4B27B
 
-sub_B332_case0:
+; Warp-point type 0: requires held key bit 10h (up) in [1390h]. If triggered: target record index = high byte of the record word; progress_code low byte = target+0, start position [13E4h] = (target+2)<<4 & FF80h, [13E6h] = (target+4)<<4; [13E3h] bit7 = player facing ([03CCh] bit1 clear); play_flags |= 10h (main loop goes to state 5 = room transition). Returns AX = 10h when taken, else 0. [high, reviewed: range_A9A0_FFFF.json]
+; in:  ES:DI = warp record in level data (ES = 8000h), [13C2h] = record table base, [1390h]
+; out: progress_code, 13E3h-13E6h, play_flags
+; side effects: none
+; evidence: test word [0x1390],0x10; mov ax,[es:di] / mov bl,ah / shl bx,3 / add bx,[0x13c2] / mov al,[es:bx] / mov [progress_code],ax / ... mov al,0x10 / or [play_flags],al
+warp_point_hold_up:
     rr xor, ax, ax                           ; 4B27C
     test word [0x1390],0x10                  ; 4B27E
     jnz short loc_B287                       ; 4B284
@@ -19843,14 +22375,19 @@ loc_B2C7:
     or [play_flags],al                       ; 4B2C9
     ret                                      ; 4B2CD
 
-sub_B332_case5:
+; Warp-point type 5: requires newly-pressed up (bit 10h of [1392h]); plays sound 20h, then performs the same warp as the other types. Returns AX = 10h when taken. [high, reviewed: range_A9A0_FFFF.json]
+; in:  ES:DI = warp record in level data (ES = 8000h), [13C2h] = record table base, [1392h]
+; out: progress_code, 13E3h-13E6h, play_flags
+; side effects: sound 20h
+; evidence: test word [0x1392],0x10 / mov ax,0x20 / call sub_DD97; mov ax,[es:di] / mov bl,ah / shl bx,3 / add bx,[0x13c2] / mov al,[es:bx] / mov [progress_code],ax / ... mov al,0x10 / or [play_flags],al
+warp_point_press_up_sfx:
     rr xor, ax, ax                           ; 4B2CE
     test word [0x1392],0x10                  ; 4B2D0
     jnz short loc_B2D9                       ; 4B2D6
     ret                                      ; 4B2D8
 loc_B2D9:
     mov ax,0x20                              ; 4B2D9
-    call sub_DD97                            ; 4B2DC
+    call sound_play                          ; 4B2DC
     mov ax,[es:di]                           ; 4B2DF
     rr xor, bx, bx                           ; 4B2E2
     rr mov, bl, ah                           ; 4B2E4
@@ -19878,14 +22415,19 @@ loc_B31F:
 
 ; jump table tbl_B326: 6 words, bound: adjacent (first use at 4B392)
 tbl_B326:
-    dw sub_B332_case0
-    dw sub_B332_case1
-    dw sub_B332_case2
-    dw sub_B332_case3
-    dw sub_B332_case4
-    dw sub_B332_case5
+    dw warp_point_hold_up
+    dw warp_point_hold_down
+    dw warp_point_hold_left
+    dw warp_point_hold_right
+    dw vision_exit_press_up
+    dw warp_point_press_up_sfx
 
-sub_B332:
+; Called every gameplay frame: scans up to 23h eight-byte warp records at 8000:[13C2h] (FFFFh terminates) whose first byte matches the current area (progress_code low byte); for the first record within Manhattan distance 12 px of the player calls the type handler (word +6, tbl_B326) and stops when it returns non-zero. Record = {area, target index, x px, y px, type}. [high, reviewed: range_A9A0_FFFF.json]
+; in:  player 03C2h/03C4h, progress_code, [13C2h]
+; out: via handlers: progress_code, play_flags bits 4/5
+; side effects: none
+; evidence: mov di,[0x13c2] / mov ch,0x24 / cmp ax,0xffff / cmp al,cl / ... cmp ax,0xc / mov bx,[es:di+0x6] / call [cs:bx+tbl_B326]
+check_warp_points:
     pusha                                    ; 4B332
     push ds                                  ; 4B333
     push es                                  ; 4B334
@@ -19938,7 +22480,12 @@ loc_B39C:
     popa                                     ; 4B39E
     ret                                      ; 4B39F
 
-sub_B3A0:
+; Every frame checks one quarter of the Vision spawn list (16-byte records at [13C4h]:[13C6h], stride 40h, phase = frame counter [138Eh] & 3; list ends when byte +1 != 0). Records whose id bit (0-31) is not set in the spawned masks 13C8h/13CAh or the permanent masks 13CCh/13CEh and whose position (+8,+0Ah) is within the record's x/y ranges (+0Dh,+0Ch) of the player are spawned via sub_B431. [high, reviewed: range_A9A0_FFFF.json]
+; in:  player 03C2h/03C4h, [138Eh], spawn masks
+; out: via sub_B431
+; side effects: objects allocated
+; evidence: mov ax,[0x138e] / and ax,0x3 / mov ah,0x10 / mul ah / sub bx,0x40 ... shr ax,cl / jc (already spawned) ... mov dl,[es:bx+0xd] / call sub_B431
+spawn_objects_near_player:
     pusha                                    ; 4B3A0
     rr xor, ax, ax                           ; 4B3A1
     mov ds,ax                                ; 4B3A3
@@ -19998,13 +22545,18 @@ loc_B3FF:
     mov dl,[es:bx+0xc]                       ; 4B421
     rr cmp, ax, dx                           ; 4B425
     ja short loc_B3CC                        ; 4B427
-    call sub_B431                            ; 4B429
+    call spawn_object_from_record            ; 4B429
     jmp near loc_B3CC                        ; 4B42C
 loc_B42F:
     popa                                     ; 4B42F
     ret                                      ; 4B430
 
-sub_B431:
+; Spawns one object from a spawn record ES:BX: kind = byte +2 (bit7 = permanent); allocates a slot with the kind's allocator (8:0136 table), clears it, stores record id/pointer in [+15h]/[+16h], sets the id bit in 13C8h/13CAh (and 13CCh/13CEh when permanent), then calls the kind's spawn initialiser (8:00DA table) with AX = x, DX = y, CH = byte +3, BP = word +0Eh. [high, reviewed: range_A9A0_FFFF.json]
+; in:  ES:BX = spawn record
+; out: new object slot; spawn masks
+; side effects: calls bank-8 table handlers (lvlKK_check / lvlKK_spawn roles)
+; evidence: call [es:si+0x136] / test di,di / call sub_B4F0 / mov [di+0x15],cl / or [0x13c8],ax / call [es:si+0xda]
+spawn_object_from_record:
     pusha                                    ; 4B431
     push ds                                  ; 4B432
     push es                                  ; 4B433
@@ -20020,7 +22572,7 @@ sub_B431:
     pop es                                   ; 4B44B
     test di,di                               ; 4B44C
     jz short loc_B49E                        ; 4B44E
-    call sub_B4F0                            ; 4B450
+    call obj_clear_slot                      ; 4B450
     mov cx,[es:bx]                           ; 4B453
     mov [di+0x15],cl                         ; 4B456
     mov [di+0x16],bx                         ; 4B459
@@ -20054,7 +22606,12 @@ loc_B49E:
     popa                                     ; 4B4A0
     ret                                      ; 4B4A1
 
-sub_B4A2:
+; Walks the Vision spawn list ([13C4h]:[13C6h], 16-byte records while byte +1 = 0) and for each record calls the kind's preload hook from table 8:0192 (kind = byte +2 & 7Fh) when non-zero. Run once at Vision load (sub_B053). [high, reviewed: range_A9A0_FFFF.json]
+; in:  [13C4h], [13C6h]
+; out: whatever the hooks write (lvlKK_tick roles, e.g. tile allocation)
+; side effects: calls bank-8 table handlers
+; evidence: mov bl,[es:di+0x2] / and bl,0x7f / mov ax,[es:bx+0x192] / call ax / add di,0x10
+run_spawn_kind_preloads:
     pusha                                    ; 4B4A2
     rr xor, ax, ax                           ; 4B4A3
     mov ds,ax                                ; 4B4A5
@@ -20089,7 +22646,12 @@ loc_B4DF:
     ret                                      ; 4B4E0
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 4B4E1
 
-sub_B4F0:
+; Zeroes all 32 bytes of the object slot at DI. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = slot
+; out: [DI..DI+1Fh] = 0
+; side effects: none
+; evidence: 16 x mov [di+N],ax with ax=0
+obj_clear_slot:
     push ax                                  ; 4B4F0
     rr xor, ax, ax                           ; 4B4F1
     mov [di],ax                              ; 4B4F3
@@ -20111,7 +22673,12 @@ sub_B4F0:
     pop ax                                   ; 4B522
     ret                                      ; 4B523
 
-sub_B524:
+; Clears all 40 object slots 0300h-07FFh (sets DS = 0). [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: RAM 0300h-07FFh = 0
+; side effects: DS = 0
+; evidence: mov di,0x300 / mov cx,0x28 / call sub_B4F0 / add di,0x20
+objs_clear_all:
     push ax                                  ; 4B524
     push cx                                  ; 4B525
     push di                                  ; 4B526
@@ -20120,7 +22687,7 @@ sub_B524:
     mov di,0x300                             ; 4B52B
     mov cx,0x28                              ; 4B52E
 loc_B531:
-    call sub_B4F0                            ; 4B531
+    call obj_clear_slot                      ; 4B531
     add di,byte +0x20                        ; 4B534
     loop loc_B531                            ; 4B537
     pop di                                   ; 4B539
@@ -20128,7 +22695,12 @@ loc_B531:
     pop ax                                   ; 4B53B
     ret                                      ; 4B53C
 
-sub_B53D:
+; Finds the first free object slot (type byte 0) among 22h slots starting at 03C0h (the player slot onward). Returns DI = slot or 0 if none. [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: DI
+; side effects: none
+; evidence: mov di,0x3c0 / mov cx,0x22 / test al,al / xor di,di
+obj_alloc_from_3c0:
     push ax                                  ; 4B53D
     push cx                                  ; 4B53E
     mov di,0x3c0                             ; 4B53F
@@ -20145,8 +22717,13 @@ loc_B552:
     pop ax                                   ; 4B553
     ret                                      ; 4B554
 
-; dispatch roles: lvl00_check, lvl01_check, lvl02_check, lvl04_check, lvl05_check, lvl06_check, lvl07_check, lvl17_check ...
-lvl00_check:
+; Slot allocator used by many spawn kinds (bank-8 allocator table) and directly: returns DI = first free slot scanning 32 slots upward from 0400h, or 0. [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: DI
+; side effects: none
+; evidence: mov di,0x400 / mov cx,0x20 / add di,0x20 / xor di,di
+; dispatch roles: lvl00_check, lvl01_check, lvl02_check, lvl04_check, lvl05_check, lvl06_check, lvl07_check, lvl17_check
+lvl00_check_alloc_slot_up:
     push ax                                  ; 4B555
     push cx                                  ; 4B556
     mov di,0x400                             ; 4B557
@@ -20163,8 +22740,13 @@ loc_B56A:
     pop ax                                   ; 4B56B
     ret                                      ; 4B56C
 
-; dispatch roles: lvl03_check, lvl08_check, lvl09_check, lvl0A_check, lvl0B_check, lvl0C_check, lvl0D_check, lvl0E_check ...
-lvl03_check:
+; Slot allocator: returns DI = first free slot scanning 32 slots downward from 07E0h, or 0. [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: DI
+; side effects: none
+; evidence: mov di,0x7e0 / mov cx,0x20 / sub di,0x20 / xor di,di
+; dispatch roles: lvl03_check, lvl08_check, lvl09_check, lvl0A_check, lvl0B_check, lvl0C_check, lvl0D_check, lvl0E_check
+lvl03_check_alloc_slot_down:
     push ax                                  ; 4B56D
     push cx                                  ; 4B56E
     mov di,0x7e0                             ; 4B56F
@@ -20181,7 +22763,12 @@ loc_B582:
     pop ax                                   ; 4B583
     ret                                      ; 4B584
 
-sub_B585:
+; Returns DI = first free slot among the six low slots 0300h-03BFh (effects/controllers), or 0. [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: DI
+; side effects: none
+; evidence: mov di,0x300 / mov cx,0x6
+obj_alloc_low_slot:
     push ax                                  ; 4B585
     push cx                                  ; 4B586
     mov di,0x300                             ; 4B587
@@ -20211,7 +22798,7 @@ game_state_table:
     dw state02_museum_menu
     dw state03_world_card_story
     dw state04_vision_load
-    dw state05_vision_restart_wipe
+    dw state05_room_transition
     dw state06_miss_retry
     dw state07_vision_clear
     dw state08_namco_logo
@@ -20249,7 +22836,12 @@ game_state_table:
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0x00,0x00,0x80,0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 4B70A
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 4B71A
 
-sub_B720:
+; Copies 400h words (128 tiles) from ROM 2000:E9DF to tile RAM 34B0h (tile 14Bh onward), the font used by the HUD/text code (ASCII 20h maps to tile 14Bh, '0' to 15Bh). [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: tile RAM 34B0h-3CAFh
+; side effects: DS restored to 0
+; evidence: mov cx,0x400 / ds=0x2000 / si=0xe9df / di=0x34b0; B8F4 uses tile 15Bh for digit 0, C3DE uses ascii-20h+114Bh
+load_font_tiles:
     pusha                                    ; 4B720
     mov cx,0x400                             ; 4B721
     mov ax,0x2000                            ; 4B724
@@ -20286,7 +22878,12 @@ dead_B73C:
     db 0xC3,0x05,0x5B,0x01,0x0D,0x00,0x2C,0x8B,0x1E,0x82,0x13,0x83,0x06,0x82,0x13,0x04   ; 4B76E
     db 0x89,0x07,0x83,0xC3,0x02,0x89,0x17,0x5E,0x5A,0x5B,0x58,0xC3   ; 4B77E
 
-sub_B78A:
+; Draws AL (0-255) as up to three decimal digit sprites at [1382h] (tile = SI + digit): ones at x = DH+10h, tens at DH+8, hundreds at DH, suppressing leading zeros. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AL = value, SI = tile base of '0', DH/DL = x/y (DL stored as sprite y byte)
+; out: sprite entries, [1382h] += 4 per digit
+; side effects: none
+; evidence: mov cl,0x64 / div cl / mov cl,0xa / div cl / add dh,0x10 / mov bx,[0x1382] / add word [0x1382],4 / add ax,si
+draw_number_3digit_sprites:
     pusha                                    ; 4B78A
     rr xor, ah, ah                           ; 4B78B
     mov cl,0x64                              ; 4B78D
@@ -20352,7 +22949,12 @@ loc_B7EE:
     db 0xEA,0x03,0x81,0xE2,0xE0,0x03,0x03,0xDA,0xD1,0xE3,0x81,0xC3,0x00,0x08,0x89,0x07   ; 4B8E0
     db 0x5A,0x5B,0x58,0xC3   ; 4B8F0
 
-sub_B8F4:
+; Writes the tile for hex digit AL & 0Fh (font tile 15Bh+digit, +7 for A-F, attribute 1C00h) into the SCR1 map at 0800h for pixel position DH = x, DL = y. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AL, DH = x px, DL = y px
+; out: word at 0800h + ((DL/8)*32 + DH/8)*2
+; side effects: none
+; evidence: add ax,0x15b / or ax,0x1c00 / shr dh,3 / shr dl,3 / xchg / and dx,0x3e0 / add bx,0x800
+put_hex_digit_tile:
     push ax                                  ; 4B8F4
     push cx                                  ; 4B8F5
     push dx                                  ; 4B8F6
@@ -20387,7 +22989,12 @@ sub_B8F4:
     pop ax                                   ; 4B935
     ret                                      ; 4B936
 
-sub_B937:
+; Writes AL as two hex/BCD digit tiles into the SCR1 map: high nibble at x = DH, low nibble at x = DH+8 (same row DL). [high, reviewed: range_A9A0_FFFF.json]
+; in:  AL, DH = x, DL = y
+; out: SCR1 map words
+; side effects: none
+; evidence: add dh,0x8 (low digit) / sub dh,0x8 / shr ch,cl (high digit)
+put_hex_byte_tiles_h:
     push ax                                  ; 4B937
     push cx                                  ; 4B938
     push dx                                  ; 4B939
@@ -20453,7 +23060,12 @@ sub_B937:
     pop ax                                   ; 4B9C0
     ret                                      ; 4B9C1
 
-sub_B9C2:
+; Vertical-orientation variant of put_hex_byte_tiles_h: high nibble at y = DL, low nibble at y = DL+8. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AL, DH = x, DL = y
+; out: SCR1 map words
+; side effects: none
+; evidence: add dl,0x8 / sub dl,0x8; caller sub_DB44 uses it when play_flags bit0 is set
+put_hex_byte_tiles_v:
     push ax                                  ; 4B9C2
     push cx                                  ; 4B9C3
     push dx                                  ; 4B9C4
@@ -20642,7 +23254,12 @@ dead_BA4D:
     pop ax                                   ; 4BB5C
     ret                                      ; 4BB5D
 
-sub_BB5E:
+; Stores tile word AX into the SCR1 map at 0800h at the cell for pixel position DH = x, DL = y. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AX = tile word, DH/DL
+; out: map word
+; side effects: none
+; evidence: shr dh,3 / shr dl,3 / xchg dh,dl / and bx,0x1f / and dx,0x3e0 / add bx,0x800 / mov [bx],ax
+put_map_tile_at_px:
     push ax                                  ; 4BB5E
     push bx                                  ; 4BB5F
     push dx                                  ; 4BB60
@@ -20665,7 +23282,12 @@ sub_BB5E:
     db 0x6A,0xD2,0x6B,0xD3,0x66,0xD5,0xAA,0xC6,0x4D,0xD8,0xB2,0xD8,0xB0,0x00,0xB4,0x00   ; 4BB94
     db 0xB8,0x00,0xBC,0x00,0xC0,0x00,0xC4,0x00,0xC8,0x00,0xCC,0x00,0xD0,0x00,0xD4,0x00   ; 4BBA4
 
-sub_BBB4:
+; Clears the 24 glyph tiles (180h bytes) of text-window line AL & 3 at tile RAM 3A00h + line*180h. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AL = line 0-3
+; out: tile RAM
+; side effects: none
+; evidence: and al,0x3 / mov bl,0x18 / mul bl / shl ax,4 / add ax,0x3a00 / mov cx,0xc0
+text_clear_line_tiles:
     pusha                                    ; 4BBB4
     rr xor, ah, ah                           ; 4BBB5
     and al,0x3                               ; 4BBB7
@@ -20684,9 +23306,14 @@ loc_BBCA:
     ret                                      ; 4BBD2
     db 0x90   ; 4BBD3
 
-sub_BBD4:
+; Creates the dialogue/text-window object (type 3Dh, byte+1 = 09h) in a low slot: script pointer [+18h] = word table 4000:BB84[AX], window position DH/DL -> [+1Eh]/[+1Fh] (kept in [+16h]), clears the four line buffers, copies 8 tiles of window graphics from 2000:D95F to 3980h and clears [1399h] bit1 (text finished flag). [high, reviewed: range_A9A0_FFFF.json]
+; in:  AX = script number, DX = screen position (DH x, DL y)
+; out: new object, tile RAM 3980h/3A00h-
+; side effects: DS clobbered via sub_6244 then restored
+; evidence: mov ax,[cs:bx-0x447c] / mov [di+0x18],ax / mov al,0x3d / mov ah,0x9 / call sub_BBB4 x4 / si=0xd95f di=0x3980 call sub_6244 / and byte [0x1399],0xfd
+spawn_dialogue_box:
     pusha                                    ; 4BBD4
-    call sub_B585                            ; 4BBD5
+    call obj_alloc_low_slot                  ; 4BBD5
     test di,di                               ; 4BBD8
     jz short loc_BC30                        ; 4BBDA
     rr mov, bx, ax                           ; 4BBDC
@@ -20703,29 +23330,39 @@ sub_BBD4:
     mov [di+0x1f],dl                         ; 4BBFD
     mov [di+0x16],dx                         ; 4BC00
     rr xor, ax, ax                           ; 4BC03
-    call sub_BBB4                            ; 4BC05
+    call text_clear_line_tiles               ; 4BC05
     mov ax,0x1                               ; 4BC08
-    call sub_BBB4                            ; 4BC0B
+    call text_clear_line_tiles               ; 4BC0B
     mov ax,0x2                               ; 4BC0E
-    call sub_BBB4                            ; 4BC11
+    call text_clear_line_tiles               ; 4BC11
     mov ax,0x3                               ; 4BC14
-    call sub_BBB4                            ; 4BC17
+    call text_clear_line_tiles               ; 4BC17
     mov cx,0x8                               ; 4BC1A
     mov ax,0x2000                            ; 4BC1D
     mov ds,ax                                ; 4BC20
     mov si,0xd95f                            ; 4BC22
     mov di,0x3980                            ; 4BC25
-    call sub_6244                            ; 4BC28
+    call copy_tiles_to_ram                   ; 4BC28
     and byte [0x1399],0xfd                   ; 4BC2B
 loc_BC30:
     popa                                     ; 4BC30
     ret                                      ; 4BC31
 
-obj3D_update_case15:
+; Text code FFh: sets [1399h] bit1 (dialogue finished) and does not advance, so the window stays on this code. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = text object
+; out: [1399h] |= 2
+; side effects: none
+; evidence: or byte [0x1399],0x2 / ret
+obj3d_text_end:
     or byte [0x1399],0x2                     ; 4BC32
     ret                                      ; 4BC37
 
-obj3D_update_case14:
+; Text code FEh: resets the window position from [+16h], line/column/top-line to 0/2/0, advances the script by 1 and clears all four line buffers. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = text object
+; out: [+12h],[+13h],[+15h],[+1Ah],[+1Eh],[+1Fh]
+; side effects: tile RAM 3A00h-
+; evidence: mov dx,[di+0x16] / mov byte [di+0x13],0x2 / add word [di+0x1a],1 / call sub_BBB4 x4
+obj3d_text_clear_window:
     mov dx,[di+0x16]                         ; 4BC38
     mov [di+0x1e],dh                         ; 4BC3B
     mov [di+0x1f],dl                         ; 4BC3E
@@ -20734,36 +23371,46 @@ obj3D_update_case14:
     mov byte [di+0x15],0x0                   ; 4BC49
     add word [di+0x1a],byte +0x1             ; 4BC4D
     rr xor, ax, ax                           ; 4BC51
-    call sub_BBB4                            ; 4BC53
+    call text_clear_line_tiles               ; 4BC53
     mov ax,0x1                               ; 4BC56
-    call sub_BBB4                            ; 4BC59
+    call text_clear_line_tiles               ; 4BC59
     mov ax,0x2                               ; 4BC5C
-    call sub_BBB4                            ; 4BC5F
+    call text_clear_line_tiles               ; 4BC5F
     mov ax,0x3                               ; 4BC62
-    call sub_BBB4                            ; 4BC65
+    call text_clear_line_tiles               ; 4BC65
     ret                                      ; 4BC68
 
-obj3D_update_case6:
+; Text code F6h nn: plays sound nn (sub_DD97); nn = 0 instead starts the music fade-out (sub_0250). Advances the script by 2. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AH = operand, DI = text object
+; out: [+1Ah] += 2
+; side effects: sound driver
+; evidence: test ax,ax / call sub_DD97 / call sub_0250 / add word [di+0x1a],2
+obj3d_text_sound:
     rr mov, al, ah                           ; 4BC69
     rr xor, ah, ah                           ; 4BC6B
     test ax,ax                               ; 4BC6D
     jz short loc_BC79                        ; 4BC6F
-    call sub_DD97                            ; 4BC71
+    call sound_play                          ; 4BC71
     add word [di+0x1a],byte +0x2             ; 4BC74
     ret                                      ; 4BC78
 loc_BC79:
-    call sub_0250                            ; 4BC79
+    call fade_out_and_stop_sound             ; 4BC79
     add word [di+0x1a],byte +0x2             ; 4BC7C
     ret                                      ; 4BC80
     db 0x90   ; 4BC81
 
-obj3D_update_case5:
+; Text code F5h nn: nn 0-3 starts a palette fade (sub_D6AE, period 10h, mode nn) and enables all display layers (port 00 |= 0Fh); nn 5 masks port 00 with 0Dh; nn 6 blanks the display (00 = 0, palette 20h = 0) and clears both tile maps (0800h, 1800h); other values mask port 00 with 33h. Advances by 2. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AH = operand
+; out: port 00h (DISP_CTRL), port 20h, maps
+; side effects: palette fade object
+; evidence: call sub_D6AE / in ax,0x0 / or ax,0xf / out 0x0,ax; and ax,0xd; out 0x20,ax / call sub_13F6 / call sub_1405
+obj3d_text_display_ctrl:
     cmp ah,0x4                               ; 4BC82
     jnc short loc_BC9D                       ; 4BC85
     rr xor, dx, dx                           ; 4BC87
     rr mov, dl, ah                           ; 4BC89
     mov ax,0x10                              ; 4BC8B
-    call sub_D6AE                            ; 4BC8E
+    call start_palette_fade                  ; 4BC8E
     in ax,0x0                                ; 4BC91
     or ax,0xf                                ; 4BC93
     out 0x0,ax                               ; 4BC96
@@ -20791,47 +23438,62 @@ loc_BCBF:
     rr xor, ax, ax                           ; 4BCC2
     out 0x0,ax                               ; 4BCC4
     out 0x20,ax                              ; 4BCC6
-    call sub_13F6                            ; 4BCC8
-    call sub_1405                            ; 4BCCB
+    call clear_scr1_map                      ; 4BCC8
+    call clear_scr2_map                      ; 4BCCB
     pop ax                                   ; 4BCCE
     add word [di+0x1a],byte +0x2             ; 4BCCF
     ret                                      ; 4BCD3
 
-obj3D_update_case4:
+; Text code F4h nn: loads story picture nn (sub_F148) and advances by 2. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AH = picture number
+; out: tile RAM / SCR2 map / palettes via sub_F148
+; side effects: none
+; evidence: mov dl,ah / call sub_F148 / add word [di+0x1a],2
+obj3d_text_load_picture:
     rr xor, dx, dx                           ; 4BCD4
     rr mov, dl, ah                           ; 4BCD6
     pusha                                    ; 4BCD8
     push ds                                  ; 4BCD9
     push es                                  ; 4BCDA
-    call sub_F148                            ; 4BCDB
+    call load_story_picture                  ; 4BCDB
     pop es                                   ; 4BCDE
     pop ds                                   ; 4BCDF
     popa                                     ; 4BCE0
     add word [di+0x1a],byte +0x2             ; 4BCE1
     ret                                      ; 4BCE5
 
-obj3D_update_case3:
+; Text code F3h nn: writes four consecutive glyphs starting at glyph index table 4000:BBA0[nn] (B0h, B4h, B8h, ...) into columns 0-3 of the current line, sets the column to 4 and advances by 2. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AH = operand, DI = text object
+; out: glyph tiles via sub_BEEE, [+13h] = 4
+; side effects: none
+; evidence: mov ax,[cs:bx-0x4460] / mov byte [di+0x13],0..3 / call sub_BEEE / inc ax
+obj3d_text_put_label4:
     rr xor, bx, bx                           ; 4BCE6
     rr mov, bl, ah                           ; 4BCE8
     shl bx,1                                 ; 4BCEA
     mov ax,[cs:bx-0x4460]                    ; 4BCEC
     mov byte [di+0x13],0x0                   ; 4BCF1
-    call sub_BEEE                            ; 4BCF5
+    call text_put_glyph                      ; 4BCF5
     inc ax                                   ; 4BCF8
     mov byte [di+0x13],0x1                   ; 4BCF9
-    call sub_BEEE                            ; 4BCFD
+    call text_put_glyph                      ; 4BCFD
     inc ax                                   ; 4BD00
     mov byte [di+0x13],0x2                   ; 4BD01
-    call sub_BEEE                            ; 4BD05
+    call text_put_glyph                      ; 4BD05
     inc ax                                   ; 4BD08
     mov byte [di+0x13],0x3                   ; 4BD09
-    call sub_BEEE                            ; 4BD0D
+    call text_put_glyph                      ; 4BD0D
     mov byte [di+0x13],0x4                   ; 4BD10
     add word [di+0x1a],byte +0x2             ; 4BD14
     ret                                      ; 4BD18
     db 0x90   ; 4BD19
 
-obj3D_update_case2:
+; Text code F2h: waits until Start/A/B is newly pressed (BP = [138Ch] & E00h) and no palette fade is running ([1385h] & 3 = 0), then advances by 1. obj3D_draw shows a blinking prompt sprite while on this code. [high, reviewed: range_A9A0_FFFF.json]
+; in:  BP = new keys, [1385h]
+; out: [+1Ah]
+; side effects: none
+; evidence: test byte [0x1385],0x3 / test bp,0xe00 / add word [di+0x1a],1
+obj3d_text_wait_button:
     test byte [0x1385],0x3                   ; 4BD1A
     jnz short loc_BD2B                       ; 4BD1F
     test bp,0xe00                            ; 4BD21
@@ -20840,7 +23502,12 @@ obj3D_update_case2:
 loc_BD2B:
     ret                                      ; 4BD2B
 
-obj3D_update_case1:
+; Text code F1h nn: waits nn frames ([+1Ch] counter); held B (SI = [1388h] & 800h) skips the wait unless a palette fade is running. Then clears the counter and advances by 2. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AH = frame count, SI = held keys
+; out: [+1Ch], [+1Ah]
+; side effects: none
+; evidence: test si,0x800 / inc word [di+0x1c] / cmp [di+0x1c],dx / add word [di+0x1a],2
+obj3d_text_wait_frames:
     test byte [0x1385],0x3                   ; 4BD2C
     jnz short loc_BD39                       ; 4BD31
     test si,0x800                            ; 4BD33
@@ -20858,8 +23525,13 @@ loc_BD4E:
     ret                                      ; 4BD4E
     db 0x90   ; 4BD4F
 
+; Text codes F0h and F7h-FDh: advances by 1, moves to the next line buffer ([+12h] = ([+12h]+1) & 3), column 2, clears the counter and the new line's tiles. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = text object
+; out: [+12h],[+13h],[+1Ch],[+1Ah]
+; side effects: tile RAM line cleared
+; evidence: inc word [di+0x1a] / and al,0x3 / mov byte [di+0x13],0x2 / call sub_BBB4
 ; dispatch roles: obj3D_update_case0, obj3D_update_case10, obj3D_update_case11, obj3D_update_case12, obj3D_update_case13, obj3D_update_case7, obj3D_update_case8, obj3D_update_case9
-obj3D_update_case0:
+obj3d_text_newline:
     inc word [di+0x1a]                       ; 4BD50
     mov al,[di+0x12]                         ; 4BD53
     inc al                                   ; 4BD56
@@ -20868,29 +23540,34 @@ obj3D_update_case0:
     mov byte [di+0x13],0x2                   ; 4BD5D
     mov word [di+0x1c],0x0                   ; 4BD61
     and al,0x3                               ; 4BD66
-    call sub_BBB4                            ; 4BD68
+    call text_clear_line_tiles               ; 4BD68
     ret                                      ; 4BD6B
 
 ; jump table tbl_BD6C: 16 words, bound: mask (first use at 4BE27)
 tbl_BD6C:
-    dw obj3D_update_case0
-    dw obj3D_update_case1
-    dw obj3D_update_case2
-    dw obj3D_update_case3
-    dw obj3D_update_case4
-    dw obj3D_update_case5
-    dw obj3D_update_case6
-    dw obj3D_update_case0
-    dw obj3D_update_case0
-    dw obj3D_update_case0
-    dw obj3D_update_case0
-    dw obj3D_update_case0
-    dw obj3D_update_case0
-    dw obj3D_update_case0
-    dw obj3D_update_case14
-    dw obj3D_update_case15
+    dw obj3d_text_newline
+    dw obj3d_text_wait_frames
+    dw obj3d_text_wait_button
+    dw obj3d_text_put_label4
+    dw obj3d_text_load_picture
+    dw obj3d_text_display_ctrl
+    dw obj3d_text_sound
+    dw obj3d_text_newline
+    dw obj3d_text_newline
+    dw obj3d_text_newline
+    dw obj3d_text_newline
+    dw obj3d_text_newline
+    dw obj3d_text_newline
+    dw obj3d_text_newline
+    dw obj3d_text_clear_window
+    dw obj3d_text_end
 
-obj3D_update:
+; Update for the dialogue window (type 3Dh): reads the next script byte from 2000:[+18h]+[+1Ah]; values below F0h are glyphs, printed one every 4 frames (every frame while B is held) via sub_BEEE; F0h-FFh are control codes dispatched through tbl_BD6C. When all four line buffers are in use it scrolls the window up 10 px over 20 frames and rotates the top line. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object, keys [1388h]/[138Ch]
+; out: [+12h]-[+1Fh], glyph tiles
+; side effects: none
+; evidence: mov bx,[di+0x18] / add bx,[di+0x1a] / mov al,[es:bx] / cmp al,0xf0 / jnc / test si,0x800 / call sub_BEEE; loc_BDE6 sbb byte [di+0x1f] / cmp [di+0x1c],0x14
+obj3d_update_text_window:
     pusha                                    ; 4BD8C
     mov si,[0x1388]                          ; 4BD8D
     mov bp,[0x138c]                          ; 4BD91
@@ -20922,7 +23599,7 @@ loc_BDC9:
     push ax                                  ; 4BDD1
     rr xor, ax, ax                           ; 4BDD2
     mov al,[di+0x14]                         ; 4BDD4
-    call sub_BEEE                            ; 4BDD7
+    call text_put_glyph                      ; 4BDD7
     pop ax                                   ; 4BDDA
     inc word [di+0x1a]                       ; 4BDDB
     inc byte [di+0x13]                       ; 4BDDE
@@ -20960,7 +23637,12 @@ loc_BE1C:
     ret                                      ; 4BE2D
     db 0x00,0x00,0x00,0x00,0x00,0xFF,0xFE,0xFF   ; 4BE2E
 
-obj3D_draw:
+; Draws the dialogue window as three rows of 24 sprites (tiles 1A0h + line*18h, attribute 0A00h) 10 px apart starting at [+1Eh]/[+1Fh], starting with the top line [+15h]; while waiting for a button (code F2h) also draws an animated prompt sprite (tile 198h+frame) at x = CEh, bobbing via table BE2E. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object, [138Eh] frame counter
+; out: sprite table, [1382h] += 120h (+4)
+; side effects: none
+; evidence: cmp al,0xf2 / add ax,0x198 / or ax,0x2e00; mov cx,0x18 loops x3 / add ax,0x1a0 / or ax,0xa00 / add dl,0xa / add dl,0x14
+obj3d_draw_text_window:
     pusha                                    ; 4BE36
     mov al,[di+0x14]                         ; 4BE37
     cmp al,0xf2                              ; 4BE3A
@@ -21036,7 +23718,12 @@ loc_BEDE:
     popa                                     ; 4BEEC
     ret                                      ; 4BEED
 
-sub_BEEE:
+; Copies glyph AX (16 bytes from 2000:D9DF + AX*16) into the tile of the current text line/column: tile RAM 3A00h + (([+12h]&3)*24 + [+13h])*16. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AX = glyph index, DI = text object
+; out: tile RAM
+; side effects: none
+; evidence: mov si,0xd9df / shl ax,4 / mov cl,0x18 / mul cl / add ax,dx / mov di,0x3a00 / rep movsw (8 words)
+text_put_glyph:
     pusha                                    ; 4BEEE
     mov si,0xd9df                            ; 4BEEF
     shl ax,byte 0x4                          ; 4BEF2
@@ -21064,12 +23751,22 @@ sub_BEEE:
     ret                                      ; 4BF24
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 4BF25
 
+; Key-remap case for play_flags & 7 = 0 or 4 (horizontal, A/B not swapped): returns DX unchanged. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DX = key word
+; out: DX
+; side effects: none
+; evidence: ret; table tbl_BFC6 entries 0 and 4
 ; dispatch roles: sub_BFD6_case0, sub_BFD6_case4
-sub_BFD6_case0:
+keymap_identity:
     ret                                      ; 4BF30
 
+; Key-remap for vertical orientation (play_flags & 7 = 1 or 3): Y pad becomes the d-pad (Y1->80h left, Y2->10h up, Y3->20h right, Y4->40h down), X1/X3 -> A (400h), X2/X4 -> B (800h), Start kept. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DX = raw key word
+; out: DX = remapped
+; side effects: AX/BX clobbered
+; evidence: and dx,0x200 / test ax,1 -> or dx,0x80 / test ax,4 -> 0x20 / test ax,2 -> 0x10 / test ax,8 -> 0x40 / test ax,0x50 -> 0x400 / test ax,0xa0 -> 0x800
 ; dispatch roles: sub_BFD6_case1, sub_BFD6_case3
-sub_BFD6_case1:
+keymap_vertical:
     rr mov, ax, dx                           ; 4BF31
     rr mov, bx, ax                           ; 4BF33
     and dx,0x200                             ; 4BF35
@@ -21099,8 +23796,13 @@ loc_BF66:
 loc_BF6F:
     ret                                      ; 4BF6F
 
+; Key-remap for horizontal with A/B swapped (play_flags & 7 = 2 or 6): keeps X pad and Start (mask 2F0h) and exchanges A (400h) and B (800h). [high, reviewed: range_A9A0_FFFF.json]
+; in:  DX
+; out: DX
+; side effects: AX clobbered
+; evidence: and dx,0x2f0 / test ax,0x800 -> or dx,0x400 / test ax,0x400 -> or dx,0x800
 ; dispatch roles: sub_BFD6_case2, sub_BFD6_case6
-sub_BFD6_case2:
+keymap_swap_ab:
     rr mov, ax, dx                           ; 4BF70
     and dx,0x2f0                             ; 4BF72
     test ax,0x800                            ; 4BF76
@@ -21113,8 +23815,13 @@ loc_BF7F:
 loc_BF88:
     ret                                      ; 4BF88
 
+; Key-remap for vertical with A/B swapped (play_flags & 7 = 5 or 7): as keymap_vertical but X2/X4 -> A and X1/X3 -> B. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DX
+; out: DX
+; side effects: AX clobbered
+; evidence: test ax,0xa0 -> or dx,0x400 / test ax,0x50 -> or dx,0x800
 ; dispatch roles: sub_BFD6_case5, sub_BFD6_case7
-sub_BFD6_case5:
+keymap_vertical_swap_ab:
     rr mov, ax, dx                           ; 4BF89
     and dx,0x200                             ; 4BF8B
     test ax,0x1                              ; 4BF8F
@@ -21145,16 +23852,21 @@ loc_BFC5:
 
 ; jump table tbl_BFC6: 8 words, bound: mask (first use at 4BFE3)
 tbl_BFC6:
-    dw sub_BFD6_case0
-    dw sub_BFD6_case1
-    dw sub_BFD6_case2
-    dw sub_BFD6_case1
-    dw sub_BFD6_case0
-    dw sub_BFD6_case5
-    dw sub_BFD6_case2
-    dw sub_BFD6_case5
+    dw keymap_identity
+    dw keymap_vertical
+    dw keymap_swap_ab
+    dw keymap_vertical
+    dw keymap_identity
+    dw keymap_vertical_swap_ab
+    dw keymap_swap_ab
+    dw keymap_vertical_swap_ab
 
-sub_BFD6:
+; Remaps a key word DX according to play_flags bits 0-2 (bit0 = vertical orientation, bit1 = swap A/B when horizontal, bit2 = swap A/B when vertical) via tbl_BFC6. Used to build [1390h] (held) and [1392h] (newly pressed) from [1388h]/[138Ch]. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DX = raw key word, play_flags
+; out: DX = remapped key word
+; side effects: none
+; evidence: mov bl,[play_flags] / and bx,0x7 / call [cs:bx+tbl_BFC6]; callers 4:0E5F store result in [1390h]/[1392h]
+keymap_apply:
     push ax                                  ; 4BFD6
     push bx                                  ; 4BFD7
     push cx                                  ; 4BFD8
@@ -21169,7 +23881,12 @@ sub_BFD6:
     db 0xFF,0xFF,0xFF,0xFF,0x60,0x1E,0x06,0x39,0x75,0x1C,0x75,0x0D,0xE8,0x5A,0xF5,0x85   ; 4BFEC
     db 0xFF,0x74,0x06,0xE8,0xEE,0xF4,0xE8,0x5D,0x00,0x07,0x1F,0x61,0xC3   ; 4BFFC
 
-sub_C009:
+; Checks spawner record BX (16 bytes at 3000:00DC + BX*16): when its start time (word +0) equals the caller object's timer [DI+1Ch], allocates a slot and creates a fading sprite element (sub_C062) with position, kind, palette index and duration from the record. [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = record index, DI = spawner object
+; out: new object
+; side effects: none
+; evidence: shl bx,4 / mov si,0xdc / cmp [di+0x1c],ax / call lvl00_check / call sub_B4F0 / call sub_C062
+fade_sprite_spawn_record:
     pusha                                    ; 4C009
     push ds                                  ; 4C00A
     push es                                  ; 4C00B
@@ -21181,7 +23898,7 @@ sub_C009:
     mov ax,[es:si]                           ; 4C019
     cmp [di+0x1c],ax                         ; 4C01C
     jnz short loc_C042                       ; 4C01F
-    call lvl00_check                         ; 4C021
+    call lvl00_check_alloc_slot_up           ; 4C021
     test di,di                               ; 4C024
     jz short loc_C042                        ; 4C026
     mov ax,[es:si+0x2]                       ; 4C028
@@ -21189,15 +23906,20 @@ sub_C009:
     mov bx,[es:si+0x6]                       ; 4C030
     mov cx,[es:si+0x8]                       ; 4C034
     mov bp,[es:si+0xa]                       ; 4C038
-    call sub_B4F0                            ; 4C03C
-    call sub_C062                            ; 4C03F
+    call obj_clear_slot                      ; 4C03C
+    call init_obj38_fade_sprite              ; 4C03F
 loc_C042:
     pop es                                   ; 4C042
     pop ds                                   ; 4C043
     popa                                     ; 4C044
     ret                                      ; 4C045
 
-sub_C046:
+; Copies 1E8h words from ROM 7000:9492 to tile RAM 2640h (tiles 64h-). Called by the Namco-logo state. [medium, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: tile RAM 2640h-2A0Fh
+; side effects: DS restored
+; evidence: mov cx,0x1e8 / ds=0x7000 / si=0x9492 / di=0x2640; caller state08_namco_logo
+logo_load_tiles:
     pusha                                    ; 4C046
     mov cx,0x1e8                             ; 4C047
     mov ax,0x7000                            ; 4C04A
@@ -21213,7 +23935,12 @@ sub_C046:
     ret                                      ; 4C060
     db 0x90   ; 4C061
 
-sub_C062:
+; Initialises object type 38h (fading sprite element): position AX,DX (pixels, stored x16), kind [+1Ah] = BX, duration [+0Ch] = BP, palette port [+0Eh], tile base [+16h] and tile slot [+18h] from bank-3 tables 3:0010/3:0000/3:002C indexed by CX. Kinds >= 6 also copy 12 (kind >= 10h) or 24 tiles of graphics from 3:[9D00h+kind*2] into tile RAM 2000h + [+18h]*16. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = slot, AX/DX = position px, BX = kind, CX = table index, BP = duration
+; out: object slot, tile RAM
+; side effects: DS via sub_6244
+; evidence: mov ax,0x138 / mov [di+0x1a],bx / mov [di+0xc],bp / mov ax,[es:si+0x10] / mov [di+0xe],ax / mov si,[es:bx-0x6300] / call sub_6244
+init_obj38_fade_sprite:
     pusha                                    ; 4C062
     push ds                                  ; 4C063
     push es                                  ; 4C064
@@ -21250,7 +23977,7 @@ sub_C062:
     mov es,ax                                ; 4C0BE
     mov si,[es:bx-0x6300]                    ; 4C0C0
     mov ax,0x3000                            ; 4C0C5
-    call sub_6244                            ; 4C0C8
+    call copy_tiles_to_ram                   ; 4C0C8
 loc_C0CB:
     pop es                                   ; 4C0CB
     pop ds                                   ; 4C0CC
@@ -21371,7 +24098,12 @@ loc_C1CB:
     ret                                      ; 4C1CE
     db 0x90   ; 4C1CF
 
-obj38_update:
+; Update for type 38h: increments [+1Ch]; while below the duration [+0Ch] it steps the palette port [+0Eh] one shade per nibble toward 7420h every 8 frames (fade in); afterwards decrements every nibble toward 0 every 8 frames and deletes the object once the palette is all zero (fade out). [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object
+; out: palette port [+0Eh], [+1Ch]
+; side effects: object deleted at end
+; evidence: cmp ax,dx / jmp loc_C15D or loc_C0CF; mov bx,0x7420 ... adc bp,0 / out dx,ax; cmc / sbb dx,0 ... mov byte [di],0
+obj38_update_palette_fade:
     or byte [di+0x1],0x2                     ; 4C1D0
     mov ax,[di+0x1c]                         ; 4C1D4
     inc ax                                   ; 4C1D7
@@ -21384,7 +24116,12 @@ loc_C1E5:
     jmp near loc_C0CF                        ; 4C1E5
     db 0xC3,0x90   ; 4C1E8
 
-obj38_draw:
+; Draw for type 38h: BP = tile word (bank-3 table 3:0020[kind], or [+18h] for kinds >= 6) | [+16h] | 2000h, then jumps to the kind's draw routine from 3:003C[kind] (the b3disp_* routines). [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object, DH/DL = screen position
+; out: sprite table via b3disp_*
+; side effects: none
+; evidence: mov bp,[es:bx+0x20] / cmp bx,0xc / or bp,[di+0x16] / or bp,0x2000 / jmp [es:bx+0x3c]
+obj38_draw_dispatch:
     mov bx,[di+0x1a]                         ; 4C1EA
     shl bx,1                                 ; 4C1ED
     mov ax,0x3000                            ; 4C1EF
@@ -21399,7 +24136,12 @@ loc_C201:
     jmp [word es:bx+0x3c]                    ; 4C208
     db 0x90   ; 4C20D
 
-sub_C20E:
+; Turns slot DI into object type 39h (byte+1 = 1) with script selector [+18h] = AX*2 (0 = Namco logo elements, 1 = ending/credits elements). [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = slot, AX = script 0/1
+; out: object slot
+; side effects: none
+; evidence: shl ax,1 / mov [di+0x18],ax / mov ax,0x139 / mov [di],ax; callers state08_namco_logo (ax=0) and 4:1A0C (ax=1)
+init_obj39_spawner:
     push ax                                  ; 4C20E
     shl ax,1                                 ; 4C20F
     mov [di+0x18],ax                         ; 4C211
@@ -21409,26 +24151,36 @@ sub_C20E:
     ret                                      ; 4C21A
     db 0x90   ; 4C21B
 
-obj39_update_case0:
+; Spawner script 0: checks spawner records 0-5 against the timer (sub_C009) each frame. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = spawner object
+; out: via sub_C009
+; side effects: objects created
+; evidence: mov bx,0..5 / call sub_C009
+obj39_spawn_logo_elements:
     mov bx,0x0                               ; 4C21C
-    call sub_C009                            ; 4C21F
+    call fade_sprite_spawn_record            ; 4C21F
     mov bx,0x1                               ; 4C222
-    call sub_C009                            ; 4C225
+    call fade_sprite_spawn_record            ; 4C225
     mov bx,0x2                               ; 4C228
-    call sub_C009                            ; 4C22B
+    call fade_sprite_spawn_record            ; 4C22B
     mov bx,0x3                               ; 4C22E
-    call sub_C009                            ; 4C231
+    call fade_sprite_spawn_record            ; 4C231
     mov bx,0x4                               ; 4C234
-    call sub_C009                            ; 4C237
+    call fade_sprite_spawn_record            ; 4C237
     mov bx,0x5                               ; 4C23A
-    call sub_C009                            ; 4C23D
+    call fade_sprite_spawn_record            ; 4C23D
     ret                                      ; 4C240
     db 0x90   ; 4C241
 
-obj39_update_case1:
+; Spawner script 1: checks spawner records 6-4Bh against the timer each frame. [medium, reviewed: range_A9A0_FFFF.json]
+; in:  DI = spawner object
+; out: via sub_C009
+; side effects: objects created
+; evidence: mov bx,0x6 / call sub_C009 / inc bx / cmp bx,0x4b
+obj39_spawn_credit_elements:
     mov bx,0x6                               ; 4C242
 loc_C245:
-    call sub_C009                            ; 4C245
+    call fade_sprite_spawn_record            ; 4C245
     inc bx                                   ; 4C248
     cmp bx,byte +0x4b                        ; 4C249
     jna short loc_C245                       ; 4C24C
@@ -21436,11 +24188,16 @@ loc_C245:
 
 ; jump table tbl_C24F: 2 words, bound: adjacent (first use at 4C262)
 tbl_C24F:
-    dw obj39_update_case0
-    dw obj39_update_case1
+    dw obj39_spawn_logo_elements
+    dw obj39_spawn_credit_elements
     db 0x90   ; 4C253
 
-obj39_update:
+; Update for type 39h: sets the updated flag, increments timer [+1Ch] and runs the script selected by [+18h] (tbl_C24F). [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object
+; out: [+1Ch]
+; side effects: none
+; evidence: inc ax / mov [di+0x1c],ax / mov bx,[di+0x18] / jmp [cs:bx+tbl_C24F]
+obj39_update_spawner:
     or byte [di+0x1],0x2                     ; 4C254
     mov ax,[di+0x1c]                         ; 4C258
     inc ax                                   ; 4C25B
@@ -21448,7 +24205,12 @@ obj39_update:
     mov bx,[di+0x18]                         ; 4C25F
     jmp [cs:bx+tbl_C24F]                     ; 4C262
 
-sub_C267:
+; Writes 0 to the eight sprite palette ports 30h-3Eh. [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: ports 30h-3Eh
+; side effects: none
+; evidence: xor ax,ax / out 0x30..0x3e,ax
+clear_sprite_palettes:
     rr xor, ax, ax                           ; 4C267
     out 0x30,ax                              ; 4C269
     out 0x32,ax                              ; 4C26B
@@ -21461,7 +24223,12 @@ sub_C267:
     ret                                      ; 4C279
     db 0xC3   ; 4C27A
 
-irq_C27B:
+; VBlank handler installed by state08_namco_logo: reads the keypad, stores the current scanline (port 02h) in vblank_line and acknowledges VBlank (B6h <- 40h). [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: [1388h]-[138Ch] via read_keypad, vblank_line
+; side effects: port B6h
+; evidence: call read_keypad / in al,0x2 / mov [vblank_line],al / mov al,0x40 / out 0xb6,al / iret; installed at 0:0098h at 4:C2AE
+irq_vblank_logo:
     pusha                                    ; 4C27B
     push ds                                  ; 4C27C
     push es                                  ; 4C27D
@@ -21485,11 +24252,11 @@ state08_namco_logo:
     mov word [0x1382],0x1600                 ; 4C299
     mov ax,0x0                               ; 4C29F
     out 0x0,ax                               ; 4C2A2
-    call sub_C267                            ; 4C2A4
+    call clear_sprite_palettes               ; 4C2A4
     rr xor, ax, ax                           ; 4C2A7
     mov ds,ax                                ; 4C2A9
     mov bx,0x98                              ; 4C2AB
-    mov word [bx],irq_C27B                   ; 4C2AE
+    mov word [bx],irq_vblank_logo            ; 4C2AE
     mov word [bx+0x2],0x4000                 ; 4C2B2
     mov al,0x0                               ; 4C2B7
     out 0xb7,al                              ; 4C2B9
@@ -21503,9 +24270,9 @@ state08_namco_logo:
     out 0x5,al                               ; 4C2C9
     mov al,0x0                               ; 4C2CB
     out 0x6,al                               ; 4C2CD
-    call sub_C046                            ; 4C2CF
-    call sub_B524                            ; 4C2D2
-    call sub_4A60                            ; 4C2D5
+    call logo_load_tiles                     ; 4C2CF
+    call objs_clear_all                      ; 4C2D2
+    call camera_init                         ; 4C2D5
     mov al,0x4                               ; 4C2D8
     out 0x15,al                              ; 4C2DA
     rr xor, ax, ax                           ; 4C2DC
@@ -21519,12 +24286,12 @@ state08_namco_logo:
     mov [0x138c],ax                          ; 4C2EE
     and byte [play_flags],0xf8               ; 4C2F1
     mov [0x1384],al                          ; 4C2F6
-    call sub_B53D                            ; 4C2F9
+    call obj_alloc_from_3c0                  ; 4C2F9
     rr xor, ax, ax                           ; 4C2FC
-    call sub_C20E                            ; 4C2FE
-    call sub_F3DF                            ; 4C301
+    call init_obj39_spawner                  ; 4C2FE
+    call sram_suspend_valid                  ; 4C301
     or [0x1384],al                           ; 4C304
-    call sub_F360                            ; 4C308
+    call sram_scan_tickets                   ; 4C308
     or [0x1384],al                           ; 4C30B
     mov ax,0x4                               ; 4C30F
     out 0x0,ax                               ; 4C312
@@ -21534,7 +24301,7 @@ loc_C315:
     mov ds,ax                                ; 4C317
     mov [vblank_line],al                     ; 4C319
     call objects_update                      ; 4C31C
-    call state19_world_record_case0          ; 4C31F
+    call objects_draw                        ; 4C31F
     mov ax,[0x1382]                          ; 4C322
     sub ax,0x1600                            ; 4C325
     shr ax,1                                 ; 4C328
@@ -21564,7 +24331,12 @@ loc_C35A:
     jmp near main_loop                       ; 4C367
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 4C36A
 
-sub_C370:
+; Fills the HUD strip of the SCR1 map with tile 174Bh: bottom row (0C40h, 32 cells) in horizontal mode or the two left columns of 18 rows in vertical mode; for EX Visions (progress 61xx/62xx) also the top row (horizontal) or columns 1Ah-1Bh (vertical) for the timer. [high, reviewed: range_A9A0_FFFF.json]
+; in:  play_flags bit0, progress_code
+; out: SCR1 map words
+; side effects: none
+; evidence: mov ax,0x174b / mov bx,0xc40 / mov cx,0x20; cmp ah,0x61 / cmp ah,0x62 / mov bx,0x834
+hud_fill_background:
     pusha                                    ; 4C370
     mov al,[play_flags]                      ; 4C371
     shr al,1                                 ; 4C374
@@ -21619,7 +24391,12 @@ loc_C3DB:
     ret                                      ; 4C3DC
     db 0x90   ; 4C3DD
 
-sub_C3DE:
+; For EX Visions only: writes the timer frame tiles (3D67h-3D69h) and the separator characters ':' '.' ',' (font tile = ASCII-20h+114Bh) into the top HUD row (or right columns in vertical mode). [high, reviewed: range_A9A0_FFFF.json]
+; in:  progress_code, play_flags bit0
+; out: SCR1 map words
+; side effects: none
+; evidence: mov ax,0x3d67 / mov ax,0x3a ':' / 0x2e '.' / 0x2c ',' / sub ax,0x20 / add ax,0x114b
+hud_draw_time_labels:
     pusha                                    ; 4C3DE
     mov ax,[progress_code]                   ; 4C3DF
     cmp ah,0x61                              ; 4C3E2
@@ -21692,7 +24469,12 @@ loc_C49A:
     popa                                     ; 4C49A
     ret                                      ; 4C49B
 
-sub_C49C:
+; In horizontal mode draws [13E0h] (hearts) as pairs of sprites (tiles 2DB3h/2DB4h) along y = 80h starting at x = 0, 8 px apart; does nothing in vertical mode. [high, reviewed: range_A9A0_FFFF.json]
+; in:  [13E0h], play_flags bit0
+; out: sprite table, [1382h] += 8 per heart
+; side effects: none
+; evidence: mov cl,[lives_reserve] / mov si,0x2db3 / mov ax,0x80 / inc si / add ah,0x8 / dec si
+draw_hearts_sprites:
     push ax                                  ; 4C49C
     push bx                                  ; 4C49D
     push cx                                  ; 4C49E
@@ -21702,7 +24484,7 @@ sub_C49C:
     jc short loc_C4D8                        ; 4C4A5
     mov bx,[0x1382]                          ; 4C4A7
     rr xor, cx, cx                           ; 4C4AB
-    mov cl,[lives_reserve]                   ; 4C4AD
+    mov cl,[hearts]                          ; 4C4AD
     jcxz loc_C4D8                            ; 4C4B1
     mov si,0x2db3                            ; 4C4B3
     mov ax,0x80                              ; 4C4B6
@@ -21727,59 +24509,69 @@ loc_C4D8:
     ret                                      ; 4C4DC
     db 0x90   ; 4C4DD
 
-sub_C4DE:
+; Redraws the whole gameplay HUD: hearts (C55E), item flags (C608), item count (C678), lives (C718), EX timer labels (C3DE), the dream-stone icon/separator tiles and the maximum '30', then the displayed stone count [13DFh] (C6BA). Layout differs for vertical mode. [high, reviewed: range_A9A0_FFFF.json]
+; in:  play_flags bit0, HUD variables
+; out: SCR1 map
+; side effects: none
+; evidence: call sub_C55E / sub_C608 / sub_C678 / sub_C718 / sub_C3DE / mov ax,0x30 / call sub_B937 / mov al,[0x13df] / call sub_C6BA
+hud_draw_all:
     pusha                                    ; 4C4DE
-    call sub_C55E                            ; 4C4DF
-    call sub_C608                            ; 4C4E2
-    call sub_C678                            ; 4C4E5
-    call sub_C718                            ; 4C4E8
-    call sub_C3DE                            ; 4C4EB
+    call hud_draw_hearts                     ; 4C4DF
+    call hud_draw_flags_13d1                 ; 4C4E2
+    call hud_draw_count_13d0                 ; 4C4E5
+    call hud_draw_lives                      ; 4C4E8
+    call hud_draw_time_labels                ; 4C4EB
     mov al,[play_flags]                      ; 4C4EE
     shr al,1                                 ; 4C4F1
     mov ax,0x3fbd                            ; 4C4F3
     jc short loc_C523                        ; 4C4F6
     mov dx,0x8088                            ; 4C4F8
-    call sub_BB5E                            ; 4C4FB
+    call put_map_tile_at_px                  ; 4C4FB
     mov ax,0x3d5a                            ; 4C4FE
     mov dx,0x9888                            ; 4C501
-    call sub_BB5E                            ; 4C504
+    call put_map_tile_at_px                  ; 4C504
     mov ax,0x30                              ; 4C507
     mov dx,0xa088                            ; 4C50A
-    call sub_B937                            ; 4C50D
+    call put_hex_byte_tiles_h                ; 4C50D
     mov ax,0x3fd8                            ; 4C510
     mov dx,0xb888                            ; 4C513
-    call sub_BB5E                            ; 4C516
+    call put_map_tile_at_px                  ; 4C516
     inc ax                                   ; 4C519
     add dh,0x8                               ; 4C51A
-    call sub_BB5E                            ; 4C51D
+    call put_map_tile_at_px                  ; 4C51D
     jmp near loc_C553                        ; 4C520
 loc_C523:
     mov dx,0x858                             ; 4C523
-    call sub_BB5E                            ; 4C526
+    call put_map_tile_at_px                  ; 4C526
     mov ax,0x3d5a                            ; 4C529
     mov dx,0x870                             ; 4C52C
-    call sub_BB5E                            ; 4C52F
+    call put_map_tile_at_px                  ; 4C52F
     mov ax,0x3                               ; 4C532
     mov dx,0x878                             ; 4C535
-    call sub_B8F4                            ; 4C538
+    call put_hex_digit_tile                  ; 4C538
     rr xor, ax, ax                           ; 4C53B
     add dl,0x8                               ; 4C53D
-    call sub_B8F4                            ; 4C540
+    call put_hex_digit_tile                  ; 4C540
     mov ax,0x3fd8                            ; 4C543
     mov dx,0x70                              ; 4C546
-    call sub_BB5E                            ; 4C549
+    call put_map_tile_at_px                  ; 4C549
     inc ax                                   ; 4C54C
     add dl,0x8                               ; 4C54D
-    call sub_BB5E                            ; 4C550
+    call put_map_tile_at_px                  ; 4C550
 loc_C553:
     rr xor, ax, ax                           ; 4C553
     mov al,[0x13df]                          ; 4C555
-    call sub_C6BA                            ; 4C558
+    call hud_draw_stone_count                ; 4C558
     popa                                     ; 4C55B
     ret                                      ; 4C55C
     db 0x90   ; 4C55D
 
-sub_C55E:
+; Draws the heart counter into the SCR1 map: clears six cells with blank tile 114Bh, then draws [13E0h] hearts (two tiles 3DB5h/3DB6h each, horizontal, row 0C40h) or 2x2 tiles from 3DB3h (vertical, left columns). [high, reviewed: range_A9A0_FFFF.json]
+; in:  [13E0h], play_flags bit0
+; out: SCR1 map words
+; side effects: none
+; evidence: mov ax,0x114b / mov bx,0xc40 ... mov ax,0x3db5 / mov cl,[lives_reserve]; vertical: mov ax,0x3db3 / add bx,0x80
+hud_draw_hearts:
     pusha                                    ; 4C55E
     mov al,[play_flags]                      ; 4C55F
     shr al,1                                 ; 4C562
@@ -21802,7 +24594,7 @@ sub_C55E:
     rr mov, dx, ax                           ; 4C58D
     mov bx,0xc40                             ; 4C58F
     rr xor, cx, cx                           ; 4C592
-    mov cl,[lives_reserve]                   ; 4C594
+    mov cl,[hearts]                          ; 4C594
     jcxz loc_C5A7                            ; 4C598
 loc_C59A:
     rr mov, ax, dx                           ; 4C59A
@@ -21839,7 +24631,7 @@ loc_C5A9:
     rr mov, dx, ax                           ; 4C5E2
     mov bx,0x800                             ; 4C5E4
     rr xor, cx, cx                           ; 4C5E7
-    mov cl,[lives_reserve]                   ; 4C5E9
+    mov cl,[hearts]                          ; 4C5E9
     jcxz loc_C605                            ; 4C5ED
 loc_C5EF:
     rr mov, ax, dx                           ; 4C5EF
@@ -21857,7 +24649,12 @@ loc_C605:
     ret                                      ; 4C606
     db 0x90   ; 4C607
 
-sub_C608:
+; Draws one HUD tile (3982h+i) for each of the four flag bits 0-3 of [13D1h] that is set (x = 38h + 8*i, y = 88h; vertical layout at x = 0, y = 48h + 8*i). Unset bits are left untouched. [high, reviewed: range_A9A0_FFFF.json]
+; in:  [13D1h], play_flags bit0
+; out: SCR1 map words
+; side effects: none
+; evidence: mov ax,0x3982 / mov cl,[0x13d1] / shr cl,1 / jnc / call sub_BB5E / inc ax
+hud_draw_flags_13d1:
     pusha                                    ; 4C608
     mov al,[play_flags]                      ; 4C609
     shr al,1                                 ; 4C60C
@@ -21867,25 +24664,25 @@ sub_C608:
     mov cl,[0x13d1]                          ; 4C616
     shr cl,1                                 ; 4C61A
     jnc short loc_C621                       ; 4C61C
-    call sub_BB5E                            ; 4C61E
+    call put_map_tile_at_px                  ; 4C61E
 loc_C621:
     add dh,0x8                               ; 4C621
     inc ax                                   ; 4C624
     shr cl,1                                 ; 4C625
     jnc short loc_C62C                       ; 4C627
-    call sub_BB5E                            ; 4C629
+    call put_map_tile_at_px                  ; 4C629
 loc_C62C:
     add dh,0x8                               ; 4C62C
     inc ax                                   ; 4C62F
     shr cl,1                                 ; 4C630
     jnc short loc_C637                       ; 4C632
-    call sub_BB5E                            ; 4C634
+    call put_map_tile_at_px                  ; 4C634
 loc_C637:
     add dh,0x8                               ; 4C637
     inc ax                                   ; 4C63A
     shr cl,1                                 ; 4C63B
     jnc short loc_C642                       ; 4C63D
-    call sub_BB5E                            ; 4C63F
+    call put_map_tile_at_px                  ; 4C63F
 loc_C642:
     popa                                     ; 4C642
     ret                                      ; 4C643
@@ -21895,30 +24692,35 @@ loc_C644:
     mov cl,[0x13d1]                          ; 4C64A
     shr cl,1                                 ; 4C64E
     jnc short loc_C655                       ; 4C650
-    call sub_BB5E                            ; 4C652
+    call put_map_tile_at_px                  ; 4C652
 loc_C655:
     add dl,0x8                               ; 4C655
     inc ax                                   ; 4C658
     shr cl,1                                 ; 4C659
     jnc short loc_C660                       ; 4C65B
-    call sub_BB5E                            ; 4C65D
+    call put_map_tile_at_px                  ; 4C65D
 loc_C660:
     add dl,0x8                               ; 4C660
     inc ax                                   ; 4C663
     shr cl,1                                 ; 4C664
     jnc short loc_C66B                       ; 4C666
-    call sub_BB5E                            ; 4C668
+    call put_map_tile_at_px                  ; 4C668
 loc_C66B:
     add dl,0x8                               ; 4C66B
     inc ax                                   ; 4C66E
     shr cl,1                                 ; 4C66F
     jnc short loc_C676                       ; 4C671
-    call sub_BB5E                            ; 4C673
+    call put_map_tile_at_px                  ; 4C673
 loc_C676:
     popa                                     ; 4C676
     ret                                      ; 4C677
 
-sub_C678:
+; Counts bits 0-2 of [13D0h] and draws that many copies of tile 3DBEh (horizontal, from x = 60h, y = 88h) or 3DD7h (vertical) in the HUD. [high, reviewed: range_A9A0_FFFF.json]
+; in:  [13D0h], play_flags bit0
+; out: SCR1 map
+; side effects: none
+; evidence: shr al,1 / adc cx,0 (x3) / mov ax,0x3dbe / mov dx,0x6088 / call sub_BB5E
+hud_draw_count_13d0:
     pusha                                    ; 4C678
     mov al,[0x13d0]                          ; 4C679
     rr xor, cx, cx                           ; 4C67C
@@ -21936,7 +24738,7 @@ sub_C678:
     mov dx,0x6088                            ; 4C699
     jcxz loc_C6A6                            ; 4C69C
 loc_C69E:
-    call sub_BB5E                            ; 4C69E
+    call put_map_tile_at_px                  ; 4C69E
     add dh,0x8                               ; 4C6A1
     loop loc_C69E                            ; 4C6A4
 loc_C6A6:
@@ -21947,14 +24749,19 @@ loc_C6A8:
     mov dx,0x838                             ; 4C6AB
     jcxz loc_C6B8                            ; 4C6AE
 loc_C6B0:
-    call sub_BB5E                            ; 4C6B0
+    call put_map_tile_at_px                  ; 4C6B0
     add dl,0x8                               ; 4C6B3
     loop loc_C6B0                            ; 4C6B6
 loc_C6B8:
     popa                                     ; 4C6B8
     ret                                      ; 4C6B9
 
-sub_C6BA:
+; Prints AL (0-99) as up to two decimal digits (leading zero suppressed) at the dream-stone counter position of the HUD (x = 88h/90h, y = 88h; vertical x = 8, y = 60h/68h). [high, reviewed: range_A9A0_FFFF.json]
+; in:  AL = value, play_flags bit0
+; out: SCR1 map
+; side effects: AX, CX, DX clobbered
+; evidence: mov cl,0xa / div cl / mov dx,0x8888 / call sub_B8F4 / mov dx,0x9088
+hud_draw_stone_count:
     mov dl,[play_flags]                      ; 4C6BA
     shr dl,1                                 ; 4C6BE
     jc short loc_C6DD                        ; 4C6C0
@@ -21964,12 +24771,12 @@ sub_C6BA:
     test al,al                               ; 4C6C7
     jz short loc_C6D1                        ; 4C6C9
     mov dx,0x8888                            ; 4C6CB
-    call sub_B8F4                            ; 4C6CE
+    call put_hex_digit_tile                  ; 4C6CE
 loc_C6D1:
     pop ax                                   ; 4C6D1
     rr mov, al, ah                           ; 4C6D2
     mov dx,0x9088                            ; 4C6D4
-    call sub_B8F4                            ; 4C6D7
+    call put_hex_digit_tile                  ; 4C6D7
     jmp near loc_C6F5                        ; 4C6DA
 loc_C6DD:
     mov cl,0xa                               ; 4C6DD
@@ -21978,34 +24785,44 @@ loc_C6DD:
     test al,al                               ; 4C6E2
     jz short loc_C6EC                        ; 4C6E4
     mov dx,0x860                             ; 4C6E6
-    call sub_B8F4                            ; 4C6E9
+    call put_hex_digit_tile                  ; 4C6E9
 loc_C6EC:
     pop ax                                   ; 4C6EC
     rr mov, al, ah                           ; 4C6ED
     mov dx,0x868                             ; 4C6EF
-    call sub_B8F4                            ; 4C6F2
+    call put_hex_digit_tile                  ; 4C6F2
 loc_C6F5:
     ret                                      ; 4C6F5
 
-sub_C6F6:
+; Every 32 frames, if the displayed stone count [13DFh] is below the collected count [13DEh], increments it by one and redraws it (rolling counter). [high, reviewed: range_A9A0_FFFF.json]
+; in:  [138Eh], [13DEh], [13DFh]
+; out: [13DFh], SCR1 map
+; side effects: none
+; evidence: and ax,0x1f / mov dl,[0x13de] / mov al,[0x13df] / cmp al,dl / adc al,0x0 / call sub_C6BA
+hud_tick_stone_counter:
     pusha                                    ; 4C6F6
     mov ax,[0x138e]                          ; 4C6F7
     and ax,0x1f                              ; 4C6FA
     test ax,ax                               ; 4C6FD
     jnz short loc_C716                       ; 4C6FF
     rr xor, ax, ax                           ; 4C701
-    mov dl,[0x13de]                          ; 4C703
+    mov dl,[dream_stones]                    ; 4C703
     mov al,[0x13df]                          ; 4C707
     rr cmp, al, dl                           ; 4C70A
     jz short loc_C716                        ; 4C70C
     adc al,0x0                               ; 4C70E
     mov [0x13df],al                          ; 4C710
-    call sub_C6BA                            ; 4C713
+    call hud_draw_stone_count                ; 4C713
 loc_C716:
     popa                                     ; 4C716
     ret                                      ; 4C717
 
-sub_C718:
+; Prints lives (byte [13E1h]) as one or two decimal digits at x = D0h, y = 88h (vertical: x = 0, y = 80h). [high, reviewed: range_A9A0_FFFF.json]
+; in:  lives, play_flags bit0
+; out: SCR1 map
+; side effects: none
+; evidence: mov al,[lives] / mov cl,0xa / div cl / mov dx,0xd088 / call sub_B8F4
+hud_draw_lives:
     pusha                                    ; 4C718
     rr xor, ax, ax                           ; 4C719
     mov al,[lives]                           ; 4C71B
@@ -22018,12 +24835,12 @@ sub_C718:
     mov dx,0xd088                            ; 4C72B
     test al,al                               ; 4C72E
     jz short loc_C738                        ; 4C730
-    call sub_B8F4                            ; 4C732
+    call put_hex_digit_tile                  ; 4C732
     add dh,0x8                               ; 4C735
 loc_C738:
     pop ax                                   ; 4C738
     rr mov, al, ah                           ; 4C739
-    call sub_B8F4                            ; 4C73B
+    call put_hex_digit_tile                  ; 4C73B
     jmp near loc_C759                        ; 4C73E
 loc_C741:
     mov cl,0xa                               ; 4C741
@@ -22032,12 +24849,12 @@ loc_C741:
     mov dx,0x80                              ; 4C746
     test al,al                               ; 4C749
     jz short loc_C753                        ; 4C74B
-    call sub_B8F4                            ; 4C74D
+    call put_hex_digit_tile                  ; 4C74D
     add dl,0x8                               ; 4C750
 loc_C753:
     pop ax                                   ; 4C753
     rr mov, al, ah                           ; 4C754
-    call sub_B8F4                            ; 4C756
+    call put_hex_digit_tile                  ; 4C756
 loc_C759:
     popa                                     ; 4C759
     ret                                      ; 4C75A
@@ -22144,7 +24961,12 @@ loc_C809:
     ret                                      ; 4C80A
     db 0xFF,0xFF,0xFF,0xFF,0xFF   ; 4C80B
 
-obj3B_update_case3_C810:
+; Palette fade step (obj3B mode 3): decrements every non-zero shade nibble of the eight sprite palette ports 30h-3Eh by one. [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: ports 30h-3Eh
+; side effects: none
+; evidence: in ax,0x30 / and dx,0xf / cmp dx,1 / cmc / sbb dx,0 ... out 0x30,ax (repeated for 32h-3Eh); referenced as tbl_D83F[3]
+obj3B_palfade_step_spr_to_black:
     pusha                                    ; 4C810
     mov cl,0x4                               ; 4C811
     in ax,0x30                               ; 4C813
@@ -22453,7 +25275,12 @@ obj3B_update_case3_C810:
     popa                                     ; 4CAE1
     ret                                      ; 4CAE2
 
-obj3B_update_case2_CAE3:
+; Palette fade step (obj3B mode 2): decrements every non-zero shade nibble of the eight background palette ports 20h-2Eh by one. (The routine's listed size also covers unrelated sprite-drawing helpers loc_CDB6-loc_CF63 that follow it.) [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: ports 20h-2Eh
+; side effects: none
+; evidence: in ax,0x20 ... cmc / sbb dx,0 ... out 0x2e,ax / ret at CDB5; tbl_D83F[2]
+obj3B_palfade_step_bg_to_black:
     pusha                                    ; 4CAE3
     mov cl,0x4                               ; 4CAE4
     in ax,0x20                               ; 4CAE6
@@ -22976,8 +25803,13 @@ loc_CF63:
     db 0x08,0x89,0x2F,0x89,0x47,0x02,0x45,0x83,0xC3,0x04,0x80,0xC4,0x08,0x89,0x2F,0x89   ; 4CFEF
     db 0x47,0x02,0x45,0x83,0xC3,0x04,0x04,0x08,0xE2,0xD9,0xC3   ; 4CFFF
 
+; Bank-3 draw routine for element kinds 0-4: emits a 4-wide x 3-high block of consecutive tiles starting at BP, centred (x-10h, y-0Ch). [high, reviewed: range_A9A0_FFFF.json]
+; in:  BP = tile word, DH = x, DL = y
+; out: sprite table, [1382h] += 30h
+; side effects: none
+; evidence: sub dh,0x10 / sub dl,0xc / mov cx,0x3 / mov si,0x4 / mov [bx],bp / inc bp / add ah,0x8 / add al,0x8
 ; dispatch roles: b3disp_00, b3disp_01, b3disp_02, b3disp_03, b3disp_04
-b3disp_00:
+b3disp_00_sprite_block_4x3:
     sub dh,0x10                              ; 4D00A
     sub dl,0xc                               ; 4D00D
     mov bx,[0x1382]                          ; 4D010
@@ -22999,7 +25831,12 @@ loc_D023:
     loop loc_D01E                            ; 4D034
     ret                                      ; 4D036
 
-b3disp_05:
+; Bank-3 draw routine for kind 5: one sprite with tile BP at (x-8, y-4). [high, reviewed: range_A9A0_FFFF.json]
+; in:  BP, DH, DL
+; out: sprite table, [1382h] += 4
+; side effects: none
+; evidence: sub dh,0x4 / sub dh,0x4 / sub dl,0x4 / mov [bx],bp / mov [bx+0x2],dx
+b3disp_05_single_sprite:
     sub dh,0x4                               ; 4D037
     sub dh,0x4                               ; 4D03A
     sub dl,0x4                               ; 4D03D
@@ -23010,7 +25847,12 @@ b3disp_05:
     ret                                      ; 4D04E
     db 0x90   ; 4D04F
 
-sub_D050:
+; Helper: emits 12 sprites with consecutive tiles from BP at sprite pointer BX, 8 px apart horizontally starting at AH = x, AL = y. [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = sprite entry pointer, BP = tile, AX = y/x
+; out: sprite entries; BX, BP advanced
+; side effects: none
+; evidence: mov cx,0xc / mov [bx],bp / mov [bx+0x2],ax / inc bp / add bx,4 / add ah,0x8
+emit_sprite_row_12:
     mov cx,0xc                               ; 4D050
 loc_D053:
     mov [bx],bp                              ; 4D053
@@ -23021,26 +25863,36 @@ loc_D053:
     loop loc_D053                            ; 4D05F
     ret                                      ; 4D061
 
-; dispatch roles: b3disp_06, b3disp_07, b3disp_08, b3disp_09, b3disp_0A, b3disp_0B, b3disp_0C, b3disp_0D ...
-b3disp_06:
+; Bank-3 draw routine for kinds 6-0Eh: two rows of 12 consecutive tiles (96x16 px) centred at (x-30h, y-8). [high, reviewed: range_A9A0_FFFF.json]
+; in:  BP, DH, DL
+; out: sprite table, [1382h] += 60h
+; side effects: none
+; evidence: sub dh,0x30 / sub dl,0x8 / add word [0x1382],0x60 / call sub_D050 / add al,0x8 / jmp sub_D050
+; dispatch roles: b3disp_06, b3disp_07, b3disp_08, b3disp_09, b3disp_0A, b3disp_0B, b3disp_0C, b3disp_0D
+b3disp_06_sprite_rows_12x2:
     sub dh,0x30                              ; 4D062
     sub dl,0x8                               ; 4D065
     mov bx,[0x1382]                          ; 4D068
     add word [0x1382],byte +0x60             ; 4D06C
     rr mov, ax, dx                           ; 4D071
-    call sub_D050                            ; 4D073
+    call emit_sprite_row_12                  ; 4D073
     rr mov, ah, dh                           ; 4D076
     add al,0x8                               ; 4D078
-    jmp near sub_D050                        ; 4D07A
+    jmp near emit_sprite_row_12              ; 4D07A
 
-; dispatch roles: b3disp_0F, b3disp_10, b3disp_11, b3disp_12, b3disp_13, b3disp_14, b3disp_15, b3disp_16 ...
-b3disp_0F:
+; Bank-3 draw routine for kinds 0Fh-4Fh (credit lines): one row of 12 consecutive tiles centred at (x-30h, y-4). [high, reviewed: range_A9A0_FFFF.json]
+; in:  BP, DH, DL
+; out: sprite table, [1382h] += 30h
+; side effects: none
+; evidence: sub dh,0x30 / sub dl,0x4 / add word [0x1382],0x30 / jmp sub_D050
+; dispatch roles: b3disp_0F, b3disp_10, b3disp_11, b3disp_12, b3disp_13, b3disp_14, b3disp_15, b3disp_16
+b3disp_0f_sprite_row_12:
     sub dh,0x30                              ; 4D07D
     sub dl,0x4                               ; 4D080
     mov bx,[0x1382]                          ; 4D083
     add word [0x1382],byte +0x30             ; 4D087
     rr mov, ax, dx                           ; 4D08C
-    jmp near sub_D050                        ; 4D08E
+    jmp near emit_sprite_row_12              ; 4D08E
     db 0x90   ; 4D091
 loc_D092:
     pusha                                    ; 4D092
@@ -23164,7 +26016,12 @@ loc_D16F:
     loop loc_D16F                            ; 4D19E
     ret                                      ; 4D1A0
 
-sub_D1A1:
+; Emits a 3x3 block of consecutive tiles from BP centred at (x-0Ch, y-0Ch); in vertical mode (play_flags bit0) the block is laid out rotated (columns run down, rows step left). [high, reviewed: range_A9A0_FFFF.json]
+; in:  BP = tile word, DH/DL = screen position
+; out: sprite table, [1382h] += 24h
+; side effects: none
+; evidence: sub dh,0xc / sub dl,0xc / add word [0x1382],0x24 / test byte [play_flags],0x1 / add dh,0xf
+draw_sprites_3x3:
     sub dh,0xc                               ; 4D1A1
     sub dl,0xc                               ; 4D1A4
     mov bx,[0x1382]                          ; 4D1A7
@@ -23334,11 +26191,16 @@ loc_D2F7:
 
 ; jump table tbl_D31E: 2 words, bound: mask (first use at 4AB69)
 tbl_D31E:
-    dw obj2E_draw_case0
-    dw obj2E_draw_case1
+    dw obj2e_draw_3x3_horizontal
+    dw obj2e_draw_3x3_vertical
     db 0x00,0x09,0x12,0x1B   ; 4D322
 
-obj2E_draw_case0:
+; obj2E draw (horizontal mode): 3x3 sprite block, frame = 9-tile offset from table D322 {0,9,12h,1Bh} indexed by ([+14h]>>4)&3; when [+0Ch] bit1 is set the block is mirrored with the H-flip attribute (4000h). [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object, BP = tile base, DH/DL
+; out: sprite table, [1382h] += 24h
+; side effects: none
+; evidence: mov cl,0x4 / shr al,cl / and al,0x3 / mov al,[cs:si-0x2cde] (=D322) / test cx,0x2 / or si,0x4000 / sub ah,0x8
+obj2e_draw_3x3_horizontal:
     sub dh,0xc                               ; 4D326
     sub dl,0xc                               ; 4D329
     mov bx,[0x1382]                          ; 4D32C
@@ -23402,7 +26264,12 @@ loc_D38F:
     loop loc_D38F                            ; 4D3B4
     ret                                      ; 4D3B6
 
-obj2E_draw_case1:
+; obj2E draw (vertical mode): same frame selection as the horizontal variant but laid out rotated; facing uses the V-flip attribute (8000h). [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object, BP, DH/DL
+; out: sprite table, [1382h] += 24h
+; side effects: none
+; evidence: add dh,0x10 / mov al,dl / add al,0x8 / sub ah,0x8 / or si,0x8000
+obj2e_draw_3x3_vertical:
     sub dh,0xc                               ; 4D3B7
     sub dl,0xc                               ; 4D3BA
     mov bx,[0x1382]                          ; 4D3BD
@@ -23508,12 +26375,17 @@ loc_D48C:
     loop loc_D482                            ; 4D49D
     ret                                      ; 4D49F
 
-sub_D4A0:
+; Creates effect object type 3Fh in a low slot at AX,DX with variant [+0Ch] = (CX & 3)*2. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AX/DX = position (1/16 px), CX = variant 0-3
+; out: new object
+; side effects: none
+; evidence: call sub_B585 / call sub_B4F0 / mov al,0x3f / mov ah,0x1 / and cx,0x3 / shl cx,1 / mov [di+0xc],cx
+spawn_sparkle_effect:
     pusha                                    ; 4D4A0
-    call sub_B585                            ; 4D4A1
+    call obj_alloc_low_slot                  ; 4D4A1
     test di,di                               ; 4D4A4
     jz short loc_D4C0                        ; 4D4A6
-    call sub_B4F0                            ; 4D4A8
+    call obj_clear_slot                      ; 4D4A8
     mov [di+0x2],ax                          ; 4D4AB
     mov [di+0x4],dx                          ; 4D4AE
     mov al,0x3f                              ; 4D4B1
@@ -23526,7 +26398,12 @@ loc_D4C0:
     popa                                     ; 4D4C0
     ret                                      ; 4D4C1
 
-obj3F_update_case0:
+; obj3F variant 0: counts [+1Ch] up and deletes the object after 30 frames. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object
+; out: [+1Ch], byte [DI]
+; side effects: none
+; evidence: inc ax / cmp ax,0x1e / sbb ax,ax / and [di],al
+obj3f_update_count_up_30:
     mov ax,[di+0x1c]                         ; 4D4C2
     inc ax                                   ; 4D4C5
     mov [di+0x1c],ax                         ; 4D4C6
@@ -23536,7 +26413,12 @@ obj3F_update_case0:
     ret                                      ; 4D4D0
     db 0x90   ; 4D4D1
 
-obj3F_update_case1:
+; obj3F variant 1: counts [+1Ch] down and deletes the object after 30 frames (when -[+1Ch] reaches 30). [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object
+; out: [+1Ch], byte [DI]
+; side effects: none
+; evidence: dec ax / neg ax / cmp ax,0x1e / sbb ax,ax / and [di],al
+obj3f_update_count_down_30:
     mov ax,[di+0x1c]                         ; 4D4D2
     dec ax                                   ; 4D4D5
     mov [di+0x1c],ax                         ; 4D4D6
@@ -23547,8 +26429,13 @@ obj3F_update_case1:
     ret                                      ; 4D4E2
     db 0x90   ; 4D4E3
 
+; obj3F variants 2 and 3: counts [+1Ch] up and deletes the object after 60 frames. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object
+; out: [+1Ch], byte [DI]
+; side effects: none
+; evidence: cmp ax,0x3c / sbb ax,ax / and [di],al
 ; dispatch roles: obj3F_update_case2, obj3F_update_case3
-obj3F_update_case2:
+obj3f_update_count_up_60:
     mov ax,[di+0x1c]                         ; 4D4E4
     inc ax                                   ; 4D4E7
     mov [di+0x1c],ax                         ; 4D4E8
@@ -23559,19 +26446,29 @@ obj3F_update_case2:
 
 ; jump table tbl_D4F3: 4 words, bound: adjacent (first use at 4D503)
 tbl_D4F3:
-    dw obj3F_update_case0
-    dw obj3F_update_case1
-    dw obj3F_update_case2
-    dw obj3F_update_case2
+    dw obj3f_update_count_up_30
+    dw obj3f_update_count_down_30
+    dw obj3f_update_count_up_60
+    dw obj3f_update_count_up_60
     db 0x90   ; 4D4FB
 
-obj3F_update:
+; Update for effect type 3Fh: sets the updated flag and dispatches on variant [+0Ch] through tbl_D4F3. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object
+; out: byte [DI+1] |= 2
+; side effects: none
+; evidence: mov bx,[di+0xc] / jmp [cs:bx+tbl_D4F3]
+obj3f_update_dispatch:
     or byte [di+0x1],0x2                     ; 4D4FC
     mov bx,[di+0xc]                          ; 4D500
     jmp [cs:bx+tbl_D4F3]                     ; 4D503
 
+; obj3F draw (variants 0/1): four sprites of tile 29E7h moving diagonally outward from the centre by ([+1Ch]/2) & 0Fh pixels. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object, DH/DL
+; out: sprite table, [1382h] += 10h
+; side effects: none
+; evidence: mov ax,0x29e7 / sar cx,1 / and cx,0xf / add ah,cl / add al,cl / sub ...
 ; dispatch roles: obj3F_draw_case0, obj3F_draw_case1
-obj3F_draw_case0:
+obj3f_draw_burst:
     cmp word [0x1382],0x17e8                 ; 4D508
     jc short loc_D511                        ; 4D50E
     ret                                      ; 4D510
@@ -23604,11 +26501,21 @@ loc_D511:
     mov [bx+0xe],ax                          ; 4D552
     ret                                      ; 4D555
 
-obj3F_draw_case3:
-    call obj3F_draw_case0                    ; 4D556
-    jmp near obj3F_draw_case2                ; 4D559
+; obj3F draw (variant 3): draws the diagonal burst and then the orbiting ring. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object, DH/DL
+; out: sprite table
+; side effects: none
+; evidence: call obj3F_draw_case0 / jmp obj3F_draw_case2
+obj3f_draw_burst_and_orbit:
+    call obj3f_draw_burst                    ; 4D556
+    jmp near obj3f_draw_orbit                ; 4D559
 
-obj3F_draw_case2:
+; obj3F draw (variant 2): four sprites of tile 29E7h placed on a circle using the 16-step sine/cosine table at 4000:B5CA/B60A indexed by [+1Ch]*2. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object, DH/DL
+; out: sprite table, [1382h] += 10h
+; side effects: none
+; evidence: mov ax,[cs:si-0x4a36] (=B5CA) / mov ax,[cs:si-0x49f6] (=B60A) / add ah,ch / add al,cl
+obj3f_draw_orbit:
     cmp word [0x1382],0x17e8                 ; 4D55C
     jc short loc_D565                        ; 4D562
     ret                                      ; 4D564
@@ -23648,16 +26555,26 @@ loc_D565:
 
 ; jump table tbl_D5BA: 4 words, bound: adjacent (first use at 4D5C5)
 tbl_D5BA:
-    dw obj3F_draw_case0
-    dw obj3F_draw_case0
-    dw obj3F_draw_case2
-    dw obj3F_draw_case3
+    dw obj3f_draw_burst
+    dw obj3f_draw_burst
+    dw obj3f_draw_orbit
+    dw obj3f_draw_burst_and_orbit
 
-obj3F_draw:
+; Draw for effect type 3Fh: dispatches on variant [+0Ch] through tbl_D5BA. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object
+; out: sprite table
+; side effects: none
+; evidence: mov bx,[di+0xc] / jmp [cs:bx+tbl_D5BA]
+obj3f_draw_dispatch:
     mov bx,[di+0xc]                          ; 4D5C2
     jmp [cs:bx+tbl_D5BA]                     ; 4D5C5
 
-sub_D6AE_case3:
+; Palette-fade mode 3 setup: saves sprite palettes 30h-3Eh into the fade object (+2..+0Eh, +12h) without changing them and marks the sprite-fade busy flag ([1385h] |= 2). [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = fade object
+; out: object +2..+12h, [1385h]
+; side effects: none
+; evidence: in ax,0x30 / mov [di+0x2],ax ... in ax,0x3e / mov [di+0x12],ax / or byte [0x1385],0x2
+palfade_init_spr_to_black:
     in ax,0x30                               ; 4D5CA
     mov [di+0x2],ax                          ; 4D5CC
     in ax,0x32                               ; 4D5CF
@@ -23677,7 +26594,12 @@ sub_D6AE_case3:
     or byte [0x1385],0x2                     ; 4D5F2
     ret                                      ; 4D5F7
 
-sub_D6AE_case2:
+; Palette-fade mode 2 setup: saves background palettes 20h-2Eh into the fade object and sets [1385h] |= 1. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = fade object
+; out: object +2..+12h, [1385h]
+; side effects: none
+; evidence: in ax,0x20 ... mov [di+0x12],ax / or byte [0x1385],0x1
+palfade_init_bg_to_black:
     in ax,0x20                               ; 4D5F8
     mov [di+0x2],ax                          ; 4D5FA
     in ax,0x22                               ; 4D5FD
@@ -23697,7 +26619,12 @@ sub_D6AE_case2:
     or byte [0x1385],0x1                     ; 4D620
     ret                                      ; 4D625
 
-sub_D6AE_case1:
+; Palette-fade mode 1 setup: saves sprite palettes 30h-3Eh into the fade object as the fade-in target, then zeroes the ports and sets [1385h] |= 2. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = fade object
+; out: object, ports 30h-3Eh = 0, [1385h]
+; side effects: none
+; evidence: in ax,0x30 / mov [di+0x2],ax ... xor ax,ax / out 0x30,ax ... or byte [0x1385],0x2
+palfade_init_spr_from_black:
     in ax,0x30                               ; 4D626
     mov [di+0x2],ax                          ; 4D628
     in ax,0x32                               ; 4D62B
@@ -23726,7 +26653,12 @@ sub_D6AE_case1:
     or byte [0x1385],0x2                     ; 4D660
     ret                                      ; 4D665
 
-sub_D6AE_case0:
+; Palette-fade mode 0 setup: saves background palettes 20h-2Eh as the fade-in target, zeroes them and sets [1385h] |= 1. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = fade object
+; out: object, ports 20h-2Eh = 0, [1385h]
+; side effects: none
+; evidence: in ax,0x20 ... out 0x20,ax ... or byte [0x1385],0x1
+palfade_init_bg_from_black:
     in ax,0x20                               ; 4D666
     mov [di+0x2],ax                          ; 4D668
     in ax,0x22                               ; 4D66B
@@ -23757,21 +26689,26 @@ sub_D6AE_case0:
 
 ; jump table tbl_D6A6: 4 words, bound: hint (first use at 4D6D6)
 tbl_D6A6:
-    dw sub_D6AE_case0
-    dw sub_D6AE_case1
-    dw sub_D6AE_case2
-    dw sub_D6AE_case3
+    dw palfade_init_bg_from_black
+    dw palfade_init_spr_from_black
+    dw palfade_init_bg_to_black
+    dw palfade_init_spr_to_black
 
-sub_D6AE:
+; Starts a palette fade unless one is already running ([1385h] & 3): allocates a low slot as object type 3Bh (byte+1 = 09h), step mask [+1Ah] = AX-1 (AX = step period, power of two), mode [+18h] = DX (0 = BG fade-in, 1 = sprite fade-in, 2 = BG fade-out, 3 = sprite fade-out) and runs the mode's setup routine. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AX = frames per step, DX = mode
+; out: new object, [1385h], palette ports
+; side effects: none
+; evidence: test byte [0x1385],0x3 / call sub_B585 / dec ax / mov [di+0x1a],ax / mov [di+0x18],dx / mov al,0x3b / mov ah,0x9 / call [cs:bx+tbl_D6A6]
+start_palette_fade:
     test byte [0x1385],0x3                   ; 4D6AE
     jz short loc_D6B6                        ; 4D6B3
     ret                                      ; 4D6B5
 loc_D6B6:
     pusha                                    ; 4D6B6
-    call sub_B585                            ; 4D6B7
+    call obj_alloc_low_slot                  ; 4D6B7
     test di,di                               ; 4D6BA
     jz short loc_D6DB                        ; 4D6BC
-    call sub_B4F0                            ; 4D6BE
+    call obj_clear_slot                      ; 4D6BE
     dec ax                                   ; 4D6C1
     mov [di+0x1a],ax                         ; 4D6C2
     mov [di+0x18],dx                         ; 4D6C5
@@ -23786,7 +26723,12 @@ loc_D6DB:
     popa                                     ; 4D6DB
     ret                                      ; 4D6DC
 
-sub_D6DD:
+; Moves each 4-bit shade of the palette port DX one step up toward the corresponding nibble of BP (only increments; nibbles already >= target stay). [high, reviewed: range_A9A0_FFFF.json]
+; in:  DX = palette port, BP = target value
+; out: port DX
+; side effects: none
+; evidence: in ax,dx / cmp dx,bx / adc dx,0 (per nibble) / out dx,ax
+palette_step_toward:
     pusha                                    ; 4D6DD
     in ax,dx                                 ; 4D6DE
     push dx                                  ; 4D6DF
@@ -23842,61 +26784,76 @@ sub_D6DD:
     popa                                     ; 4D758
     ret                                      ; 4D759
 
-obj3B_update_case0_D75A:
+; Palette fade step (mode 0): moves each background palette 20h-2Eh one shade toward the saved target values. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = fade object
+; out: ports 20h-2Eh
+; side effects: none
+; evidence: mov bp,[di+0x2] / mov dx,0x20 / call sub_D6DD ... mov bp,[di+0x12] / mov dx,0x2e
+obj3B_palfade_step_bg_from_black:
     mov bp,[di+0x2]                          ; 4D75A
     mov dx,0x20                              ; 4D75D
-    call sub_D6DD                            ; 4D760
+    call palette_step_toward                 ; 4D760
     mov bp,[di+0x4]                          ; 4D763
     mov dx,0x22                              ; 4D766
-    call sub_D6DD                            ; 4D769
+    call palette_step_toward                 ; 4D769
     mov bp,[di+0x6]                          ; 4D76C
     mov dx,0x24                              ; 4D76F
-    call sub_D6DD                            ; 4D772
+    call palette_step_toward                 ; 4D772
     mov bp,[di+0x8]                          ; 4D775
     mov dx,0x26                              ; 4D778
-    call sub_D6DD                            ; 4D77B
+    call palette_step_toward                 ; 4D77B
     mov bp,[di+0xa]                          ; 4D77E
     mov dx,0x28                              ; 4D781
-    call sub_D6DD                            ; 4D784
+    call palette_step_toward                 ; 4D784
     mov bp,[di+0xc]                          ; 4D787
     mov dx,0x2a                              ; 4D78A
-    call sub_D6DD                            ; 4D78D
+    call palette_step_toward                 ; 4D78D
     mov bp,[di+0xe]                          ; 4D790
     mov dx,0x2c                              ; 4D793
-    call sub_D6DD                            ; 4D796
+    call palette_step_toward                 ; 4D796
     mov bp,[di+0x12]                         ; 4D799
     mov dx,0x2e                              ; 4D79C
-    call sub_D6DD                            ; 4D79F
+    call palette_step_toward                 ; 4D79F
     ret                                      ; 4D7A2
 
-obj3B_update_case1:
+; Palette fade step (mode 1): moves each sprite palette 30h-3Eh one shade toward the saved target values. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = fade object
+; out: ports 30h-3Eh
+; side effects: none
+; evidence: mov bp,[di+0x2] / mov dx,0x30 / call sub_D6DD ... mov dx,0x3e
+obj3B_palfade_step_spr_from_black:
     mov bp,[di+0x2]                          ; 4D7A3
     mov dx,0x30                              ; 4D7A6
-    call sub_D6DD                            ; 4D7A9
+    call palette_step_toward                 ; 4D7A9
     mov bp,[di+0x4]                          ; 4D7AC
     mov dx,0x32                              ; 4D7AF
-    call sub_D6DD                            ; 4D7B2
+    call palette_step_toward                 ; 4D7B2
     mov bp,[di+0x6]                          ; 4D7B5
     mov dx,0x34                              ; 4D7B8
-    call sub_D6DD                            ; 4D7BB
+    call palette_step_toward                 ; 4D7BB
     mov bp,[di+0x8]                          ; 4D7BE
     mov dx,0x36                              ; 4D7C1
-    call sub_D6DD                            ; 4D7C4
+    call palette_step_toward                 ; 4D7C4
     mov bp,[di+0xa]                          ; 4D7C7
     mov dx,0x38                              ; 4D7CA
-    call sub_D6DD                            ; 4D7CD
+    call palette_step_toward                 ; 4D7CD
     mov bp,[di+0xc]                          ; 4D7D0
     mov dx,0x3a                              ; 4D7D3
-    call sub_D6DD                            ; 4D7D6
+    call palette_step_toward                 ; 4D7D6
     mov bp,[di+0xe]                          ; 4D7D9
     mov dx,0x3c                              ; 4D7DC
-    call sub_D6DD                            ; 4D7DF
+    call palette_step_toward                 ; 4D7DF
     mov bp,[di+0x12]                         ; 4D7E2
     mov dx,0x3e                              ; 4D7E5
-    call sub_D6DD                            ; 4D7E8
+    call palette_step_toward                 ; 4D7E8
     ret                                      ; 4D7EB
 
-obj3B_update_case2_D7EC:
+; Fade completion for mode 2: writes the saved background palettes back to ports 20h-2Eh. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = fade object
+; out: ports 20h-2Eh
+; side effects: none
+; evidence: mov ax,[di+0x2] / out 0x20,ax ... mov ax,[di+0x12] / out 0x2e,ax; tbl_D847[2]
+obj3B_palfade_restore_bg:
     mov ax,[di+0x2]                          ; 4D7EC
     out 0x20,ax                              ; 4D7EF
     mov ax,[di+0x4]                          ; 4D7F1
@@ -23915,7 +26872,12 @@ obj3B_update_case2_D7EC:
     out 0x2e,ax                              ; 4D812
     ret                                      ; 4D814
 
-obj3B_update_case3_D815:
+; Fade completion for mode 3: writes the saved sprite palettes back to ports 30h-3Eh. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = fade object
+; out: ports 30h-3Eh
+; side effects: none
+; evidence: mov ax,[di+0x2] / out 0x30,ax ... out 0x3e,ax; tbl_D847[3]
+obj3B_palfade_restore_spr:
     mov ax,[di+0x2]                          ; 4D815
     out 0x30,ax                              ; 4D818
     mov ax,[di+0x4]                          ; 4D81A
@@ -23934,25 +26896,35 @@ obj3B_update_case3_D815:
     out 0x3e,ax                              ; 4D83B
     ret                                      ; 4D83D
 
+; Fade completion for modes 0 and 1: nothing to do (single RET). [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: none
+; side effects: none
+; evidence: ret; tbl_D847 entries 0 and 1
 ; dispatch roles: obj3B_update_case0, obj3B_update_case1
-obj3B_update_case0_D83E:
+obj3B_palfade_done_nop:
     ret                                      ; 4D83E
 
 ; jump table tbl_D83F: 4 words, bound: mask (first use at 4D86A)
 tbl_D83F:
-    dw obj3B_update_case0_D75A
-    dw obj3B_update_case1
-    dw obj3B_update_case2_CAE3
-    dw obj3B_update_case3_C810
+    dw obj3B_palfade_step_bg_from_black
+    dw obj3B_palfade_step_spr_from_black
+    dw obj3B_palfade_step_bg_to_black
+    dw obj3B_palfade_step_spr_to_black
 
 ; jump table tbl_D847: 4 words, bound: mask (first use at 4D889)
 tbl_D847:
-    dw obj3B_update_case0_D83E
-    dw obj3B_update_case0_D83E
-    dw obj3B_update_case2_D7EC
-    dw obj3B_update_case3_D815
+    dw obj3B_palfade_done_nop
+    dw obj3B_palfade_done_nop
+    dw obj3B_palfade_restore_bg
+    dw obj3B_palfade_restore_spr
 
-obj3B_update:
+; Update for the palette-fade object (type 3Bh): increments [+1Ch]; every ([+1Ah]+1) frames runs the step routine for mode [+18h] (tbl_D83F); after [+1Ah]*8 frames clears the busy bits in [1385h], runs the completion routine (tbl_D847) and deletes itself. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object
+; out: palette ports, [1385h], object deleted
+; side effects: none
+; evidence: inc word [di+0x1c] / and ax,[di+0x1a] / call [cs:bx+tbl_D83F]; shl ax,3 / and byte [0x1385],0xfc / call [cs:bx+tbl_D847] / mov byte [di],0
+obj3b_update_palette_fade:
     or byte [di+0x1],0x2                     ; 4D84F
     inc word [di+0x1c]                       ; 4D853
     mov ax,[di+0x1c]                         ; 4D856
@@ -23978,16 +26950,21 @@ loc_D87B:
     mov byte [di],0x0                        ; 4D88E
     ret                                      ; 4D891
 
-sub_D892:
+; Creates the raster-effect controller object (type 3Ah, byte+1 = 09h) in a low slot: [+18h] = AX*2 selects the HBlank handler, and when AX != 0 the duration [+1Ah] = DX frames. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AX = effect 0-3, DX = duration
+; out: new object
+; side effects: none
+; evidence: mov cx,dx / mov dx,ax / call sub_B585 / shl dx,1 / mov [di+0x18],dx / cmp ax,0 / mov [di+0x1a],cx / mov al,0x3a / mov ah,0x9; callers: ax=2,dx=FAh (4:2123, 4:29F1), ax=0 in World 5 (4:2A65)
+spawn_raster_effect:
     pusha                                    ; 4D892
     rr mov, cx, dx                           ; 4D893
     rr mov, dx, ax                           ; 4D895
-    call sub_B585                            ; 4D897
+    call obj_alloc_low_slot                  ; 4D897
     test di,di                               ; 4D89A
     jnz short loc_D8A1                       ; 4D89C
     jmp near loc_D8B7                        ; 4D89E
 loc_D8A1:
-    call sub_B4F0                            ; 4D8A1
+    call obj_clear_slot                      ; 4D8A1
     shl dx,1                                 ; 4D8A4
     mov [di+0x18],dx                         ; 4D8A6
     cmp ax,0x0                               ; 4D8A9
@@ -24001,8 +26978,13 @@ loc_D8B7:
     popa                                     ; 4D8B7
     ret                                      ; 4D8B8
 
+; HBlank-timer handler (raster effects 0 and 3, horizontal mode only): sets SCR1 X scroll (port 10h) per line to camera_x/4 ([13A0h]>>6); from line 46h to 86h adds a sine wobble (table B5CA, phase = line*8 + frame) whose amplitude grows with depth; lines >= 87h, or vertical mode, get scroll 0. Acknowledges B6h <- 80h. [high, reviewed: range_A9A0_FFFF.json]
+; in:  port 02h (LINE_CUR), [13A0h], [138Eh], play_flags
+; out: port 10h
+; side effects: port B6h
+; evidence: in al,0x2 / cmp al,0x46 / cmp al,0x4c / cmp al,0x50 / cmp al,0x87 / mov ax,[cs:bx-0x4a36] / sar ax,cl / add ax,dx / out 0x10,al / out 0xb6,al
 ; dispatch roles: irq_hblank_raster_0, irq_hblank_raster_3
-irq_hblank_raster_0:
+irq_hblank_scr1_parallax_wave:
     pusha                                    ; 4D8B9
     push ds                                  ; 4D8BA
     push es                                  ; 4D8BB
@@ -24062,8 +27044,13 @@ loc_D919:
     popa                                     ; 4D923
     iret                                     ; 4D924
 
+; HBlank-timer handler (raster effects 1 and 2): for lines < 90h sets SCR2 X scroll (port 12h) to a sine wobble whose phase and amplitude depend on the time since [1394h], and SCR2 Y scroll (port 13h) to a per-line offset that stretches the layer vertically; outside the active band both scrolls are 0. [medium, reviewed: range_A9A0_FFFF.json]
+; in:  port 02h, [138Eh], [1394h]
+; out: ports 12h, 13h
+; side effects: port B6h
+; evidence: cmp al,0x90 / sub bp,bx ([138Eh]-[1394h]) / mov ax,[cs:bx-0x4a36] / sar ax,cl / out 0x12,al ... out 0x13,al
 ; dispatch roles: irq_hblank_raster_1, irq_hblank_raster_2
-irq_hblank_raster_1:
+irq_hblank_scr2_warp:
     pusha                                    ; 4D925
     push ds                                  ; 4D926
     push es                                  ; 4D927
@@ -24151,12 +27138,17 @@ loc_D9C2:
 
 ; jump table tbl_D9D0: 4 words, bound: irq-hint (first use at 4D9D0)
 tbl_D9D0:
-    dw irq_hblank_raster_0
-    dw irq_hblank_raster_1
-    dw irq_hblank_raster_1
-    dw irq_hblank_raster_0
+    dw irq_hblank_scr1_parallax_wave
+    dw irq_hblank_scr2_warp
+    dw irq_hblank_scr2_warp
+    dw irq_hblank_scr1_parallax_wave
 
-obj3A_update:
+; Update for the raster-effect controller (type 3Ah, horizontal mode): on first run enables the HBlank-timer interrupt (B2h |= 80h) and installs the selected handler (tbl_D9D0[[+18h]]) at vector 0:009Ch; counts the duration [+1Ah] down (0 = unlimited) and at 1 deletes itself and sets DISP_CTRL = 5. In vertical mode, or when deleted, disables the interrupt again (B2h &= 7Fh). [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object, play_flags bit0
+; out: ports 00h, B2h, B6h; vector 0:009Ch; [+1Ah], [+1Eh]
+; side effects: interrupt enable state
+; evidence: in al,0xb2 / or al,0x80 / out 0xb2,al / mov dx,[cs:bx+tbl_D9D0] / mov bx,0x9c / mov [bx],dx; mov byte [di],0 / mov ax,0x5 / out 0x0,ax; and al,0x7f / out 0xb2,al
+obj3a_update_raster_effect:
     or byte [di+0x1],0x2                     ; 4D9D8
     inc word [di+0x1c]                       ; 4D9DC
     mov al,[play_flags]                      ; 4D9DF
@@ -24203,7 +27195,12 @@ loc_DA3E:
     ret                                      ; 4DA3E
     db 0x90   ; 4DA3F
 
-lvl23_spawn:
+; Spawn initialiser for kind 23h: creates object type 31h at x = AX*16 & FFC0h, y = DX*16 - 20h with parameter [+1Eh] = CH. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = slot, AX/DX = position px, CH = parameter
+; out: object slot
+; side effects: none
+; evidence: shl ax,4 / sub dx,0x20 / and ax,0xffc0 / mov al,0x31 / mov ah,0x1 / mov [di+0x1e],ch
+lvl23_spawn_obj31:
     pusha                                    ; 4DA40
     mov cl,0x4                               ; 4DA41
     shl ax,cl                                ; 4DA43
@@ -24219,7 +27216,12 @@ lvl23_spawn:
     popa                                     ; 4DA5C
     ret                                      ; 4DA5D
 
-obj31_update:
+; Update for type 31h (interaction marker): advances animation [+14h]; when the player is within Manhattan distance 12 px and up is newly pressed ([1392h] bit 10h), sets play_flags bit3 (the pause/menu sub-mode) and stores the marker's parameter [+1Eh] in [13FDh], which selects a different menu variant. [medium, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object, player position, [1392h]
+; out: play_flags |= 8, [13FDh]
+; side effects: none
+; evidence: cmp ax,0xc0 / test word [0x1392],0x10 / or byte [play_flags],0x8 / mov al,[di+0x1e] / mov [0x13fd],al
+obj31_update_press_up_trigger:
     or byte [di+0x1],0x2                     ; 4DA5E
     inc byte [di+0x14]                       ; 4DA62
     mov ax,[0x3c2]                           ; 4DA65
@@ -24246,7 +27248,12 @@ loc_DA97:
     ret                                      ; 4DA97
     db 0x00,0x00,0x00,0x00,0x00,0xFF,0xFE,0xFF   ; 4DA98
 
-obj31_draw:
+; Draw for type 31h: one sprite (tile word 2D4Ch) at (x-4, y-4) that bobs by the 8-entry offset table DA98 {0,0,0,0,0,-1,-2,-1} indexed by [+14h]>>3 (vertical offset, or horizontal in vertical mode). [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object, DH/DL
+; out: sprite table, [1382h] += 4
+; side effects: none
+; evidence: cmp word [0x1382],0x17f4 / mov al,[cs:bx-0x2568] (=DA98) / add dl,al / mov word [bx],0x2d4c
+obj31_draw_bobbing_marker:
     cmp word [0x1382],0x17f4                 ; 4DAA0
     jc short loc_DAA9                        ; 4DAA6
     ret                                      ; 4DAA8
@@ -24272,21 +27279,36 @@ loc_DACE:
     ret                                      ; 4DADE
     db 0x90   ; 4DADF
 
+; Spawn initialiser for kinds 29h and 2Ah: does nothing (RET); these kinds only act through their preload hooks. [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: none
+; side effects: none
+; evidence: ret
 ; dispatch roles: lvl29_spawn, lvl2A_spawn
-lvl29_spawn:
+lvl29_spawn_nop:
     ret                                      ; 4DAE0
     db 0x90   ; 4DAE1
 
-lvl2A_tick:
-    call lvl29_tick                          ; 4DAE2
+; Preload hook for kind 2Ah: creates the EX timer object (lvl29_tick) and sets its [+1Eh] = 1, which stops it from counting. [medium, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: new object
+; side effects: none
+; evidence: call lvl29_tick / mov byte [di+0x1e],0x1
+lvl2a_tick_create_timer_stopped:
+    call lvl29_tick_create_timer             ; 4DAE2
     test di,di                               ; 4DAE5
     jz short loc_DAED                        ; 4DAE7
     mov byte [di+0x1e],0x1                   ; 4DAE9
 loc_DAED:
     ret                                      ; 4DAED
 
-lvl29_tick:
-    call sub_B585                            ; 4DAEE
+; Preload hook for kind 29h: creates object type 35h (EX Vision timer, byte+1 = 09h) in a low slot. Returns DI = slot or 0. [medium, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: DI, new object
+; side effects: none
+; evidence: call sub_B585 / mov al,0x35 / mov ah,0x9 / mov [di],ax
+lvl29_tick_create_timer:
+    call obj_alloc_low_slot                  ; 4DAEE
     test di,di                               ; 4DAF1
     jz short loc_DAFB                        ; 4DAF3
     mov al,0x35                              ; 4DAF5
@@ -24295,7 +27317,12 @@ lvl29_tick:
 loc_DAFB:
     ret                                      ; 4DAFB
 
-obj35_update:
+; Update for the EX timer (type 35h): sets the SCR2/sprite window top (ports 09h/0Dh = 8) or right edge in vertical mode (0Ah/0Eh = CFh) to keep the timer row clear, and unless [+1Eh] is set increments the 32-bit frame count [1440h]:[1442h], stopping at 4:1EB0h (270000 frames = 60:00.00). [medium, reviewed: range_A9A0_FFFF.json]
+; in:  DI = object, play_flags bit0
+; out: ports 09h/0Dh or 0Ah/0Eh, [1440h]:[1442h]
+; side effects: none
+; evidence: mov al,0x8 / out 0xd,al / out 0x9,al; mov al,0xcf / out 0xe,al; rcr x4 / cmp ax,0x41eb / sbb / neg / add [0x1442],ax / adc word [0x1440],0
+obj35_update_ex_timer:
     or byte [di+0x1],0x2                     ; 4DAFC
     test byte [play_flags],0x1               ; 4DB00
     jnz short loc_DB10                       ; 4DB05
@@ -24328,18 +27355,23 @@ loc_DB16:
 loc_DB43:
     ret                                      ; 4DB43
 
-sub_DB44:
-    call sub_AF04                            ; 4DB44
+; Converts DX:AX frames to min/sec/hundredths (sub_AF04) and writes them as BCD digit tiles at BP (spaced 18h px), then writes the decimal value of [13C0h] at a fixed position (x = 80h, y = 0; vertical x = D8h, y = 80h). [medium, reviewed: range_A9A0_FFFF.json]
+; in:  DX:AX = frames, BP = position, play_flags bit0
+; out: SCR1 map
+; side effects: none
+; evidence: call sub_AF04 / mov dx,bp / call sub_B937 / add dh,0x18 ... mov ax,[0x13c0] / mov dx,0x8000 / call sub_B8F4
+draw_time_and_13c0:
+    call frames_to_min_sec_bcd               ; 4DB44
     test byte [play_flags],0x1               ; 4DB47
     jnz short loc_DB7F                       ; 4DB4C
     rr mov, dx, bp                           ; 4DB4E
-    call sub_B937                            ; 4DB50
+    call put_hex_byte_tiles_h                ; 4DB50
     rr mov, ax, bx                           ; 4DB53
     add dh,0x18                              ; 4DB55
-    call sub_B937                            ; 4DB58
+    call put_hex_byte_tiles_h                ; 4DB58
     rr mov, ax, cx                           ; 4DB5B
     add dh,0x18                              ; 4DB5D
-    call sub_B937                            ; 4DB60
+    call put_hex_byte_tiles_h                ; 4DB60
     mov ax,[0x13c0]                          ; 4DB63
     mov cl,0xa                               ; 4DB66
     div cl                                   ; 4DB68
@@ -24347,22 +27379,22 @@ sub_DB44:
     mov dx,0x8000                            ; 4DB6B
     test al,al                               ; 4DB6E
     jz short loc_DB78                        ; 4DB70
-    call sub_B8F4                            ; 4DB72
+    call put_hex_digit_tile                  ; 4DB72
     add dh,0x8                               ; 4DB75
 loc_DB78:
     pop ax                                   ; 4DB78
     rr mov, al, ah                           ; 4DB79
-    call sub_B8F4                            ; 4DB7B
+    call put_hex_digit_tile                  ; 4DB7B
     ret                                      ; 4DB7E
 loc_DB7F:
     rr mov, dx, bp                           ; 4DB7F
-    call sub_B9C2                            ; 4DB81
+    call put_hex_byte_tiles_v                ; 4DB81
     rr mov, ax, bx                           ; 4DB84
     add dl,0x18                              ; 4DB86
-    call sub_B9C2                            ; 4DB89
+    call put_hex_byte_tiles_v                ; 4DB89
     rr mov, ax, cx                           ; 4DB8C
     add dl,0x18                              ; 4DB8E
-    call sub_B9C2                            ; 4DB91
+    call put_hex_byte_tiles_v                ; 4DB91
     mov ax,[0x13c0]                          ; 4DB94
     mov cl,0xa                               ; 4DB97
     div cl                                   ; 4DB99
@@ -24370,35 +27402,45 @@ loc_DB7F:
     mov dx,0xd880                            ; 4DB9C
     test al,al                               ; 4DB9F
     jz short loc_DBA9                        ; 4DBA1
-    call sub_B8F4                            ; 4DBA3
+    call put_hex_digit_tile                  ; 4DBA3
     add dl,0x8                               ; 4DBA6
 loc_DBA9:
     pop ax                                   ; 4DBA9
     rr mov, al, ah                           ; 4DBAA
-    call sub_B8F4                            ; 4DBAC
+    call put_hex_digit_tile                  ; 4DBAC
     ret                                      ; 4DBAF
 
-obj35_draw:
+; Draw for the EX timer: prints the running time [1440h]:[1442h] at x = 20h and the stored best time for the current EX Vision (sub_AF46) at x = A0h on the top row (vertical: column positions D820h/D050h). [medium, reviewed: range_A9A0_FFFF.json]
+; in:  play_flags bit0, progress_code
+; out: SCR1 map
+; side effects: none
+; evidence: mov ax,[0x1442] / mov dx,[0x1440] / mov bp,0x2000 / call sub_DB44 / call sub_AF46 / mov bp,0xa000 / jmp sub_DB44
+obj35_draw_time_and_record:
     mov ax,[0x1442]                          ; 4DBB0
     mov dx,[0x1440]                          ; 4DBB3
     test byte [play_flags],0x1               ; 4DBB7
     jnz short loc_DBD1                       ; 4DBBC
     mov bp,0x2000                            ; 4DBBE
-    call sub_DB44                            ; 4DBC1
+    call draw_time_and_13c0                  ; 4DBC1
     mov ax,[progress_code]                   ; 4DBC4
-    call sub_AF46                            ; 4DBC7
+    call get_ex_time_record                  ; 4DBC7
     mov bp,0xa000                            ; 4DBCA
-    jmp near sub_DB44                        ; 4DBCD
+    jmp near draw_time_and_13c0              ; 4DBCD
     db 0xC3   ; 4DBD0
 loc_DBD1:
     mov bp,0xd820                            ; 4DBD1
-    call sub_DB44                            ; 4DBD4
+    call draw_time_and_13c0                  ; 4DBD4
     mov ax,[progress_code]                   ; 4DBD7
-    call sub_AF46                            ; 4DBDA
+    call get_ex_time_record                  ; 4DBDA
     mov bp,0xd050                            ; 4DBDD
-    jmp near sub_DB44                        ; 4DBE0
+    jmp near draw_time_and_13c0              ; 4DBE0
 
-sub_DBE3:
+; Writes the tile for cell AX of a 20-column grid into the SCR1 map: map address 0800h + (AX/20)*64 + 2 + (AX%20)*2, tile = AX + 1Ch with the attribute high byte taken from the byte table at RAM 3840h + AX. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AX = cell index
+; out: SCR1 map word
+; side effects: none
+; evidence: mov dl,0x14 / div dl / mov cl,0x40 / mul cl / add ax,0x2 / add ax,0x800 / mov dh,[bx+0x3840] / add ax,0x1c
+put_grid_cell_tile:
     pusha                                    ; 4DBE3
     push ax                                  ; 4DBE4
     mov dl,0x14                              ; 4DBE5
@@ -24473,7 +27515,12 @@ loc_DC46:
     popa                                     ; 4DC6E
     ret                                      ; 4DC6F
 
-sub_DC70:
+; Writes a CH-wide x CL-high rectangle of consecutive tile words (starting at BP|DI) into the 32x32 tile map at DS:AX, origin column DH, row DL, wrapping at 32 columns/rows. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AX = map base, BP|DI = first tile word, DH = column, DL = row, CH = width, CL = height
+; out: tile map words
+; side effects: none
+; evidence: mov ah,dl / shr ax,2 / and ax,0x7c0 / shl ax,1 (dh) / and ax,0x3e / mov [ds:bp+0x0],ax / and si,0x3f / and bx,0x7ff
+map_fill_tile_rect:
     pusha                                    ; 4DC70
     push ax                                  ; 4DC71
     rr xor, ax, ax                           ; 4DC72
@@ -24513,7 +27560,12 @@ loc_DC94:
     popa                                     ; 4DCB6
     ret                                      ; 4DCB7
 
-sub_DCB8:
+; Emits a CH-wide x CL-high block of sprites with consecutive tiles from BP (priority bit 2000h) at DH = x, DL = y; each sprite's palette/flag high byte is ORed from the byte table stored in tile RAM right after the block's graphics (2000h + (BP + CH*CL)*16). [high, reviewed: range_A9A0_FFFF.json]
+; in:  BP = first tile, DH/DL = position, CH/CL = size
+; out: sprite table, [1382h] += CH*CL*4
+; side effects: none
+; evidence: mul cl / mov si,[0x1382] / add [0x1382],ax / shl bp,4 / add ax,0x2000 / and ax,0xf1ff / or ah,[di]
+emit_sprite_block_pal:
     pusha                                    ; 4DCB8
     rr mov, al, ch                           ; 4DCB9
     mul cl                                   ; 4DCBB
@@ -24552,7 +27604,12 @@ loc_DCE6:
     popa                                     ; 4DD03
     ret                                      ; 4DD04
 
-sub_DD05:
+; Emits a CH-wide x CL-high block of sprites with consecutive tiles from BP | DI | 2000h at DH = x, DL = y, 8 px apart. [high, reviewed: range_A9A0_FFFF.json]
+; in:  BP = first tile, DI = attribute bits, DH/DL, CH/CL
+; out: sprite table, [1382h] += CH*CL*4
+; side effects: none
+; evidence: mov ax,bp / or ax,di / or ax,0x2000 / mov [si],ax / mov [si+0x2],dx / add dh,0x8 / add dl,0x8
+emit_sprite_block:
     pusha                                    ; 4DD05
     rr mov, al, ch                           ; 4DD06
     mul cl                                   ; 4DD08
@@ -24623,7 +27680,12 @@ sound_init:
     pop ds                                   ; 4DD95
     ret                                      ; 4DD96
 
-sub_DD97:
+; Starts sound/music number AX: reads the 3-byte entry at 5000:0008 + AX*3 (byte = priority with the track number 0-3 in the low nibble, word = sequence pointer); if the byte is <= the track's current priority [+0Ch] (FFh = idle; lower value wins) it takes the track: priority, sequence pointer [+0], and clears counters [+2], [+6]-[+0Bh]. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AX = sound number
+; out: track work area 0100h + track*58h
+; side effects: ES/BX/SI preserved; AX clobbered
+; evidence: mov bx,ax / shl ax,1 / add bx,ax / mov al,[es:bx+0x8] / and al,0xf / mov ah,0x58 / mul ah / cmp al,[si+0x10c] / ja / mov ax,[es:bx+0x9] / mov [si+0x100],ax
+sound_play:
     push bx                                  ; 4DD97
     push es                                  ; 4DD98
     push si                                  ; 4DD99
@@ -24654,7 +27716,12 @@ loc_DDD9:
     pop bx                                   ; 4DDDB
     ret                                      ; 4DDDC
 
-sub_DDDD:
+; Stops the track used by sound number AX: if the track is in voice (PCM) mode calls sub_DE28, clears the sequence pointer and flags, sets priority FFh and zeroes the volume port (88h-8Bh) and stored volume of every channel in the track's channel mask, then clears the mask. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AX = sound number
+; out: track work area, ports 88h-8Bh
+; side effects: calls sub_DE28 (see its note)
+; evidence: mov ah,0x58 / mul ah / mov bx,0x100 / test byte [bx+0x2],0x20 / call sub_DE28 / mov byte [bx+0xc],0xff / mov dx,0x88 / shl ah,1 / out dx,al
+sound_stop_id:
     push bx                                  ; 4DDDD
     push es                                  ; 4DDDE
     push dx                                  ; 4DDDF
@@ -24671,7 +27738,7 @@ sub_DDDD:
     rr xor, ax, ax                           ; 4DDF8
     test byte [bx+0x2],0x20                  ; 4DDFA
     jz short loc_DE03                        ; 4DDFE
-    call sub_DE28                            ; 4DE00
+    call snd_voice_off_bx                    ; 4DE00
 loc_DE03:
     mov [bx],ax                              ; 4DE03
     mov [bx+0x2],al                          ; 4DE05
@@ -24695,7 +27762,12 @@ loc_DE24:
     pop bx                                   ; 4DE26
     ret                                      ; 4DE27
 
-sub_DE28:
+; Turns the voice (PCM) channel off: port 94h = AL (0 from the caller), [BX+4] = AL, clears bits 1 and 5 of sound control port 90h and ANDs [BX+11h] with the new port-90h value. Written for BX = 0260h (control block: +4 voice-active, +11h channel-enable shadow), but its only caller (sound_stop_id) passes a track work area, so it clears that track's [+4] and [+11h] instead - looks like a latent bug. [medium, reviewed: range_A9A0_FFFF.json]
+; in:  AL = 0, BX = control block (intended)
+; out: ports 94h, 90h; [BX+4], [BX+11h]
+; side effects: none
+; evidence: out 0x94,al / mov [bx+0x4],al / in al,0x90 / and al,0xdd / out 0x90,al / and [bx+0x11],al; compare sub_DE37 which uses [0x264]/[0x271]
+snd_voice_off_bx:
     out 0x94,al                              ; 4DE28
     mov [bx+0x4],al                          ; 4DE2A
     in al,0x90                               ; 4DE2D
@@ -24704,7 +27776,12 @@ sub_DE28:
     and [bx+0x11],al                         ; 4DE33
     ret                                      ; 4DE36
 
-sub_DE37:
+; Stops PCM voice playback: voice volume port 94h = 0, voice-active flag [0264h] = 0, clears voice/channel-2 enable bits (90h &= DDh, also in the shadow [0271h]) and disables the HBlank-timer interrupt (B2h &= 7Fh) that feeds samples. [high, reviewed: range_A9A0_FFFF.json]
+; in:  none (DS = 0)
+; out: ports 94h, 90h, B2h; [0264h], [0271h]
+; side effects: interrupt enable
+; evidence: out 0x94,al / mov [0x264],al / and al,0xdd / out 0x90,al / and [0x271],al / in al,0xb2 / and al,0x7f / out 0xb2,al
+sound_voice_stop:
     rr xor, al, al                           ; 4DE37
     rr mov, al, al                           ; 4DE39
     out 0x94,al                              ; 4DE3B
@@ -24718,7 +27795,12 @@ sub_DE37:
     out 0xb2,al                              ; 4DE4E
     ret                                      ; 4DE50
 
-sub_DE51:
+; Silences everything: zeroes volume ports 88h-8Bh and noise control 8Eh, clears the sequence pointers and channel masks of all four tracks, the global fade state [0274h]-[0276h], sets all track priorities to FFh and stops the voice (sub_DE37). [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: ports 88h-8Eh, 0100h-0276h fields
+; side effects: DS = 0
+; evidence: out 0x88,ax / out 0x8a,ax / mov [0x100],ax / mov [0x158],ax / mov [0x1b0],ax / mov [0x208],ax / out 0x8e,al / mov [0x274],ax / mov [0x10c],al (FF) / call sub_DE37
+sound_stop_all:
     push ax                                  ; 4DE51
     rr xor, ax, ax                           ; 4DE52
     out 0x88,ax                              ; 4DE54
@@ -24740,7 +27822,7 @@ sub_DE51:
     mov [0x164],al                           ; 4DE7F
     mov [0x1bc],al                           ; 4DE82
     mov [0x214],al                           ; 4DE85
-    call sub_DE37                            ; 4DE88
+    call sound_voice_stop                    ; 4DE88
     pop ax                                   ; 4DE8B
     ret                                      ; 4DE8C
 
@@ -24807,7 +27889,7 @@ loc_DF28:
     cmp ax,[es:bx+0x6]                       ; 4DF37
     jz short loc_DF47                        ; 4DF3B
 loc_DF3D:
-    call sub_E2CF                            ; 4DF3D
+    call snd_track_output_channels           ; 4DF3D
     inc word [es:bx+0x6]                     ; 4DF40
     jmp near loc_DED7                        ; 4DF44
 loc_DF47:
@@ -24818,7 +27900,7 @@ loc_DF4A:
     rr mov, dl, al                           ; 4DF4D
     rr xor, dh, dh                           ; 4DF4F
     and ax,0xf                               ; 4DF51
-    jz short sound_tick_case13               ; 4DF54
+    jz short snd_cmd_extended_dispatch       ; 4DF54
     shl al,1                                 ; 4DF56
     rr mov, bp, ax                           ; 4DF58
     jmp [cs:bp+tbl_DF5F]                     ; 4DF5A
@@ -24826,22 +27908,27 @@ loc_DF4A:
 ; jump table tbl_DF5F: 15 words, bound: hint (first use at 4DF5A)
 tbl_DF5F:
     dw 0xDFAA
-    dw sound_tick_case1_E09A
-    dw sound_tick_case2_E0F5
-    dw sound_tick_case3_E118
-    dw sound_tick_case4_E132
-    dw sound_tick_case5_E14C
-    dw sound_tick_case6_E166
-    dw sound_tick_case7
-    dw sound_tick_case8
-    dw sound_tick_case9
-    dw sound_tick_case10
-    dw sound_tick_case10
-    dw sound_tick_case10
-    dw sound_tick_case13
-    dw sound_tick_case14
+    dw snd_cmd_set_channel_mask
+    dw snd_cmd_set_ch_volume
+    dw snd_cmd_set_ch_transpose
+    dw snd_cmd_set_ch_detune
+    dw snd_cmd_set_ch_vol_env
+    dw snd_cmd_set_ch_pitch_env
+    dw snd_cmd_set_ch_pan
+    dw snd_cmd_set_ch_tie
+    dw snd_cmd_set_ch_gate
+    dw snd_cmd_set_ch_wave
+    dw snd_cmd_set_ch_wave
+    dw snd_cmd_set_ch_wave
+    dw snd_cmd_extended_dispatch
+    dw snd_cmd_note
 
-sound_tick_case13:
+; Sequence command with low nibble 0: dispatches on the high nibble through tbl_DF8A (00 step unit, 10 step count, 20 jump, 30 call, 40/50 loop A, 60 play sound, 70 return/end, 80 channel mask, 90 track flags, A0/B0 loop B, C0-F0 = 00). [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track work area (0100h/0158h/01B0h/0208h, 58h bytes each), DS:DI = sequence pointer in bank 5, ES = 0, DL = command byte
+; out: via handler
+; side effects: none
+; evidence: shr dl,1 (x3) / mov bp,dx / jmp [cs:bp+tbl_DF8A]
+snd_cmd_extended_dispatch:
     shr dl,1                                 ; 4DF7D
     shr dl,1                                 ; 4DF7F
     shr dl,1                                 ; 4DF81
@@ -24850,46 +27937,66 @@ sound_tick_case13:
 
 ; jump table tbl_DF8A: 16 words, bound: hint (first use at 4DF85)
 tbl_DF8A:
-    dw sound_tick_case13_case0
-    dw sound_tick_case13_case1
-    dw sound_tick_case13_case2
-    dw sound_tick_case13_case3
-    dw sound_tick_case13_case4
-    dw sound_tick_case13_case5
-    dw sound_tick_case13_case6
-    dw sound_tick_case13_case7
-    dw sound_tick_case1_E09A
-    dw sound_tick_case13_case9
-    dw sound_tick_case13_case10
-    dw sound_tick_case13_case11
-    dw sound_tick_case13_case0
-    dw sound_tick_case13_case0
-    dw sound_tick_case13_case0
-    dw sound_tick_case13_case0
+    dw snd_cmd_set_step_unit
+    dw snd_cmd_set_step_count
+    dw snd_cmd_jump
+    dw snd_cmd_call
+    dw snd_cmd_loop_a
+    dw snd_cmd_loop_a_alt
+    dw snd_cmd_play_sound
+    dw snd_cmd_return_or_end
+    dw snd_cmd_set_channel_mask
+    dw snd_cmd_set_track_flags
+    dw snd_cmd_loop_b
+    dw snd_cmd_loop_b_alt
+    dw snd_cmd_set_step_unit
+    dw snd_cmd_set_step_unit
+    dw snd_cmd_set_step_unit
+    dw snd_cmd_set_step_unit
 
-; dispatch roles: sound_tick_case13_case0, sound_tick_case13_case12, sound_tick_case13_case13, sound_tick_case13_case14, sound_tick_case13_case15, sub_DF7D_case0, sub_DF7D_case12, sub_DF7D_case13 ...
-sound_tick_case13_case0:
+; Command 00h (also C0h-F0h) nn: track byte [+4] = nn. A note waits [+4]*[+5] frames before the next command is read. [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track work area (0100h/0158h/01B0h/0208h, 58h bytes each), DS:DI = sequence pointer in bank 5, ES = 0
+; out: [BX+4]
+; side effects: none
+; evidence: mov al,[di] / mov [es:bx+0x4],al / inc di; sound_tick: mov al,[es:bx+0x4] / mul byte [es:bx+0x5] / cmp ax,[es:bx+0x6]
+; dispatch roles: sound_tick_case13_case0, sound_tick_case13_case12, sound_tick_case13_case13, sound_tick_case13_case14, sound_tick_case13_case15, sub_DF7D_case0, sub_DF7D_case12, sub_DF7D_case13
+snd_cmd_set_step_unit:
     mov al,[di]                              ; 4DFAA
     mov [es:bx+0x4],al                       ; 4DFAC
     inc di                                   ; 4DFB0
     jmp near loc_DF4A                        ; 4DFB1
 
+; Command 10h nn: track byte [+5] = nn (second factor of the note wait time). [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track work area (0100h/0158h/01B0h/0208h, 58h bytes each), DS:DI = sequence pointer in bank 5, ES = 0
+; out: [BX+5]
+; side effects: none
+; evidence: mov al,[di] / mov [es:bx+0x5],al
 ; dispatch roles: sound_tick_case13_case1, sub_DF7D_case1
-sound_tick_case13_case1:
+snd_cmd_set_step_count:
     mov al,[di]                              ; 4DFB4
     mov [es:bx+0x5],al                       ; 4DFB6
     inc di                                   ; 4DFBA
     jmp near loc_DF4A                        ; 4DFBB
 
+; Command 20h addr16: continues the sequence at addr (also stored as the track pointer). [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track work area (0100h/0158h/01B0h/0208h, 58h bytes each), DS:DI = sequence pointer in bank 5, ES = 0
+; out: DI, [BX+0]
+; side effects: none
+; evidence: mov ax,[di] / mov [es:bx],ax / mov di,ax
 ; dispatch roles: sound_tick_case13_case2, sub_DF7D_case2
-sound_tick_case13_case2:
+snd_cmd_jump:
     mov ax,[di]                              ; 4DFBE
     mov [es:bx],ax                           ; 4DFC0
     rr mov, di, ax                           ; 4DFC3
     jmp near loc_DF4A                        ; 4DFC5
 
+; Command 30h addr16: saves the address after the operand in [+0Ah] and continues at addr (one-level subroutine; returned from by command 70h). [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track work area (0100h/0158h/01B0h/0208h, 58h bytes each), DS:DI = sequence pointer in bank 5, ES = 0
+; out: [BX+0Ah], DI
+; side effects: none
+; evidence: inc di / inc di / mov [es:bx+0xa],di / mov di,ax
 ; dispatch roles: sound_tick_case13_case3, sub_DF7D_case3
-sound_tick_case13_case3:
+snd_cmd_call:
     mov ax,[di]                              ; 4DFC8
     mov cx,[es:bx]                           ; 4DFCA
     inc di                                   ; 4DFCD
@@ -24898,8 +28005,13 @@ sound_tick_case13_case3:
     rr mov, di, ax                           ; 4DFD3
     jmp near loc_DF4A                        ; 4DFD5
 
+; Command 40h count addr16: increments loop counter A [+8]; while it differs from count jumps to addr, otherwise resets it to 0 and continues after the operands. [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track work area (0100h/0158h/01B0h/0208h, 58h bytes each), DS:DI = sequence pointer in bank 5, ES = 0
+; out: [BX+8], DI
+; side effects: none
+; evidence: inc byte [es:bx+0x8] / cmp al,[es:bx+0x8] / mov di,[di] / mov byte [es:bx+0x8],0 / add di,3
 ; dispatch roles: sound_tick_case13_case4, sub_DF7D_case4
-sound_tick_case13_case4:
+snd_cmd_loop_a:
     inc byte [es:bx+0x8]                     ; 4DFD8
     mov al,[di]                              ; 4DFDC
     cmp al,[es:bx+0x8]                       ; 4DFDE
@@ -24912,8 +28024,13 @@ loc_DFEA:
     add di,byte +0x3                         ; 4DFEF
     jmp near loc_DF4A                        ; 4DFF2
 
+; Command A0h count addr16: same as loop A but with the second counter [+9] (allows nested loops). [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track work area (0100h/0158h/01B0h/0208h, 58h bytes each), DS:DI = sequence pointer in bank 5, ES = 0
+; out: [BX+9], DI
+; side effects: none
+; evidence: inc byte [es:bx+0x9] / cmp al,[es:bx+0x9] / jz / mov di,[di]
 ; dispatch roles: sound_tick_case13_case10, sub_DF7D_case10
-sound_tick_case13_case10:
+snd_cmd_loop_b:
     inc byte [es:bx+0x9]                     ; 4DFF5
     mov al,[di]                              ; 4DFF9
     cmp al,[es:bx+0x9]                       ; 4DFFB
@@ -24927,8 +28044,13 @@ loc_E007:
     add di,byte +0x3                         ; 4E00C
     jmp near loc_DF4A                        ; 4E00F
 
+; Command 50h count addr16: behaviour identical to command 40h (counter [+8]; jump while not equal, reset and skip when equal) - only the branch sense of the code differs. [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track work area (0100h/0158h/01B0h/0208h, 58h bytes each), DS:DI = sequence pointer in bank 5, ES = 0
+; out: [BX+8], DI
+; side effects: none
+; evidence: inc byte [es:bx+0x8] / cmp al,[es:bx+0x8] / jnz loc_E001 (jump) / mov byte [es:bx+0x8],0 / add di,3
 ; dispatch roles: sound_tick_case13_case5, sub_DF7D_case5
-sound_tick_case13_case5:
+snd_cmd_loop_a_alt:
     inc byte [es:bx+0x8]                     ; 4E012
     mov al,[di]                              ; 4E016
     cmp al,[es:bx+0x8]                       ; 4E018
@@ -24937,8 +28059,13 @@ sound_tick_case13_case5:
     add di,byte +0x3                         ; 4E023
     jmp near loc_DF4A                        ; 4E026
 
+; Command B0h count addr16: identical in effect to command A0h (counter [+9]). [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track work area (0100h/0158h/01B0h/0208h, 58h bytes each), DS:DI = sequence pointer in bank 5, ES = 0
+; out: [BX+9], DI
+; side effects: none
+; evidence: inc byte [es:bx+0x9] / jnz loc_E001
 ; dispatch roles: sound_tick_case13_case11, sub_DF7D_case11
-sound_tick_case13_case11:
+snd_cmd_loop_b_alt:
     inc byte [es:bx+0x9]                     ; 4E029
     mov al,[di]                              ; 4E02D
     cmp al,[es:bx+0x9]                       ; 4E02F
@@ -24947,8 +28074,13 @@ sound_tick_case13_case11:
     add di,byte +0x3                         ; 4E03A
     jmp near loc_DF4A                        ; 4E03D
 
+; Command 70h: if a call return address [+0Ah] is pending, returns there and clears it; otherwise ends the track: pointer and tick counter 0, priority FFh, stops the voice if the track is in voice mode, and zeroes the volume of each of its channels not claimed this frame by an earlier track ([0263h]). [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track work area (0100h/0158h/01B0h/0208h, 58h bytes each), DS:DI = sequence pointer in bank 5, ES = 0
+; out: track fields, ports 88h-8Bh
+; side effects: may call sound_voice_stop
+; evidence: mov ax,[es:bx+0xa] / or ax,ax / jnz return; mov [es:bx],ax / mov byte [es:bx+0xc],0xff / test byte [es:bx+0x2],0x20 / call sub_DE37 / not ah / and ah,[es:bx+0x3] / out dx,al
 ; dispatch roles: sound_tick_case13_case7, sub_DF7D_case7
-sound_tick_case13_case7:
+snd_cmd_return_or_end:
     mov ax,[es:bx+0xa]                       ; 4E040
     rr or, ax, ax                            ; 4E044
     jnz short loc_E08F                       ; 4E046
@@ -24959,7 +28091,7 @@ sound_tick_case13_case7:
     jz short loc_E062                        ; 4E059
     push ds                                  ; 4E05B
     mov ds,ax                                ; 4E05C
-    call sub_DE37                            ; 4E05E
+    call sound_voice_stop                    ; 4E05E
     pop ds                                   ; 4E061
 loc_E062:
     mov si,0x260                             ; 4E062
@@ -24987,8 +28119,13 @@ loc_E08F:
     mov word [es:bx+0xa],0x0                 ; 4E091
     jmp near loc_DF4A                        ; 4E097
 
+; Commands x1 (low nibble 1) and 80h nn: sets the track's channel mask [+3] = nn (bit7 = channel 1 ... bit4 = channel 4) and clears the per-channel state bytes [+10h]-[+3Bh]. [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track work area (0100h/0158h/01B0h/0208h, 58h bytes each), DS:DI = sequence pointer in bank 5, ES = 0
+; out: [BX+3], [BX+10h..3Bh]
+; side effects: none
+; evidence: mov al,[di] / mov [es:bx+0x3],al / mov di,bx / add di,0x10 / mov cx,0x16 / rep stosw
 ; dispatch roles: sound_tick_case1, sound_tick_case13_case8, sub_DF7D_case8
-sound_tick_case1_E09A:
+snd_cmd_set_channel_mask:
     mov al,[di]                              ; 4E09A
     mov [es:bx+0x3],al                       ; 4E09C
     inc di                                   ; 4E0A0
@@ -25002,8 +28139,13 @@ sound_tick_case1_E09A:
     pop di                                   ; 4E0AF
     jmp near loc_DF4A                        ; 4E0B0
 
+; Command 90h nn: track flags [+2] = (nn bit6 -> 20h voice/PCM mode for channel 2) | (nn bit4 -> 80h noise mode for channel 4). [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track work area (0100h/0158h/01B0h/0208h, 58h bytes each), DS:DI = sequence pointer in bank 5, ES = 0
+; out: [BX+2]
+; side effects: none
+; evidence: test byte [di],0x40 / or al,0x20 / test byte [di],0x10 / or al,0x80 / mov [es:bx+0x2],al
 ; dispatch roles: sound_tick_case13_case9, sub_DF7D_case9
-sound_tick_case13_case9:
+snd_cmd_set_track_flags:
     rr xor, al, al                           ; 4E0B3
     test byte [di],0x40                      ; 4E0B5
     jz short loc_E0BC                        ; 4E0B8
@@ -25017,17 +28159,27 @@ loc_E0C3:
     inc di                                   ; 4E0C7
     jmp near loc_DF4A                        ; 4E0C8
 
+; Command 60h nn: starts sound number nn (sound_play) from within a sequence. [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track work area (0100h/0158h/01B0h/0208h, 58h bytes each), DS:DI = sequence pointer in bank 5, ES = 0
+; out: another track
+; side effects: sound_play
+; evidence: mov al,[di] / inc di / call sub_DD97
 ; dispatch roles: sound_tick_case13_case6, sub_DF7D_case6
-sound_tick_case13_case6:
+snd_cmd_play_sound:
     mov al,[di]                              ; 4E0CB
     inc di                                   ; 4E0CD
-    call sub_DD97                            ; 4E0CE
+    call sound_play                          ; 4E0CE
     jmp near loc_DF4A                        ; 4E0D1
     db 0x26,0x88,0x47,0x04,0xE9,0x6F,0xFE,0x26,0x88,0x47,0x05,0xE9,0x68,0xFE,0x26,0x89   ; 4E0D4
     db 0x07,0xE9,0x62,0xFE,0x26,0x8B,0x0F,0x26,0x8C,0x4F,0x0A,0x26,0x89,0x07,0xE9,0x55   ; 4E0E4
     db 0xFE   ; 4E0F4
 
-sound_tick_case2_E0F5:
+; For each of the channel bits 7..4 of the command byte (channel 0..3 of the track) consumes one operand byte and stores it in the per-channel byte +10h (volume attenuation added before the volume lookup). [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track work area (0100h/0158h/01B0h/0208h, 58h bytes each), DS:DI = sequence pointer in bank 5, ES = 0, DL = command byte
+; out: [BX+10h+ch]
+; side effects: none
+; evidence: and dl,0xf0 / shl dl,1 / jc / mov [es:bx+0x10],al / inc bl; used in E5FB add al,[es:bx+0x10]
+snd_cmd_set_ch_volume:
     and dl,0xf0                              ; 4E0F5
 loc_E0F8:
     shl dl,1                                 ; 4E0F8
@@ -25046,7 +28198,12 @@ loc_E10F:
     mov bx,[es:si]                           ; 4E112
     jmp near loc_DF4A                        ; 4E115
 
-sound_tick_case3_E118:
+; For each of the channel bits 7..4 of the command byte (channel 0..3 of the track) consumes one operand byte and stores it in the per-channel byte +1Ch (added to every note number). [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track work area (0100h/0158h/01B0h/0208h, 58h bytes each), DS:DI = sequence pointer in bank 5, ES = 0, DL
+; out: [BX+1Ch+ch]
+; side effects: none
+; evidence: mov [es:bx+0x1c],al; note cmd: add al,[es:bx+0x1c]
+snd_cmd_set_ch_transpose:
     and dl,0xf0                              ; 4E118
 loc_E11B:
     shl dl,1                                 ; 4E11B
@@ -25061,7 +28218,12 @@ loc_E126:
     inc bl                                   ; 4E12D
     jmp near loc_E11B                        ; 4E12F
 
-sound_tick_case4_E132:
+; For each of the channel bits 7..4 of the command byte (channel 0..3 of the track) consumes one operand byte and stores it in the per-channel byte +20h (added to the pitch value from the note table). [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track work area (0100h/0158h/01B0h/0208h, 58h bytes each), DS:DI = sequence pointer in bank 5, ES = 0, DL
+; out: [BX+20h+ch]
+; side effects: none
+; evidence: mov [es:bx+0x20],al; E4AB add dl,[es:bx+0x20]
+snd_cmd_set_ch_detune:
     and dl,0xf0                              ; 4E132
 loc_E135:
     shl dl,1                                 ; 4E135
@@ -25076,7 +28238,12 @@ loc_E140:
     inc bl                                   ; 4E147
     jmp near loc_E135                        ; 4E149
 
-sound_tick_case5_E14C:
+; For each of the channel bits 7..4 of the command byte (channel 0..3 of the track) consumes one operand byte and stores it in the per-channel byte +24h (volume envelope number; envelopes at bank-5 table [5000:0004]). [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track work area (0100h/0158h/01B0h/0208h, 58h bytes each), DS:DI = sequence pointer in bank 5, ES = 0, DL
+; out: [BX+24h+ch]
+; side effects: none
+; evidence: mov [es:bx+0x24],al; E552 mov al,[es:bx+0x24] / mov di,[0x4]
+snd_cmd_set_ch_vol_env:
     and dl,0xf0                              ; 4E14C
 loc_E14F:
     shl dl,1                                 ; 4E14F
@@ -25091,7 +28258,12 @@ loc_E15A:
     inc bl                                   ; 4E161
     jmp near loc_E14F                        ; 4E163
 
-sound_tick_case6_E166:
+; For each of the channel bits 7..4 of the command byte (channel 0..3 of the track) consumes one operand byte and stores it in the per-channel byte +28h (pitch envelope/vibrato number; tables at bank-5 [5000:0006], 0 = none). [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track work area (0100h/0158h/01B0h/0208h, 58h bytes each), DS:DI = sequence pointer in bank 5, ES = 0, DL
+; out: [BX+28h+ch]
+; side effects: none
+; evidence: mov [es:bx+0x28],al; E4B2 mov al,[es:bx+0x28] / mov di,[0x6]
+snd_cmd_set_ch_pitch_env:
     and dl,0xf0                              ; 4E166
 loc_E169:
     shl dl,1                                 ; 4E169
@@ -25106,7 +28278,12 @@ loc_E174:
     inc bl                                   ; 4E17B
     jmp near loc_E169                        ; 4E17D
 
-sound_tick_case7:
+; For each of the channel bits 7..4 of the command byte (channel 0..3 of the track) consumes one operand byte and stores it in the per-channel byte +14h: two 4-bit attenuations (low nibble -> right output nibble, high nibble -> left) applied when the channel volume byte is built. [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track work area (0100h/0158h/01B0h/0208h, 58h bytes each), DS:DI = sequence pointer in bank 5, ES = 0, DL
+; out: [BX+14h+ch]
+; side effects: none
+; evidence: mov [es:bx+0x14],al; E5EE and ah,[es:bx+0x14] / shl ah,4; E614 mov ah,0xf0 / and ah,[es:bx+0x14]
+snd_cmd_set_ch_pan:
     and dl,0xf0                              ; 4E180
 loc_E183:
     shl dl,1                                 ; 4E183
@@ -25121,7 +28298,12 @@ loc_E18E:
     inc bl                                   ; 4E195
     jmp near loc_E183                        ; 4E197
 
-sound_tick_case9:
+; For each of the channel bits 7..4 of the command byte (channel 0..3 of the track) consumes one operand byte and stores it in the per-channel byte +2Ch: gate time - after this many frames (counted in +30h) the note goes to its release phase; 0 = hold until the next note. [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track work area (0100h/0158h/01B0h/0208h, 58h bytes each), DS:DI = sequence pointer in bank 5, ES = 0, DL
+; out: [BX+2Ch+ch]
+; side effects: none
+; evidence: mov [es:bx+0x2c],al; E540 cmp al,[es:bx+0x30] / jna sub_E576 (release) / inc byte [es:bx+0x30]
+snd_cmd_set_ch_gate:
     and dl,0xf0                              ; 4E19A
 loc_E19D:
     shl dl,1                                 ; 4E19D
@@ -25136,8 +28318,13 @@ loc_E1A8:
     inc bl                                   ; 4E1AF
     jmp near loc_E19D                        ; 4E1B1
 
+; For each of the channel bits 7..4 of the command byte (channel 0..3 of the track) consumes one operand byte and stores it in the per-channel byte +40h: waveform number (16-byte waves from bank-5 table [5000:0000], copied to wave RAM 0280h+ch*16 on change); for channel 4 in noise mode the low bits are the noise mode written to port 8Eh. Commands xA, xB and xC. [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track work area (0100h/0158h/01B0h/0208h, 58h bytes each), DS:DI = sequence pointer in bank 5, ES = 0, DL
+; out: [BX+40h+ch]
+; side effects: none
+; evidence: mov [es:bx+0x40],al; E4FE cmp al,[es:bp+0xc] / shl ax,4 / add ax,[0x0] / add ax,0x280 / rep movsw; E46D or al,0x18 / out 0x8e,al
 ; dispatch roles: sound_tick_case10, sound_tick_case11, sound_tick_case12
-sound_tick_case10:
+snd_cmd_set_ch_wave:
     and dl,0xf0                              ; 4E1B4
 loc_E1B7:
     shl dl,1                                 ; 4E1B7
@@ -25156,7 +28343,12 @@ loc_E1CB:
     inc bl                                   ; 4E1D2
     jmp near loc_E1B7                        ; 4E1D4
 
-sound_tick_case8:
+; For each of the channel bits 7..4 of the command byte (channel 0..3 of the track) consumes one operand byte and stores it in the per-channel byte +34h: number of following notes that do not retrigger the envelopes (legato/tie count). [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track work area (0100h/0158h/01B0h/0208h, 58h bytes each), DS:DI = sequence pointer in bank 5, ES = 0, DL
+; out: [BX+34h+ch]
+; side effects: none
+; evidence: mov [es:bx+0x34],al; note cmd: cmp byte [es:bx+0x34],0 / dec byte [es:bx+0x34]
+snd_cmd_set_ch_tie:
     and dl,0xf0                              ; 4E1D7
 loc_E1DA:
     shl dl,1                                 ; 4E1DA
@@ -25171,7 +28363,12 @@ loc_E1E5:
     inc bl                                   ; 4E1EC
     jmp near loc_E1DA                        ; 4E1EE
 
-sound_tick_case14:
+; Command xE: for each channel bit 7..4 consumes a note byte: 0 = key off (sets bit7 of [+38h]), otherwise note = byte + transpose -> [+38h] and, unless a tie is pending, resets the envelope state ([+30h],[+44h],[+48h],[+4Ch], level [+54h] = FFh, [+18h]). Then restarts the wait counter, stores the pointer and outputs the channels for this frame (sub_E2CF). [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track work area (0100h/0158h/01B0h/0208h, 58h bytes each), DS:DI = sequence pointer in bank 5, ES = 0, DL
+; out: [+38h..] per channel, [+6], [+0]
+; side effects: port writes via sub_E2CF
+; evidence: or byte [es:bx+0x38],0x80 / add al,[es:bx+0x1c] / mov [es:bx+0x38],al / mov byte [es:bx+0x54],0xff / mov word [es:bx+0x6],0 / mov [es:bx],di / jmp loc_DF3D
+snd_cmd_note:
     mov cx,0x3                               ; 4E1F1
     and dl,0xf0                              ; 4E1F4
 loc_E1F7:
@@ -25251,7 +28448,12 @@ loc_E2B4:
     dec byte [es:bx+0x34]                    ; 4E2C8
     jmp near loc_E293                        ; 4E2CC
 
-sub_E2CF:
+; Per-frame output of one track: for each channel in its mask that no earlier track has claimed this frame ([0263h]) computes pitch and volume (sub_E49A) and writes them to the channel's ports (88h+ch volume, 80h+2*ch pitch); channel 2 in voice mode instead starts a PCM sample (sample table at bank-5 [5000:0002], HBlank IRQ installed, port 94h = 0Fh); channel 4 in noise mode writes noise control 8Eh. Collects channel-enable bits in [0271h] and claims the channels in [0263h]. [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track, SI = 0260h, DS = 5000h
+; out: ports 80h-8Bh, 8Eh, 94h; [0263h], [0271h], voice block 0264h-026Bh
+; side effects: may install the voice IRQ
+; evidence: not al / and al,[es:bx+0x3] / call sub_E49A / out 0x88,al / out 0x80,ax ... mov bp,[0x2] / mov [es:si+0x6],cx / call sub_E7C1 / out 0x94,al ... or al,0x88 ... or al,[es:bx+0x3] / mov [es:si+0x3],al
+snd_track_output_channels:
     mov al,[es:si+0x3]                       ; 4E2CF
     not al                                   ; 4E2D3
     and al,[es:bx+0x3]                       ; 4E2D5
@@ -25264,7 +28466,7 @@ loc_E2EB:
     mov al,[es:bx+0x38]                      ; 4E2EB
     rr or, al, al                            ; 4E2EF
     jz short loc_E302                        ; 4E2F1
-    call sub_E49A                            ; 4E2F3
+    call snd_channel_pitch_volume            ; 4E2F3
     out 0x88,al                              ; 4E2F6
     rr mov, ax, dx                           ; 4E2F8
     out 0x80,ax                              ; 4E2FA
@@ -25303,7 +28505,7 @@ loc_E31E:
     add cl,[ds:bp+di+0x5]                    ; 4E353
     mov [es:si+0xb],cl                       ; 4E357
     mov byte [es:si+0x4],0x1                 ; 4E35B
-    call sub_E7C1                            ; 4E360
+    call snd_voice_install_irq               ; 4E360
     pop di                                   ; 4E363
     mov al,0xf                               ; 4E364
     out 0x94,al                              ; 4E366
@@ -25320,11 +28522,11 @@ loc_E370:
     push ds                                  ; 4E386
     rr xor, ax, ax                           ; 4E387
     mov ds,ax                                ; 4E389
-    call sub_DE37                            ; 4E38B
+    call sound_voice_stop                    ; 4E38B
     pop ds                                   ; 4E38E
     and byte [es:bx+0x1],0xdf                ; 4E38F
 loc_E394:
-    call sub_E49A                            ; 4E394
+    call snd_channel_pitch_volume            ; 4E394
     out 0x89,al                              ; 4E397
     rr mov, ax, dx                           ; 4E399
     out 0x82,ax                              ; 4E39B
@@ -25340,7 +28542,7 @@ loc_E3B3:
     mov al,[es:bx+0x38]                      ; 4E3B3
     rr or, al, al                            ; 4E3B7
     jz short loc_E3CA                        ; 4E3B9
-    call sub_E49A                            ; 4E3BB
+    call snd_channel_pitch_volume            ; 4E3BB
     out 0x8a,al                              ; 4E3BE
     rr mov, ax, dx                           ; 4E3C0
     out 0x84,ax                              ; 4E3C2
@@ -25358,7 +28560,7 @@ loc_E3DA:
     jz short loc_E3F8                        ; 4E3E0
     test byte [es:bx-0x1],0x80               ; 4E3E2
     jnz short loc_E408                       ; 4E3E7
-    call sub_E49A                            ; 4E3E9
+    call snd_channel_pitch_volume            ; 4E3E9
     out 0x8b,al                              ; 4E3EC
     rr mov, ax, dx                           ; 4E3EE
     out 0x86,ax                              ; 4E3F0
@@ -25422,7 +28624,7 @@ loc_E466:
 loc_E477:
     test byte [es:bx+0x40],0x80              ; 4E477
     jnz short loc_E494                       ; 4E47C
-    call sub_E540                            ; 4E47E
+    call snd_channel_vol_envelope            ; 4E47E
 loc_E481:
     out 0x8b,al                              ; 4E481
     rr mov, ax, dx                           ; 4E483
@@ -25432,10 +28634,15 @@ loc_E481:
     mov [es:si+0x11],al                      ; 4E48D
     jmp near loc_E3F8                        ; 4E491
 loc_E494:
-    call sub_E576                            ; 4E494
+    call snd_channel_release                 ; 4E494
     jmp near loc_E481                        ; 4E497
 
-sub_E49A:
+; Computes one channel's output: pitch DX = note table 4000:E7EE[note] + detune, plus the pitch-envelope delta (bank-5 table, 80h = loop/end marker); loads the channel's waveform into wave RAM when it changed; then returns the volume byte AL from the volume envelope (sub_E540) or release (sub_E576); note 80h gives volume 0. [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track + channel, SI = 0260h
+; out: DX = pitch, AL = volume byte (left<<4 | right)
+; side effects: wave RAM 0280h-02BFh, envelope state bytes
+; evidence: mov dx,[cs:bp-0x1812] (=E7EE) / add dl,[es:bx+0x20] / mov di,[0x6] / cmp al,0x80 / ... rep movsw to 0x280 / cmp byte [es:bx+0x38],0x80
+snd_channel_pitch_volume:
     mov al,[es:bx+0x38]                      ; 4E49A
     and al,0x7f                              ; 4E49E
     shl al,1                                 ; 4E4A0
@@ -25503,14 +28710,19 @@ loc_E52D:
     mov byte [es:bx+0x18],0x1                ; 4E538
     ret                                      ; 4E53D
 loc_E53E:
-    ja short sub_E576                        ; 4E53E
+    ja short snd_channel_release             ; 4E53E
 
-sub_E540:
+; Volume envelope step: if a gate time [+2Ch] is set and the frame counter [+30h] has reached it, switches to the release phase (sub_E576); otherwise walks the channel's envelope (bank-5 table [5000:0004][env]) updating level [+54h] by rate/target pairs (FBh-FFh are control codes); converts level + pan nibble + channel volume + master attenuation [0276h] through the table at 4000:E8A4 into a 4-bit left and right volume, returned in AL. [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track + channel, SI = 0260h
+; out: AL = volume byte; [+44h], [+48h], [+54h], [+18h]
+; side effects: none
+; evidence: cmp al,[es:bx+0x30] / jna sub_E576 / inc byte [es:bx+0x30] / mov di,[0x4] / add al,[es:bx+0x44] / cmp ah,0xfb / ... add al,[es:si+0x16] / mov cl,[cs:bp-0x175c] (=E8A4)
+snd_channel_vol_envelope:
     mov al,[es:bx+0x2c]                      ; 4E540
     rr or, al, al                            ; 4E544
     jz short loc_E552                        ; 4E546
     cmp al,[es:bx+0x30]                      ; 4E548
-    jna short sub_E576                       ; 4E54C
+    jna short snd_channel_release            ; 4E54C
     inc byte [es:bx+0x30]                    ; 4E54E
 loc_E552:
     mov al,[es:bx+0x24]                      ; 4E552
@@ -25527,7 +28739,12 @@ loc_E552:
     jc short loc_E5A1                        ; 4E571
     jmp near loc_E64D                        ; 4E573
 
-sub_E576:
+; Release phase for a keyed-off note: adds the envelope's release rate (byte before envelope [env+1]) to level [+54h]; on overflow the channel goes silent (AL = 0), otherwise the volume byte is computed as in the envelope routine. [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = track + channel
+; out: AL = volume byte; [+54h], [+18h]
+; side effects: none
+; evidence: inc al / mov di,[0x4] / mov di,[ds:bp+di] / mov al,[di-0x1] / add al,[es:bx+0x54] / jc silent
+snd_channel_release:
     mov al,[es:bx+0x24]                      ; 4E576
     inc al                                   ; 4E57A
     rr xor, ah, ah                           ; 4E57C
@@ -25647,46 +28864,71 @@ loc_E68E:
 ; jump table tbl_E698: 7 words, bound: hint (first use at 4DF23)
 tbl_E698:
     dw 0x0000
-    dw sound_tick_case1_E6A6
-    dw sound_tick_case2_E6D6
-    dw sound_tick_case3_E6F1
-    dw sound_tick_case4_E6B0
-    dw sound_tick_case5_E6E0
-    dw sound_tick_case6_E73B
+    dw snd_fade_out_stop_start
+    dw snd_fade_out_mute_start
+    dw snd_stop_sfx_tracks_fade_in
+    dw snd_fade_out_stop_step
+    dw snd_fade_out_mute_step
+    dw snd_fade_in_step
 
-sound_tick_case1_E6A6:
+; Global fade mode 1 (set by writing 1 to [0274h], e.g. sub_0250): resets master attenuation [0276h] to 0, switches to mode 4 and performs the first fade-out step. [high, reviewed: range_A9A0_FFFF.json]
+; in:  SI = 0260h
+; out: [0274h] = 4, [0276h]
+; side effects: none
+; evidence: mov byte [es:si+0x16],0x0 / mov byte [es:si+0x14],0x4 (falls into E6B0)
+snd_fade_out_stop_start:
     mov byte [es:si+0x16],0x0                ; 4E6A6
     mov byte [es:si+0x14],0x4                ; 4E6AB
 
-sound_tick_case4_E6B0:
+; Global fade mode 4: master attenuation [0276h] += rate [0275h]; when it overflows, stops all sound (sound_stop_all), clears the mode and skips the remaining tracks this frame; otherwise continues normal track processing. [high, reviewed: range_A9A0_FFFF.json]
+; in:  SI = 0260h, BX = track
+; out: [0276h], [0274h]
+; side effects: may stop all sound
+; evidence: mov al,[es:si+0x15] / add [es:si+0x16],al / jc / call sub_DE51 / mov byte [es:si+0x14],0 / pop ds / ret
+snd_fade_out_stop_step:
     mov al,[es:si+0x15]                      ; 4E6B0
     add [es:si+0x16],al                      ; 4E6B4
     jc short loc_E6BD                        ; 4E6B8
     jmp near loc_DF28                        ; 4E6BA
 loc_E6BD:
     mov byte [es:si+0x16],0x0                ; 4E6BD
-    call sub_DE51                            ; 4E6C2
+    call sound_stop_all                      ; 4E6C2
 loc_E6C5:
     test byte [es:bx+0x2],0x20               ; 4E6C5
     jz short loc_E6CF                        ; 4E6CA
-    call sub_DE37                            ; 4E6CC
+    call sound_voice_stop                    ; 4E6CC
 loc_E6CF:
     mov byte [es:si+0x14],0x0                ; 4E6CF
     pop ds                                   ; 4E6D4
     ret                                      ; 4E6D5
 
-sound_tick_case2_E6D6:
+; Global fade mode 2: resets master attenuation to 0 and switches to mode 5 (fade out without stopping the tracks). [high, reviewed: range_A9A0_FFFF.json]
+; in:  SI = 0260h
+; out: [0274h] = 5, [0276h] = 0
+; side effects: none
+; evidence: mov byte [es:si+0x16],0x0 / mov byte [es:si+0x14],0x5
+snd_fade_out_mute_start:
     mov byte [es:si+0x16],0x0                ; 4E6D6
     mov byte [es:si+0x14],0x5                ; 4E6DB
 
-sound_tick_case5_E6E0:
+; Global fade mode 5: adds the rate to the master attenuation; when it would overflow, stops the voice if the current track uses it and ends the fade (mode 0) leaving the attenuation at its last value, i.e. the music keeps running but stays (nearly) silent. [high, reviewed: range_A9A0_FFFF.json]
+; in:  SI = 0260h, BX = track
+; out: [0276h], [0274h]
+; side effects: may stop voice
+; evidence: mov al,[es:si+0x15] / add al,[es:si+0x16] / jc loc_E6C5 / mov [es:si+0x16],al
+snd_fade_out_mute_step:
     mov al,[es:si+0x15]                      ; 4E6E0
     add al,[es:si+0x16]                      ; 4E6E4
     jc short loc_E6C5                        ; 4E6E8
     mov [es:si+0x16],al                      ; 4E6EA
     jmp near loc_DF28                        ; 4E6EE
 
-sound_tick_case3_E6F1:
+; Global fade mode 3: stops tracks 0-2 (clears pointers and tick counters of 0100h/0158h/01B0h; track 3 at 0208h, which the bank-5 sound table assigns to the music entries with priority byte 83h, keeps running), stops the voice if track 0 used it, switches to mode 6 and lowers the master attenuation by the rate, restarting sound_tick. [high, reviewed: range_A9A0_FFFF.json]
+; in:  SI = 0260h
+; out: track 0-2 pointers, [0274h] = 6, [0276h]
+; side effects: none
+; evidence: mov [es:0x100],ax / mov [es:0x158],ax / mov [es:0x1b0],ax (0x208 untouched) ... mov byte [es:si+0x14],0x6 / sub al,[es:si+0x15] / jmp sound_tick
+snd_stop_sfx_tracks_fade_in:
     rr xor, ax, ax                           ; 4E6F1
     mov bx,0x100                             ; 4E6F3
     mov [es:0x100],ax                        ; 4E6F6
@@ -25697,7 +28939,7 @@ sound_tick_case3_E6F1:
     mov [es:0x1b6],ax                        ; 4E70A
     test byte [es:bx+0x2],0x20               ; 4E70E
     jz short loc_E718                        ; 4E713
-    call sub_DE37                            ; 4E715
+    call sound_voice_stop                    ; 4E715
 loc_E718:
     mov byte [es:si+0x14],0x6                ; 4E718
     mov al,[es:si+0x16]                      ; 4E71D
@@ -25710,7 +28952,12 @@ loc_E72E:
     mov byte [es:si+0x14],0x0                ; 4E733
     jmp near sound_tick                      ; 4E738
 
-sound_tick_case6_E73B:
+; Global fade mode 6: master attenuation [0276h] -= rate [0275h] until it reaches 0, then clears the mode; continues normal track processing. [high, reviewed: range_A9A0_FFFF.json]
+; in:  SI = 0260h
+; out: [0276h], [0274h]
+; side effects: none
+; evidence: mov al,[es:si+0x16] / sub al,[es:si+0x15] / jc -> 0 / mov byte [es:si+0x14],0
+snd_fade_in_step:
     mov al,[es:si+0x16]                      ; 4E73B
     sub al,[es:si+0x15]                      ; 4E73F
     jc short loc_E74C                        ; 4E743
@@ -25721,7 +28968,12 @@ loc_E74C:
     mov byte [es:si+0x14],0x0                ; 4E751
     jmp near loc_DF28                        ; 4E756
 
-sub_E759:
+; Outputs the next 8-bit PCM sample: reads byte [segment ([0268h]<<8) : [0266h]] to port 89h (channel 2 volume = sample in voice mode), advances the pointer (crossing to the next 64 KB bank by adding 10h to the segment byte) and, when it reaches the end pointer/bank ([0269h]/[026Bh]), clears [0264h] and disables the HBlank-timer interrupt. [high, reviewed: range_A9A0_FFFF.json]
+; in:  voice block 0260h+6..+0Bh
+; out: port 89h, [0266h]-[0268h], [0264h], port B2h
+; side effects: none
+; evidence: mov ah,[es:bx+0x8] / mov ds,ax / mov al,[di] / out 0x89,al / inc word [es:bx+0x6] / add byte [es:bx+0x8],0x10 / cmp ax,[es:bx+0x9] / and al,0x7f / out 0xb2,al
+snd_voice_output_sample:
     push es                                  ; 4E759
     push ax                                  ; 4E75A
     push bx                                  ; 4E75B
@@ -25765,29 +29017,44 @@ loc_E79A:
     pop es                                   ; 4E7A9
     ret                                      ; 4E7AA
 
-sub_E7AB:
+; Stops the PCM voice (sound_voice_stop) if the voice-active flag [0264h] bit0 is set. Called at the start of state05. [high, reviewed: range_A9A0_FFFF.json]
+; in:  [0264h]
+; out: as sound_voice_stop
+; side effects: none
+; evidence: test byte [es:0x264],0x1 / call sub_DE37
+snd_voice_stop_if_active:
     test byte [es:0x264],0x1                 ; 4E7AB
     jz short loc_E7B6                        ; 4E7B1
-    call sub_DE37                            ; 4E7B3
+    call sound_voice_stop                    ; 4E7B3
 loc_E7B6:
     ret                                      ; 4E7B6
 
-irq_E7B7:
+; HBlank-timer interrupt handler for PCM voice playback: outputs one sample (sub_E759) and acknowledges (B6h <- 80h). [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: port 89h, B6h
+; side effects: none
+; evidence: call sub_E759 / mov al,0x80 / out 0xb6,al / iret; installed by sub_E7C1 at 0:009Ch
+irq_hblank_voice_pcm:
     push ax                                  ; 4E7B7
-    call sub_E759                            ; 4E7B8
+    call snd_voice_output_sample             ; 4E7B8
     mov al,0x80                              ; 4E7BB
     out 0xb6,al                              ; 4E7BD
     pop ax                                   ; 4E7BF
     iret                                     ; 4E7C0
 
-sub_E7C1:
+; Installs irq_hblank_voice_pcm at vector 0:009Ch (27h, HBlank timer) and enables that interrupt (B2h |= 80h). [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: 0:009Ch-009Fh, port B2h
+; side effects: none
+; evidence: mov bx,0x9c / mov word [bx],irq_E7B7 / mov word [bx+0x2],0x4000 / or al,0x80 / out 0xb2,al
+snd_voice_install_irq:
     push ds                                  ; 4E7C1
     push ax                                  ; 4E7C2
     push bx                                  ; 4E7C3
     rr xor, ax, ax                           ; 4E7C4
     mov ds,ax                                ; 4E7C6
     mov bx,0x9c                              ; 4E7C8
-    mov word [bx],irq_E7B7                   ; 4E7CB
+    mov word [bx],irq_hblank_voice_pcm       ; 4E7CB
     mov word [bx+0x2],0x4000                 ; 4E7CF
     in al,0xb2                               ; 4E7D4
     or al,0x80                               ; 4E7D6
@@ -25829,43 +29096,58 @@ sub_E7C1:
     db 0xEB,0x00,0x40,0x89,0x14,0x83,0xC6,0x02,0x43,0xE2,0xF3,0x33,0xC0,0x5E,0x5B,0x5A   ; 4E9BE
     db 0x59,0xC3   ; 4E9CE
 
-sub_E9D0:
+; Loads this game's record from the console's internal EEPROM: Internal EEPROM directory layout used here: words 0-3 = 7 LRU rank bytes (one per slot, 0 = most recent); slots 1-7 at word slot*6: word +0 = game ID, words +1..+5 = 10 bytes of game data. Finds the slot whose ID word equals BX; if none returns CF=1. Otherwise marks the slot most-recently-used (sub_EA31, which uses the buffer at DX as scratch) and reads the 5 data words into DX (sub_EB31), CF=0. [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = game ID, DX = 10-byte RAM buffer
+; out: buffer at DX, CF
+; side effects: EEPROM LRU header rewritten
+; evidence: call sub_EA06 / cmp ax,0x2 / stc / call sub_EA31 / call sub_EB31; caller sub_AC60 bx=1 dx=12CAh
+ieep_load_game_record:
     push cx                                  ; 4E9D0
     push bx                                  ; 4E9D1
-    call sub_EA06                            ; 4E9D2
+    call ieep_find_slot                      ; 4E9D2
     cmp ax,0x2                               ; 4E9D5
     jnz short loc_E9DD                       ; 4E9D8
     stc                                      ; 4E9DA
     jmp short loc_E9E3                       ; 4E9DB
 loc_E9DD:
-    call sub_EA31                            ; 4E9DD
-    call sub_EB31                            ; 4E9E0
+    call ieep_touch_slot_lru                 ; 4E9DD
+    call ieep_read_slot_data                 ; 4E9E0
 loc_E9E3:
     pop bx                                   ; 4E9E3
     pop cx                                   ; 4E9E4
     ret                                      ; 4E9E5
 
-sub_E9E6:
+; Writes this game's 10-byte record to the internal EEPROM directory: uses the slot with ID BX, or if absent the least-recently-used slot (sub_EAC8); writes ID + 5 words (sub_EB54) and then marks the slot most recent (sub_EA31, clobbering the buffer at DX with the LRU header). Returns AX = 1 if a new slot was taken, else 0. [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = game ID, DX = buffer
+; out: AX; buffer at DX overwritten with header bytes
+; side effects: EEPROM words written
+; evidence: call sub_EA06 / call sub_EAC8 / mov ax,0x1 / call sub_EB54 / call sub_EA31
+ieep_save_game_record:
     push cx                                  ; 4E9E6
     push bx                                  ; 4E9E7
-    call sub_EA06                            ; 4E9E8
+    call ieep_find_slot                      ; 4E9E8
     cmp ax,0x2                               ; 4E9EB
     jnz short loc_E9F8                       ; 4E9EE
-    call sub_EAC8                            ; 4E9F0
+    call ieep_find_lru_slot                  ; 4E9F0
     mov ax,0x1                               ; 4E9F3
     jmp short loc_E9FB                       ; 4E9F6
 loc_E9F8:
     mov ax,0x0                               ; 4E9F8
 loc_E9FB:
     push ax                                  ; 4E9FB
-    call sub_EB54                            ; 4E9FC
-    call sub_EA31                            ; 4E9FF
+    call ieep_write_slot                     ; 4E9FC
+    call ieep_touch_slot_lru                 ; 4E9FF
     pop ax                                   ; 4EA02
     pop bx                                   ; 4EA03
     pop cx                                   ; 4EA04
     ret                                      ; 4EA05
 
-sub_EA06:
+; Searches EEPROM slots 1-7 (word slot*6) for the game ID BX. Returns AX = 0 and CX = slot if found, AX = 2 (CX = 8) if not. [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = game ID
+; out: AX, CX
+; side effects: EEPROM reads
+; evidence: mov cx,0x1 / mov si,0x6 / call ieep_read_word / cmp dx,bx / add si,0x6 / cmp cx,0x7
+ieep_find_slot:
     push dx                                  ; 4EA06
     push si                                  ; 4EA07
     mov cx,0x1                               ; 4EA08
@@ -25892,7 +29174,12 @@ loc_EA2E:
     pop dx                                   ; 4EA2F
     ret                                      ; 4EA30
 
-sub_EA31:
+; Reads the 8-byte LRU header (EEPROM words 0-3) into the buffer at DX; if the 7 rank bytes are all 0 initialises them to 6; then makes slot CX most recent (rank 0) and ages every slot whose rank was <= the old rank (capped at 6), and writes the header back. [high, reviewed: range_A9A0_FFFF.json]
+; in:  CX = slot 1-7, DX = 8-byte scratch buffer
+; out: EEPROM words 0-3; buffer at DX
+; side effects: EEPROM writes
+; evidence: cmp bx,0x3 / call ieep_read_word / mov byte [bx+si],0x6 / mov byte [bx+si],0x0 / inc byte [bx+si] / cmp byte [bx+si],0x7 / call ieep_write_word
+ieep_touch_slot_lru:
     push cx                                  ; 4EA31
     push dx                                  ; 4EA32
     push bx                                  ; 4EA33
@@ -25986,7 +29273,12 @@ loc_EABE:
     pop cx                                   ; 4EAC6
     ret                                      ; 4EAC7
 
-sub_EAC8:
+; Reads the 7 rank bytes from EEPROM words 0-3 and returns CX = the slot (1-7) with the highest rank (least recently used). [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: CX
+; side effects: EEPROM reads
+; evidence: call ieep_read_word (bx=0..3) / cmp al,dh / mov al,dh / mov cx,si
+ieep_find_lru_slot:
     push ax                                  ; 4EAC8
     push dx                                  ; 4EAC9
     push bx                                  ; 4EACA
@@ -26051,7 +29343,12 @@ loc_EB2C:
     pop ax                                   ; 4EB2F
     ret                                      ; 4EB30
 
-sub_EB31:
+; Reads the 5 data words of EEPROM slot CX (words CX*6+1 .. CX*6+5) into the buffer at DX. [high, reviewed: range_A9A0_FFFF.json]
+; in:  CX = slot, DX = buffer
+; out: 10 bytes at DX
+; side effects: EEPROM reads
+; evidence: add bx,0x6 / loop / inc bx / mov cx,0x5 / call ieep_read_word / mov [si],dx
+ieep_read_slot_data:
     push cx                                  ; 4EB31
     push dx                                  ; 4EB32
     push bx                                  ; 4EB33
@@ -26076,7 +29373,12 @@ loc_EB43:
     pop cx                                   ; 4EB52
     ret                                      ; 4EB53
 
-sub_EB54:
+; Writes ID BX to EEPROM word CX*6 and the 5 words from the buffer at DX to the following words. [high, reviewed: range_A9A0_FFFF.json]
+; in:  BX = game ID, CX = slot, DX = buffer
+; out: EEPROM slot
+; side effects: EEPROM writes
+; evidence: mov ax,bx / add bx,0x6 loop / mov dx,ax / call ieep_write_word / mov cx,0x5
+ieep_write_slot:
     push ax                                  ; 4EB54
     push cx                                  ; 4EB55
     push dx                                  ; 4EB56
@@ -26181,7 +29483,12 @@ loc_EBEE:
     retf                                     ; 4EBF0
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 4EBF1
 
-sub_EC00:
+; One frame of the museum World/Vision selection screen: up/down move between three rows ([1308h], sound 2Bh); on row 0 left/right change the world (EX world 6 only when [133Eh] bit0), on row 1 change the Vision, limited to reached progress ([148Fh], EX Visions via [1497h]); draws world/Vision numbers, the selected Vision's best stones and lives, a blinking cursor, best EX time for EX Visions 1-2, the world icons (layouts from 9000:FA50) and an animated banner when [133Fh] is set; stores the selected progress code W V 01 in [12D8h]. Returns AX = 1 when the cursor is on row 2. [medium, reviewed: range_A9A0_FFFF.json]
+; in:  [138Ch] new keys, 1308h-1351h menu state, save block
+; out: [1308h]-[130Ch], [12D8h], sprite table, ports 00h/2Ah
+; side effects: sounds 2Bh/2Dh/31h
+; evidence: mov di,[0x138c] / test di,0x40 / inc byte [bx] / cmp byte [bx],0x3 ... call sub_EF45 / mov ax,0x31 / call sub_DD97 ... mov [0x12d8],ax / out 0x2a,ax / cmp byte [0x1308],0x2 / inc ax
+vision_select_menu_frame:
     mov di,[0x138c]                          ; 4EC00
     mov ax,0x5                               ; 4EC04
     test byte [0x133e],0x1                   ; 4EC07
@@ -26193,7 +29500,7 @@ loc_EC11:
     jz short loc_EC3A                        ; 4EC18
     mov ax,0x97e                             ; 4EC1A
     mov dx,[0x1350]                          ; 4EC1D
-    call sub_F4AC                            ; 4EC21
+    call emit_sprite_ax_dx                   ; 4EC21
     add byte [0x1351],0xfc                   ; 4EC24
     add byte [0x1350],0x1                    ; 4EC29
     cmp byte [0x1351],0x0                    ; 4EC2E
@@ -26204,7 +29511,7 @@ loc_EC3A:
     test di,0x40                             ; 4EC3D
     jz short loc_EC53                        ; 4EC41
     mov ax,0x2b                              ; 4EC43
-    call sub_DD97                            ; 4EC46
+    call sound_play                          ; 4EC46
     inc byte [bx]                            ; 4EC49
     cmp byte [bx],0x3                        ; 4EC4B
     jnz short loc_EC53                       ; 4EC4E
@@ -26213,7 +29520,7 @@ loc_EC53:
     test di,0x10                             ; 4EC53
     jz short loc_EC69                        ; 4EC57
     mov ax,0x2b                              ; 4EC59
-    call sub_DD97                            ; 4EC5C
+    call sound_play                          ; 4EC5C
     dec byte [bx]                            ; 4EC5F
     cmp byte [bx],0xff                       ; 4EC61
     jnz short loc_EC69                       ; 4EC64
@@ -26235,24 +29542,24 @@ loc_EC7C:
     test byte [0x133e],0x1                   ; 4EC89
     jz short loc_ECA4                        ; 4EC8E
     dec dl                                   ; 4EC90
-    call sub_EFAF                            ; 4EC92
+    call menu_next_ex_vision                 ; 4EC92
 loc_EC95:
     cmp dh,0x6                               ; 4EC95
     jnz short loc_EC9F                       ; 4EC98
     mov dh,0x5                               ; 4EC9A
     jmp near loc_ECA6                        ; 4EC9C
 loc_EC9F:
-    call sub_EF45                            ; 4EC9F
+    call menu_world_reachable                ; 4EC9F
     jc short loc_ECAF                        ; 4ECA2
 loc_ECA4:
     dec dh                                   ; 4ECA4
 loc_ECA6:
     mov ax,0x31                              ; 4ECA6
-    call sub_DD97                            ; 4ECA9
+    call sound_play                          ; 4ECA9
     jmp near loc_ED21                        ; 4ECAC
 loc_ECAF:
     mov ax,0x2d                              ; 4ECAF
-    call sub_DD97                            ; 4ECB2
+    call sound_play                          ; 4ECB2
     jmp near loc_ED21                        ; 4ECB5
 loc_ECB8:
     test di,0x80                             ; 4ECB8
@@ -26263,7 +29570,7 @@ loc_ECB8:
     rr xor, dh, dh                           ; 4ECC5
     jmp near loc_ECA6                        ; 4ECC7
 loc_ECCA:
-    call sub_EF45                            ; 4ECCA
+    call menu_world_reachable                ; 4ECCA
     jc short loc_ECAF                        ; 4ECCD
     inc dh                                   ; 4ECCF
     jmp near loc_ECA6                        ; 4ECD1
@@ -26272,27 +29579,27 @@ loc_ECD4:
     test di,0x20                             ; 4ECD9
     jz short loc_ED03                        ; 4ECDD
     mov byte [0x1341],0x2c                   ; 4ECDF
-    call sub_EF74                            ; 4ECE4
-    call sub_EF65                            ; 4ECE7
+    call menu_next_vision                    ; 4ECE4
+    call menu_vision_reachable               ; 4ECE7
     jc short loc_ECF4                        ; 4ECEA
     mov byte [0x1341],0x31                   ; 4ECEC
-    call sub_EFDB                            ; 4ECF1
+    call menu_prev_vision                    ; 4ECF1
 loc_ECF4:
     rr xor, ah, ah                           ; 4ECF4
     mov al,[0x1341]                          ; 4ECF6
     test ax,ax                               ; 4ECF9
     jz short loc_ED21                        ; 4ECFB
-    call sub_DD97                            ; 4ECFD
+    call sound_play                          ; 4ECFD
     jmp near loc_ED21                        ; 4ED00
 loc_ED03:
     test di,0x80                             ; 4ED03
     jz short loc_ED21                        ; 4ED07
     mov byte [0x1341],0x2c                   ; 4ED09
-    call sub_EFDB                            ; 4ED0E
-    call sub_EF65                            ; 4ED11
+    call menu_prev_vision                    ; 4ED0E
+    call menu_vision_reachable               ; 4ED11
     jc short loc_ECF4                        ; 4ED14
     mov byte [0x1341],0x31                   ; 4ED16
-    call sub_EF74                            ; 4ED1B
+    call menu_next_vision                    ; 4ED1B
     jmp near loc_ECF4                        ; 4ED1E
 loc_ED21:
     mov [bx+0x2],dh                          ; 4ED21
@@ -26308,16 +29615,16 @@ loc_ED21:
     cmp ax,0xf75                             ; 4ED3C
     jnz short loc_ED4C                       ; 4ED3F
     mov ax,0xf7d                             ; 4ED41
-    call sub_F4AC                            ; 4ED44
+    call emit_sprite_ax_dx                   ; 4ED44
     dec ax                                   ; 4ED47
     sub dx,0x800                             ; 4ED48
 loc_ED4C:
-    call sub_F4AC                            ; 4ED4C
+    call emit_sprite_ax_dx                   ; 4ED4C
     mov ax,[0x130c]                          ; 4ED4F
     inc ax                                   ; 4ED52
     add ax,0xf6f                             ; 4ED53
     mov dx,0x701c                            ; 4ED56
-    call sub_F4AC                            ; 4ED59
+    call emit_sprite_ax_dx                   ; 4ED59
     mov si,0x1480                            ; 4ED5C
     mov bx,[0x130a]                          ; 4ED5F
     shl bx,byte 0x3                          ; 4ED63
@@ -26325,11 +29632,11 @@ loc_ED4C:
     mov al,[bx+si]                           ; 4ED6A
     mov dx,0x7035                            ; 4ED6C
     rr xor, cx, cx                           ; 4ED6F
-    call sub_F4BF                            ; 4ED71
+    call draw_number_sprites_radix           ; 4ED71
     mov al,[0x149f]                          ; 4ED74
     mov dx,0x7040                            ; 4ED77
     rr xor, cx, cx                           ; 4ED7A
-    call sub_F4BF                            ; 4ED7C
+    call draw_number_sprites_radix           ; 4ED7C
     mov ax,0xf83                             ; 4ED7F
     mov bx,[0x1308]                          ; 4ED82
     shl bx,1                                 ; 4ED86
@@ -26340,10 +29647,10 @@ loc_ED4C:
     jz short loc_ED9B                        ; 4ED97
     dec dh                                   ; 4ED99
 loc_ED9B:
-    call sub_F4AC                            ; 4ED9B
+    call emit_sprite_ax_dx                   ; 4ED9B
     inc ax                                   ; 4ED9E
     add dx,byte +0x8                         ; 4ED9F
-    call sub_F4AC                            ; 4EDA2
+    call emit_sprite_ax_dx                   ; 4EDA2
     cmp byte [0x130a],0x5                    ; 4EDA5
     jnz short loc_EDF8                       ; 4EDAA
     cmp byte [0x130c],0x1                    ; 4EDAC
@@ -26354,27 +29661,27 @@ loc_ED9B:
     mov ah,[0x130c]                          ; 4EDBB
     inc ah                                   ; 4EDBF
     rr add, ah, al                           ; 4EDC1
-    call sub_AF46                            ; 4EDC3
-    call sub_AF04                            ; 4EDC6
+    call get_ex_time_record                  ; 4EDC3
+    call frames_to_min_sec_bcd               ; 4EDC6
     push cx                                  ; 4EDC9
     push bx                                  ; 4EDCA
     mov cx,0x600                             ; 4EDCB
     mov dx,0x2054                            ; 4EDCE
-    call sub_F4BF                            ; 4EDD1
+    call draw_number_sprites_radix           ; 4EDD1
     mov cx,0x601                             ; 4EDD4
     pop ax                                   ; 4EDD7
     mov dx,0x3854                            ; 4EDD8
-    call sub_F4BF                            ; 4EDDB
+    call draw_number_sprites_radix           ; 4EDDB
     mov cx,0x601                             ; 4EDDE
     pop ax                                   ; 4EDE1
     mov dx,0x5054                            ; 4EDE2
-    call sub_F4BF                            ; 4EDE5
+    call draw_number_sprites_radix           ; 4EDE5
     mov ax,0xf7a                             ; 4EDE8
     mov dx,0x2854                            ; 4EDEB
-    call sub_F4AC                            ; 4EDEE
+    call emit_sprite_ax_dx                   ; 4EDEE
     inc ax                                   ; 4EDF1
     mov dx,0x4054                            ; 4EDF2
-    call sub_F4AC                            ; 4EDF5
+    call emit_sprite_ax_dx                   ; 4EDF5
 loc_EDF8:
     mov dx,0x1928                            ; 4EDF8
     rr xor, cx, cx                           ; 4EDFB
@@ -26394,14 +29701,14 @@ loc_EE17:
     test si,0x1c                             ; 4EE21
     jz short loc_EE2F                        ; 4EE25
     shr bl,1                                 ; 4EE27
-    call sub_F487                            ; 4EE29
+    call emit_cursor_2x2                     ; 4EE29
     jmp near loc_EE39                        ; 4EE2C
 loc_EE2F:
     shr bl,1                                 ; 4EE2F
     jnc short loc_EE36                       ; 4EE31
     sub ax,0x200                             ; 4EE33
 loc_EE36:
-    call sub_F4AC                            ; 4EE36
+    call emit_sprite_ax_dx                   ; 4EE36
 loc_EE39:
     add dx,0x1000                            ; 4EE39
 loc_EE3D:
@@ -26416,7 +29723,7 @@ loc_EE47:
     mov si,[0x138e]                          ; 4EE50
     test si,0x1c                             ; 4EE54
     jz short loc_EE60                        ; 4EE58
-    call sub_F487                            ; 4EE5A
+    call emit_cursor_2x2                     ; 4EE5A
     jmp near loc_EE74                        ; 4EE5D
 loc_EE60:
     mov bl,[0x1310]                          ; 4EE60
@@ -26426,7 +29733,7 @@ loc_EE60:
     ja short loc_EE71                        ; 4EE6C
     sub ax,0x200                             ; 4EE6E
 loc_EE71:
-    call sub_F4AC                            ; 4EE71
+    call emit_sprite_ax_dx                   ; 4EE71
 loc_EE74:
     add dx,0x1000                            ; 4EE74
     inc cl                                   ; 4EE78
@@ -26481,7 +29788,7 @@ loc_EEEB:
     add bp,0x800                             ; 4EEF5
 loc_EEF9:
     rr add, di, dx                           ; 4EEF9
-    call sub_F532                            ; 4EEFB
+    call emit_sprite_bp_di                   ; 4EEFB
     inc bp                                   ; 4EEFE
     add dh,0x8                               ; 4EEFF
     rr cmp, dh, cl                           ; 4EF02
@@ -26508,7 +29815,12 @@ loc_EF2E:
     ret                                      ; 4EF2E
     db 0x0C,0x0A,0x17,0x0A,0x5A,0x0A   ; 4EF2F
 
-sub_EF35:
+; Converts menu cursor DH = world index, DL = Vision index (0-based) to a progress byte AL = (DH+1)<<4 | (DL+1), with CH = (DH+1)<<4. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DH, DL
+; out: AL, CH, AH
+; side effects: none
+; evidence: inc ah / shl ah,4 / mov ch,ah / inc al / add al,ah
+menu_cursor_to_wv:
     rr mov, ah, dh                           ; 4EF35
     inc ah                                   ; 4EF37
     shl ah,byte 0x4                          ; 4EF39
@@ -26518,8 +29830,13 @@ sub_EF35:
     rr add, al, ah                           ; 4EF42
     ret                                      ; 4EF44
 
-sub_EF45:
-    call sub_EF35                            ; 4EF45
+; For world change on the Vision-select menu: CF=1 if the cursor's WV is <= furthest progress [148Fh]; if it lies in the furthest world, clamps DL to that world's last reached Vision and returns CF=1; otherwise CF=0. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DH/DL cursor, [148Fh]
+; out: CF, DL possibly clamped
+; side effects: none
+; evidence: call sub_EF35 / cmp al,cl / stc ... and al,0xf0 / cmp ch,al / and cl,0xf / dec cl / mov dl,cl / stc
+menu_world_reachable:
+    call menu_cursor_to_wv                   ; 4EF45
     mov cl,[0x148f]                          ; 4EF48
     rr cmp, al, cl                           ; 4EF4C
     ja short loc_EF52                        ; 4EF4E
@@ -26539,8 +29856,13 @@ loc_EF63:
     clc                                      ; 4EF63
     ret                                      ; 4EF64
 
-sub_EF65:
-    call sub_EF35                            ; 4EF65
+; Returns CF=1 if the cursor's WV byte is <= the furthest progress [148Fh]. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DH/DL cursor
+; out: CF
+; side effects: none
+; evidence: call sub_EF35 / mov cl,[0x148f] / cmp al,cl / stc
+menu_vision_reachable:
+    call menu_cursor_to_wv                   ; 4EF65
     mov cl,[0x148f]                          ; 4EF68
     rr cmp, al, cl                           ; 4EF6C
     ja short loc_EF72                        ; 4EF6E
@@ -26550,9 +29872,14 @@ loc_EF72:
     clc                                      ; 4EF72
     ret                                      ; 4EF73
 
-sub_EF74:
+; Moves the Vision-select cursor to the next Vision: wraps to the next world after Vision 6, enters the EX world only if unlocked ([133Eh] bit0, via sub_EFAF), otherwise stops at the end and sets the error sound [1341h] = 31h. [medium, reviewed: range_A9A0_FFFF.json]
+; in:  DH/DL cursor, [133Eh]
+; out: DH/DL, [1341h]
+; side effects: none
+; evidence: inc dl / cmp dl,0x6 / inc dh / cmp dh,0x5 / test byte [0x133e],0x1 / mov byte [0x1341],0x31
+menu_next_vision:
     cmp dh,0x5                               ; 4EF74
-    jz short sub_EFAF                        ; 4EF77
+    jz short menu_next_ex_vision             ; 4EF77
     inc dl                                   ; 4EF79
     cmp dl,0x6                               ; 4EF7B
     jnz short loc_EFA6                       ; 4EF7E
@@ -26565,7 +29892,7 @@ sub_EF74:
     test byte [0x133e],0x1                   ; 4EF8E
     jz short loc_EF9A                        ; 4EF93
     dec dl                                   ; 4EF95
-    jmp near sub_EFAF                        ; 4EF97
+    jmp near menu_next_ex_vision             ; 4EF97
 loc_EF9A:
     dec dh                                   ; 4EF9A
     jmp near loc_EFA7                        ; 4EF9C
@@ -26580,7 +29907,12 @@ loc_EFA7:
     mov byte [0x1341],0x31                   ; 4EFA9
     ret                                      ; 4EFAE
 
-sub_EFAF:
+; In the EX world, moves DL to the next EX Vision whose bit is set in [1497h]; when none remains sets DL = 5 and [1341h] = 31h (error sound) and falls back to searching downward. [medium, reviewed: range_A9A0_FFFF.json]
+; in:  DL, [1497h]
+; out: DL, [1341h]
+; side effects: none
+; evidence: mov cl,dl / inc cl / inc cl / cmp cl,0x7 / mov al,[0x1497] / shr al,cl / jnc
+menu_next_ex_vision:
     cmp dl,0x5                               ; 4EFAF
     jnz short loc_EFBA                       ; 4EFB2
     mov byte [0x1341],0x31                   ; 4EFB4
@@ -26603,7 +29935,12 @@ loc_EFCF:
     rr mov, dl, cl                           ; 4EFD8
     ret                                      ; 4EFDA
 
-sub_EFDB:
+; Moves the Vision-select cursor to the previous Vision (wrapping to Vision 6 of the previous world); in the EX world searches downward for an available EX Vision ([1497h] bits), defaulting to DX = 0405h; sets [1341h] = 31h when it cannot move. [medium, reviewed: range_A9A0_FFFF.json]
+; in:  DH/DL cursor, [1497h]
+; out: DH/DL, [1341h]
+; side effects: none
+; evidence: dec dl / cmp dl,0xff / mov dl,0x5 / dec dh ... mov al,[0x1497] / shr al,cl / mov dx,0x405
+menu_prev_vision:
     cmp dh,0x5                               ; 4EFDB
     jz short loc_F002                        ; 4EFDE
     dec dl                                   ; 4EFE0
@@ -26659,7 +29996,12 @@ loc_F016:
     db 0x12,0xF7,0xC7,0x01,0x00,0x74,0x0D,0xA1,0x06,0x13,0xC1,0xE0,0x04,0x03,0x06,0x04   ; 4F12A
     db 0x13,0xE8,0x59,0xEC,0xF7,0xC7,0x04,0x00,0x74,0x03,0xE8,0x0A,0xED,0xC3   ; 4F13A
 
-sub_F148:
+; Loads story picture DL (text command F4h): 0 -> screen layout 7101h; > 1Bh -> layout 70EDh+DL with palettes; 1-1Bh -> BPE-expands stream F000:[DL*2] (segment from F000:0000) to tile RAM 2010h, clears tile 0, builds a 20x11 tile area in the SCR2 map at 1848h using the per-tile attribute bytes that follow the tiles (RAM 2DD0h) and loads background palettes from the palette block after them (2EACh). [high, reviewed: range_A9A0_FFFF.json]
+; in:  DL = picture number
+; out: tile RAM 2000h-2EBBh, SCR2 map 1848h-, ports 20h-2Eh
+; side effects: calls bpe_expand / sub_FACB
+; evidence: mov ax,0xf000 / mov bp,[es:bx] / mov di,0x2010 / call bpe_expand / mov di,0x1848 / mov bx,0x2dd0 / mov cx,0x14 / mov dx,0xb / mov bx,0x2eac / call sub_4A3F
+load_story_picture:
     test dl,dl                               ; 4F148
     jz short loc_F1AB                        ; 4F14A
     cmp dl,0x1b                              ; 4F14C
@@ -26705,20 +30047,25 @@ loc_F18E:
     rr xor, ax, ax                           ; 4F1A0
     mov es,ax                                ; 4F1A2
     mov bx,0x2eac                            ; 4F1A4
-    call sub_4A3F                            ; 4F1A7
+    call load_bg_palettes                    ; 4F1A7
     ret                                      ; 4F1AA
 loc_F1AB:
     mov dx,0x7101                            ; 4F1AB
     mov ax,0xec                              ; 4F1AE
-    call sub_FACB                            ; 4F1B1
+    call load_screen_layout                  ; 4F1B1
     ret                                      ; 4F1B4
 loc_F1B5:
     add dx,0x70ed                            ; 4F1B5
     mov ax,0x1ec                             ; 4F1B9
-    call sub_FACB                            ; 4F1BC
+    call load_screen_layout                  ; 4F1BC
     ret                                      ; 4F1BF
 
-sub_F1C0:
+; Initialises the museum World/Vision menu (state02): row = 1, EX unlock flag [133Eh] = 1 when the main game is complete ([148Fh] = FFh) and a perfect world exists ([1497h]); if [1399h] bit7 (new record) starts the banner animation with sound 32h; chooses the initial cursor from [1399h] bits 5/6 ([1497h], [14AFh]) or the selected progress [12D8h]; loads screens 7103h/7102h, copies the map to SCR2, BPE-expands F000:F027 to tile RAM 36F0h and loads sprite palettes from 9000:FA30. [medium, reviewed: range_A9A0_FFFF.json]
+; in:  [1399h], save block, [12D8h]
+; out: [1308h], [130Ah], [130Ch], [133Eh]-[1370h], VRAM, palettes
+; side effects: sound 32h
+; evidence: mov byte [0x1308],0x1 / test byte [0x1399],0x80 / mov ax,0x32 / call sub_DD97 / cmp byte [0x148f],0xff / ... mov [0x130a],ah / mov [0x130c],al / mov dx,0x7103 / call sub_FACB / mov bp,0xf027 / call bpe_expand
+museum_menu_init:
     mov byte [0x1308],0x1                    ; 4F1C0
     mov word [0x133e],0x0                    ; 4F1C5
     test byte [0x1399],0x80                  ; 4F1CB
@@ -26726,7 +30073,7 @@ sub_F1C0:
     and byte [0x1399],0x7f                   ; 4F1D2
     inc byte [0x133f]                        ; 4F1D7
     mov ax,0x32                              ; 4F1DB
-    call sub_DD97                            ; 4F1DE
+    call sound_play                          ; 4F1DE
     mov word [0x1350],0xd000                 ; 4F1E1
     mov word [0x1370],0x0                    ; 4F1E7
 loc_F1ED:
@@ -26774,11 +30121,11 @@ loc_F24A:
 loc_F25C:
     mov dx,0x7103                            ; 4F25C
     mov ax,0x0                               ; 4F25F
-    call sub_FACB                            ; 4F262
-    call sub_F2AE                            ; 4F265
+    call load_screen_layout                  ; 4F262
+    call copy_scr1_map_to_scr2               ; 4F265
     mov dx,0x7102                            ; 4F268
     mov ax,0x115                             ; 4F26B
-    call sub_FACB                            ; 4F26E
+    call load_screen_layout                  ; 4F26E
     mov di,0x36f0                            ; 4F271
     mov ax,0xf000                            ; 4F274
     mov es,ax                                ; 4F277
@@ -26788,26 +30135,41 @@ loc_F25C:
     mov ax,0x9000                            ; 4F282
     mov es,ax                                ; 4F285
     mov bx,0xfa30                            ; 4F287
-    call sub_4A39                            ; 4F28A
+    call load_sprite_palettes                ; 4F28A
     ret                                      ; 4F28D
 
-sub_F28E:
+; Loads the title screen graphics: layout 7107h (with palettes, tile slot 3Dh), copies the SCR1 map to SCR2 (sub_F2AE), then layout 7106h. Called from state00_title. [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: VRAM, maps, palettes
+; side effects: none
+; evidence: mov dx,0x7107 / mov ax,0x13d / call sub_FACB / call sub_F2AE / mov dx,0x7106 / call sub_FACB
+title_screen_load_gfx:
     mov dx,0x7107                            ; 4F28E
     mov ax,0x13d                             ; 4F291
-    call sub_FACB                            ; 4F294
-    call sub_F2AE                            ; 4F297
+    call load_screen_layout                  ; 4F294
+    call copy_scr1_map_to_scr2               ; 4F297
     mov dx,0x7106                            ; 4F29A
     mov ax,0x0                               ; 4F29D
-    call sub_FACB                            ; 4F2A0
+    call load_screen_layout                  ; 4F2A0
     ret                                      ; 4F2A3
 
+; Loads screen layout 7108h with palettes (used by the world-record page, called from 4:1E2B). [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: VRAM, palettes
+; side effects: none
+; evidence: mov dx,0x7108 / mov ax,0x101 / call sub_FACB
 sub_F2A4:
     mov dx,0x7108                            ; 4F2A4
     mov ax,0x101                             ; 4F2A7
-    call sub_FACB                            ; 4F2AA
+    call load_screen_layout                  ; 4F2AA
     ret                                      ; 4F2AD
 
-sub_F2AE:
+; Copies the 2 KB tile map at 0800h (SCR1) to 1800h (SCR2). [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: RAM 1800h-1FFFh
+; side effects: ES = 0
+; evidence: mov si,0x800 / mov di,0x1800 / mov cx,0x400 / rep movsw
+copy_scr1_map_to_scr2:
     mov si,0x800                             ; 4F2AE
     rr xor, ax, ax                           ; 4F2B1
     mov es,ax                                ; 4F2B3
@@ -26852,7 +30214,12 @@ loc_F2F3:
 sram_signature:
     db 0x4B,0x4C,0x4F,0x4E,0x4F,0x41,0x20,0x20   ; 4F2FA
 
-sub_F302:
+; Reads SRAM record AX into RAM: for AX != 0 copies 1Eh words from 1000:0042h + AX*40h to 1480h (save block); for AX = 0 copies CX words from 1000:0042h to the caller's DI. SRAM layout (segment 1000h, bank selected by writing 0 to port C1h, FFh restored afterwards): 0000h 'KLONOA  ' signature; record n at 40h + n*40h = word FEFEh valid marker + data. n = 0: suspend record (callers save 10h words of 13E0h-13FFh); n = 1-3: the three player tickets; n = 4: autosave of the current game. Tickets and slot 4 hold a copy of the save block 1480h-14BBh. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AX = record number; for AX = 0 also DI = destination, CX = word count
+; out: RAM 1480h-14BBh (or caller buffer)
+; side effects: port C1h toggled; interrupts disabled during the copy
+; evidence: mov si,0x40 / shl ax,6 / add si,ax / mov di,0x1480 / mov cx,0x1e / ds=0x1000 / add si,0x2 / out 0xc1,al / rep movsw / dec al / out 0xc1,al; callers: ax=0 di=13E0h cx=10h (4:264F), ax=4 (4:101B, 4:265B, 4:294B), ax=ticket+1 (4:F78C)
+sram_load_record:
     cli                                      ; 4F302
     push ds                                  ; 4F303
     pusha                                    ; 4F304
@@ -26879,7 +30246,12 @@ loc_F31A:
     sti                                      ; 4F330
     ret                                      ; 4F331
 
-sub_F332:
+; Writes SRAM record AX: stores the valid marker FEFEh at 1000:0040h + AX*40h followed by 1Eh words from 1480h (AX != 0) or CX words from the caller's SI (AX = 0). [high, reviewed: range_A9A0_FFFF.json]
+; in:  AX = record number; for AX = 0 also SI = source, CX = word count
+; out: SRAM record
+; side effects: port C1h toggled; interrupts disabled
+; evidence: mov di,0x40 / shl ax,6 / add di,ax / mov si,0x1480 / mov cx,0x1e / mov word [es:di],0xfefe / rep movsw; callers ax=0 si=13E0h cx=10h (4:249E, 4:2610, 4:279A), ax=4 (4:24AA), ax=ticket+1 (4:F956)
+sram_save_record:
     cli                                      ; 4F332
     pusha                                    ; 4F333
     mov di,0x40                              ; 4F334
@@ -26903,7 +30275,12 @@ loc_F346:
     sti                                      ; 4F35E
     ret                                      ; 4F35F
 
-sub_F360:
+; Builds the ticket summaries for the three SRAM tickets (records 1-3): [1316h+i] = 1 if the record has the FEFEh marker; 4 bytes at 1332h + i*4 = {Vision of the last cleared stage (from saved furthest progress 148Fh, 0 -> 6 of previous world), its world, saved lives (149Fh), number of cleared EX Visions (popcount of 6 bits of 14A7h)}; [131Ah] and AX = number of valid tickets. [high, reviewed: range_A9A0_FFFF.json]
+; in:  SRAM records 1-3
+; out: 1316h-1318h, 131Ah, 1332h-133Dh, AX
+; side effects: port C1h toggled
+; evidence: mov si,0x40 / add si,ax / mov al,[es:si+0x11] (=148Fh) / and al,0xf / dec al / mov ax,0x106 ... mov al,[es:si+0x21] (=149Fh) / mov al,[es:si+0x29] (=14A7h) / shr al,1 / adc ah,0 / cmp ax,0xfefe / inc word [di]
+sram_scan_tickets:
     mov ax,0x1000                            ; 4F360
     mov es,ax                                ; 4F363
     rr xor, ax, ax                           ; 4F365
@@ -26958,7 +30335,12 @@ loc_F3CE:
     mov ax,[di]                              ; 4F3DC
     ret                                      ; 4F3DE
 
-sub_F3DF:
+; Returns AX = 1 if SRAM record 0 (suspend data at 1000:0040h) carries the FEFEh marker, else 0. [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: AX
+; side effects: port C1h toggled
+; evidence: mov si,0x40 / mov dx,[es:si] / cmp dx,0xfefe / inc ax
+sram_suspend_valid:
     mov ax,0x1000                            ; 4F3DF
     mov es,ax                                ; 4F3E2
     mov si,0x40                              ; 4F3E4
@@ -26974,7 +30356,12 @@ sub_F3DF:
 loc_F3FB:
     ret                                      ; 4F3FB
 
-sub_F3FC:
+; Invalidates SRAM record 0 by writing 0 over its marker word (1000:0040h). [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: SRAM 1000:0040h
+; side effects: port C1h toggled
+; evidence: mov si,0x40 / mov [es:si],ax (0)
+sram_suspend_clear:
     mov si,0x40                              ; 4F3FC
     mov ax,0x1000                            ; 4F3FF
     mov es,ax                                ; 4F402
@@ -26985,11 +30372,16 @@ sub_F3FC:
     out 0xc1,al                              ; 4F40D
     ret                                      ; 4F40F
 
-sub_F410:
+; Initialises the ticket menu: [12DFh] = AL (0 = Continue/load, 1 = New ticket); in New-ticket mode scans the tickets and preselects the first empty one in [131Ch] (else ticket 0), then continues with the common setup in sub_F434 (after its [1487h] preselection). [high, reviewed: range_A9A0_FFFF.json]
+; in:  AL = mode
+; out: [12DFh], [131Ch], menu state
+; side effects: as sub_F434
+; evidence: mov [0x12df],al / call sub_F360 / cmp [bx],ch / mov [0x131c],cl / jmp loc_F43A; caller 4:1904 passes AL = [1399h] bit2
+ticket_menu_init_mode:
     mov [0x12df],al                          ; 4F410
     test al,al                               ; 4F413
-    jz short sub_F434                        ; 4F415
-    call sub_F360                            ; 4F417
+    jz short ticket_menu_init                ; 4F415
+    call sram_scan_tickets                   ; 4F417
     mov bx,0x1316                            ; 4F41A
     rr xor, cx, cx                           ; 4F41D
 loc_F41F:
@@ -27004,7 +30396,12 @@ loc_F42D:
     mov [0x131c],cl                          ; 4F42D
     jmp near loc_F43A                        ; 4F431
 
-sub_F434:
+; Ticket screen setup: preselects the game's current ticket ([131Ch] = [1487h]), resets menu state 131Dh-131Fh, scroll [12DAh], [12DEh], [1340h], opens the SCR2 and sprite windows (08h/0Ch = 0, 0Ah/0Eh = F0h), loads screens 7105h/7104h with the SCR1 map copied to SCR2, BPE-expands A000:A6B0 to tile RAM 2460h and loads sprite palettes from 9000:FA40. [high, reviewed: range_A9A0_FFFF.json]
+; in:  [1487h]
+; out: menu RAM 131Ch-131Fh, 12DAh-12DEh, 1340h; ports 08h/0Ah/0Ch/0Eh; VRAM
+; side effects: none
+; evidence: mov al,[0x1487] / mov [0x131c],al / out 0xc,al / out 0x8,al / mov al,0xf0 / out 0xe,al / mov dx,0x7105 / call sub_FACB / mov bp,0xa6b0 / call bpe_expand / mov bx,0xfa40 / call sub_4A39
+ticket_menu_init:
     mov al,[0x1487]                          ; 4F434
     mov [0x131c],al                          ; 4F437
 loc_F43A:
@@ -27021,11 +30418,11 @@ loc_F43A:
     out 0xa,al                               ; 4F453
     mov dx,0x7105                            ; 4F455
     mov ax,0x0                               ; 4F458
-    call sub_FACB                            ; 4F45B
-    call sub_F2AE                            ; 4F45E
+    call load_screen_layout                  ; 4F45B
+    call copy_scr1_map_to_scr2               ; 4F45E
     mov dx,0x7104                            ; 4F461
     mov ax,0x13f                             ; 4F464
-    call sub_FACB                            ; 4F467
+    call load_screen_layout                  ; 4F467
     mov di,0x2460                            ; 4F46A
     mov ax,0xa000                            ; 4F46D
     mov es,ax                                ; 4F470
@@ -27035,27 +30432,37 @@ loc_F43A:
     mov ax,0x9000                            ; 4F47B
     mov es,ax                                ; 4F47E
     mov bx,0xfa40                            ; 4F480
-    call sub_4A39                            ; 4F483
+    call load_sprite_palettes                ; 4F483
     ret                                      ; 4F486
 
-sub_F487:
+; Emits a 2x2 group of sprites (tiles 97Fh-982h) centred on DX (offset -4,-4) - the blinking Vision cursor of the selection menu. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DX = position (DH x, DL y)
+; out: sprite table, [1382h] += 10h
+; side effects: none
+; evidence: mov ax,0x97f / sub dx,0x404 / call sub_F4AC / inc ax / add dx,0x800 / add dx,0xf808
+emit_cursor_2x2:
     pusha                                    ; 4F487
     mov ax,0x97f                             ; 4F488
     sub dx,0x404                             ; 4F48B
-    call sub_F4AC                            ; 4F48F
+    call emit_sprite_ax_dx                   ; 4F48F
     inc ax                                   ; 4F492
     add dx,0x800                             ; 4F493
-    call sub_F4AC                            ; 4F497
+    call emit_sprite_ax_dx                   ; 4F497
     inc ax                                   ; 4F49A
     add dx,0xf808                            ; 4F49B
-    call sub_F4AC                            ; 4F49F
+    call emit_sprite_ax_dx                   ; 4F49F
     inc ax                                   ; 4F4A2
     add dx,0x800                             ; 4F4A3
-    call sub_F4AC                            ; 4F4A7
+    call emit_sprite_ax_dx                   ; 4F4A7
     popa                                     ; 4F4AA
     ret                                      ; 4F4AB
 
-sub_F4AC:
+; Appends one sprite entry {tile/attribute word AX, position word DX} at the sprite-table pointer [1382h] and advances it by 4. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AX = tile word, DX = y/x
+; out: sprite table, [1382h]
+; side effects: none
+; evidence: mov bx,[0x1382] / add word [0x1382],4 / mov [bx],ax / mov [bx],dx
+emit_sprite_ax_dx:
     push bx                                  ; 4F4AC
     mov bx,[0x1382]                          ; 4F4AD
     add word [0x1382],byte +0x4              ; 4F4B1
@@ -27065,7 +30472,12 @@ sub_F4AC:
     pop bx                                   ; 4F4BD
     ret                                      ; 4F4BE
 
-sub_F4BF:
+; Draws AL as two digit sprites (tile F6Fh+digit) in radix CH+10 (CH = 0 decimal, 6 = hex/BCD): low digit at DX, high digit 8 px to the left, omitted when it is 0 and CL = 0. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AL = value, CH = radix-10, CL = force leading digit, DX = position
+; out: sprite table
+; side effects: none
+; evidence: add ch,0xa / div ch / add ax,0xf6f / call sub_F4AC / test cl,cl / sub dx,0x800
+draw_number_sprites_radix:
     add ch,0xa                               ; 4F4BF
     rr xor, ah, ah                           ; 4F4C2
     div ch                                   ; 4F4C4
@@ -27073,7 +30485,7 @@ sub_F4BF:
     xchg al,ah                               ; 4F4C8
     rr xor, ah, ah                           ; 4F4CA
     add ax,0xf6f                             ; 4F4CC
-    call sub_F4AC                            ; 4F4CF
+    call emit_sprite_ax_dx                   ; 4F4CF
     test cl,cl                               ; 4F4D2
     jnz short loc_F4DA                       ; 4F4D4
     test ch,ch                               ; 4F4D6
@@ -27083,11 +30495,16 @@ loc_F4DA:
     rr xor, ah, ah                           ; 4F4DC
     add ax,0xf6f                             ; 4F4DE
     sub dx,0x800                             ; 4F4E1
-    call sub_F4AC                            ; 4F4E5
+    call emit_sprite_ax_dx                   ; 4F4E5
 loc_F4E8:
     ret                                      ; 4F4E8
 
-sub_F4E9:
+; Appends a sprite with tile word AX+E6h at position DX. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AX, DX
+; out: sprite table, [1382h]
+; side effects: BX clobbered
+; evidence: add ax,0xe6 / mov bx,[0x1382] / add word [0x1382],4
+emit_sprite_plus_e6:
     add ax,0xe6                              ; 4F4E9
     mov bx,[0x1382]                          ; 4F4EC
     add word [0x1382],byte +0x4              ; 4F4F0
@@ -27096,7 +30513,12 @@ sub_F4E9:
     mov [bx],dx                              ; 4F4FA
     ret                                      ; 4F4FC
 
-sub_F4FD:
+; Draws a ticket's lives count AL (0-99) as one or two digit sprites (tile 28E6h+digit) at DX, then the layout 17h icon at [12DCh]+5C0Ch. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AL, DX, [12DCh]
+; out: sprite table
+; side effects: none
+; evidence: mov ch,0xa / div ch / add ax,0x2800 / call sub_F4E9 / add dx,0x900 / mov si,0x17 / call sub_F56A
+ticket_draw_lives:
     push bx                                  ; 4F4FD
     mov ch,0xa                               ; 4F4FE
     rr xor, ah, ah                           ; 4F500
@@ -27106,22 +30528,27 @@ sub_F4FD:
     jz short loc_F516                        ; 4F508
     rr xor, ah, ah                           ; 4F50A
     add ax,0x2800                            ; 4F50C
-    call sub_F4E9                            ; 4F50F
+    call emit_sprite_plus_e6                 ; 4F50F
     add dx,0x900                             ; 4F512
 loc_F516:
     rr mov, al, ch                           ; 4F516
     rr xor, ah, ah                           ; 4F518
     add ax,0x2800                            ; 4F51A
-    call sub_F4E9                            ; 4F51D
+    call emit_sprite_plus_e6                 ; 4F51D
     mov si,0x17                              ; 4F520
     mov di,[0x12dc]                          ; 4F523
     add di,0x5c0c                            ; 4F527
     rr xor, bp, bp                           ; 4F52B
-    call sub_F56A                            ; 4F52D
+    call draw_sprite_layout                  ; 4F52D
     pop bx                                   ; 4F530
     ret                                      ; 4F531
 
-sub_F532:
+; Appends a sprite entry {tile word BP, position DI} at [1382h]. [high, reviewed: range_A9A0_FFFF.json]
+; in:  BP = tile word, DI = position
+; out: sprite table, [1382h]
+; side effects: none
+; evidence: mov [bx],bp / mov [bx],di
+emit_sprite_bp_di:
     push bx                                  ; 4F532
     mov bx,[0x1382]                          ; 4F533
     add word [0x1382],byte +0x4              ; 4F537
@@ -27131,24 +30558,34 @@ sub_F532:
     pop bx                                   ; 4F543
     ret                                      ; 4F544
 
-sub_F545:
+; Draws a large digit BP (1-based) as a 2x2 sprite group with tiles 2846h + (BP-1)*4 at DI. [high, reviewed: range_A9A0_FFFF.json]
+; in:  BP = digit, DI = position
+; out: sprite table
+; side effects: BP, DI advanced
+; evidence: dec bp / shl bp,2 / add bp,0x2846 / call sub_F532 / add di,0x800 / add di,0xf808
+emit_big_digit_2x2:
     dec bp                                   ; 4F545
     shl bp,1                                 ; 4F546
     shl bp,1                                 ; 4F548
     add bp,0x2846                            ; 4F54A
-    call sub_F532                            ; 4F54E
+    call emit_sprite_bp_di                   ; 4F54E
     inc bp                                   ; 4F551
     add di,0x800                             ; 4F552
-    call sub_F532                            ; 4F556
+    call emit_sprite_bp_di                   ; 4F556
     inc bp                                   ; 4F559
     add di,0xf808                            ; 4F55A
-    call sub_F532                            ; 4F55E
+    call emit_sprite_bp_di                   ; 4F55E
     inc bp                                   ; 4F561
     add di,0x800                             ; 4F562
-    call sub_F532                            ; 4F566
+    call emit_sprite_bp_di                   ; 4F566
     ret                                      ; 4F569
 
-sub_F56A:
+; Draws sprite layout SI from the table at 9000:FA50: the layout record gives the size (CL = width, CH = height, in pixels) and the first tile word; sprites with consecutive tiles (+BP) are emitted on an 8-px grid starting at position DI. [high, reviewed: range_A9A0_FFFF.json]
+; in:  SI = layout number, DI = position, BP = tile offset
+; out: sprite table, [1310h] = DI
+; side effects: none
+; evidence: mov bx,si / shl bx,1 / add bx,0xfa50 / mov cx,[es:bx] / add bp,[es:bx+0x2] / call sub_F532 / add dh,0x8 / cmp dh,cl / add dl,0x8 / cmp dl,ch
+draw_sprite_layout:
     pusha                                    ; 4F56A
     mov [0x1310],di                          ; 4F56B
     mov ax,0x9000                            ; 4F56F
@@ -27164,7 +30601,7 @@ sub_F56A:
 loc_F58A:
     mov di,[0x1310]                          ; 4F58A
     rr add, di, dx                           ; 4F58E
-    call sub_F532                            ; 4F590
+    call emit_sprite_bp_di                   ; 4F590
     inc bp                                   ; 4F593
     add dh,0x8                               ; 4F594
     rr cmp, dh, cl                           ; 4F597
@@ -27176,18 +30613,23 @@ loc_F58A:
     popa                                     ; 4F5A4
     ret                                      ; 4F5A5
 
-sub_F5A6:
+; Yes/No selector at position AX ([1312h]): left/right toggle [131Dh] (0/1) with sound 2Bh, draws layout 9 with the chosen highlight and, blinking every 8 frames, arrow layouts 0Ah/0Bh. Returns DI = new keys [138Ch]. [high, reviewed: range_A9A0_FFFF.json]
+; in:  AX = position, DI = new keys
+; out: [131Dh], [1312h], sprite table, DI
+; side effects: sound 2Bh
+; evidence: test di,0x80 / inc byte [0x131d] / test di,0x20 / dec / and byte [0x131d],0x1 / shl al,4 / mov si,0x9 / call sub_F56A / test ax,0x18
+yes_no_selector:
     mov [0x1312],ax                          ; 4F5A6
     test di,0x80                             ; 4F5A9
     jz short loc_F5B9                        ; 4F5AD
     mov ax,0x2b                              ; 4F5AF
-    call sub_DD97                            ; 4F5B2
+    call sound_play                          ; 4F5B2
     inc byte [0x131d]                        ; 4F5B5
 loc_F5B9:
     test di,0x20                             ; 4F5B9
     jz short loc_F5C9                        ; 4F5BD
     mov ax,0x2b                              ; 4F5BF
-    call sub_DD97                            ; 4F5C2
+    call sound_play                          ; 4F5C2
     dec byte [0x131d]                        ; 4F5C5
 loc_F5C9:
     and byte [0x131d],0x1                    ; 4F5C9
@@ -27197,7 +30639,7 @@ loc_F5C9:
     rr mov, bp, ax                           ; 4F5D6
     mov si,0x9                               ; 4F5D8
     mov di,[0x1312]                          ; 4F5DB
-    call sub_F56A                            ; 4F5DF
+    call draw_sprite_layout                  ; 4F5DF
     mov ax,[0x138e]                          ; 4F5E2
     test ax,0x18                             ; 4F5E5
     jz short loc_F606                        ; 4F5E8
@@ -27205,18 +30647,23 @@ loc_F5C9:
     mov di,0xf408                            ; 4F5ED
     add di,[0x1312]                          ; 4F5F0
     rr xor, bp, bp                           ; 4F5F4
-    call sub_F56A                            ; 4F5F6
+    call draw_sprite_layout                  ; 4F5F6
     mov si,0xb                               ; 4F5F9
     mov di,0x2408                            ; 4F5FC
     add di,[0x1312]                          ; 4F5FF
-    call sub_F56A                            ; 4F603
+    call draw_sprite_layout                  ; 4F603
 loc_F606:
     mov di,[0x138c]                          ; 4F606
     ret                                      ; 4F60A
 
-sub_F60B:
-    call sub_F627                            ; 4F60B
-    call sub_F9CE                            ; 4F60E
+; One frame of the title's ticket menu (Continue / New ticket): runs the menu state machine (sub_F627) and draws the ticket list (sub_F9CE). Returns AX = 2 when cancelled (state 6), 1 when a ticket was chosen (state 5), else 0. [high, reviewed: range_A9A0_FFFF.json]
+; in:  menu state [131Eh]
+; out: AX
+; side effects: as sub_F627
+; evidence: call sub_F627 / call sub_F9CE / cmp byte [0x131e],0x6 / mov ax,0x2 / cmp byte [0x131e],0x5 / inc ax
+ticket_load_menu_frame:
+    call ticket_load_menu_dispatch           ; 4F60B
+    call ticket_list_draw                    ; 4F60E
     rr xor, ax, ax                           ; 4F611
     cmp byte [0x131e],0x6                    ; 4F613
     jnz short loc_F61E                       ; 4F618
@@ -27229,7 +30676,12 @@ loc_F61E:
 loc_F626:
     ret                                      ; 4F626
 
-sub_F627:
+; Dispatches the title ticket menu state [131Eh] (0 scan, 1 choose, 2 open animation, 3 confirm, 4 close animation, 5/6 done) through tbl_F63A with DI = new keys [138Ch]. [high, reviewed: range_A9A0_FFFF.json]
+; in:  [131Eh], [138Ch]
+; out: via handlers
+; side effects: none
+; evidence: mov di,[0x138c] / mov bl,[0x131e] / jmp [cs:bx+tbl_F63A]
+ticket_load_menu_dispatch:
     mov di,[0x138c]                          ; 4F627
     mov bl,[0x131e]                          ; 4F62B
     rr xor, bh, bh                           ; 4F62F
@@ -27239,15 +30691,20 @@ sub_F627:
 
 ; jump table tbl_F63A: 7 words, bound: hint (first use at 4F638)
 tbl_F63A:
-    dw sub_F627_case0
-    dw sub_F627_case1
-    dw sub_F627_case2
-    dw sub_F627_case3
-    dw sub_F627_case4
-    dw sub_F627_case5
-    dw sub_F627_case5
+    dw ticket_load_menu_scan
+    dw ticket_menu_choose
+    dw ticket_menu_open_anim
+    dw ticket_load_menu_confirm
+    dw ticket_menu_close_anim
+    dw ticket_menu_idle
+    dw ticket_menu_idle
 
-sub_F627_case1:
+; Ticket menu state 1: up/down select ticket 0-2 ([131Ch], wraps, sound 2Bh); A: in Continue mode only an existing ticket is accepted (else error sound 31h), in New-ticket mode notes in [1340h] whether the chosen ticket is occupied; then advances (sound 2Eh). B cancels (state 6, sound 30h). Draws the prompt layouts and the animated selection frame. [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = new keys, [12DFh], [1316h+n]
+; out: [131Ch], [131Eh], [1340h], [139Fh], [12DEh], port 00h
+; side effects: sounds
+; evidence: test di,0x10 / dec byte [0x131c] / test di,0x40 / inc / test di,0x400 / cmp byte [0x12df],0 / cmp byte [bx],0 / mov ax,0x31 / inc byte [0x131e] / mov ax,0x2e / test di,0x800 / mov byte [0x131e],0x6
+ticket_menu_choose:
     mov ax,0x7                               ; 4F648
     out 0x0,ax                               ; 4F64B
     mov byte [0x139f],0x0                    ; 4F64D
@@ -27255,7 +30712,7 @@ sub_F627_case1:
     test di,0x10                             ; 4F657
     jz short loc_F673                        ; 4F65B
     mov ax,0x2b                              ; 4F65D
-    call sub_DD97                            ; 4F660
+    call sound_play                          ; 4F660
     dec byte [0x131c]                        ; 4F663
     cmp byte [0x131c],0xff                   ; 4F667
     jnz short loc_F673                       ; 4F66C
@@ -27264,7 +30721,7 @@ loc_F673:
     test di,0x40                             ; 4F673
     jz short loc_F68F                        ; 4F677
     mov ax,0x2b                              ; 4F679
-    call sub_DD97                            ; 4F67C
+    call sound_play                          ; 4F67C
     inc byte [0x131c]                        ; 4F67F
     cmp byte [0x131c],0x3                    ; 4F683
     jnz short loc_F68F                       ; 4F688
@@ -27280,7 +30737,7 @@ loc_F68F:
     cmp byte [bx],0x0                        ; 4F6A6
     jnz short loc_F6C2                       ; 4F6A9
     mov ax,0x31                              ; 4F6AB
-    call sub_DD97                            ; 4F6AE
+    call sound_play                          ; 4F6AE
     jmp near loc_F6DD                        ; 4F6B1
 loc_F6B4:
     mov byte [0x1340],0x0                    ; 4F6B4
@@ -27290,13 +30747,13 @@ loc_F6B4:
 loc_F6C2:
     inc byte [0x131e]                        ; 4F6C2
     mov ax,0x2e                              ; 4F6C6
-    call sub_DD97                            ; 4F6C9
+    call sound_play                          ; 4F6C9
 loc_F6CC:
     test di,0x800                            ; 4F6CC
     jz short loc_F6DD                        ; 4F6D0
     mov byte [0x131e],0x6                    ; 4F6D2
     mov ax,0x30                              ; 4F6D7
-    call sub_DD97                            ; 4F6DA
+    call sound_play                          ; 4F6DA
 loc_F6DD:
     mov si,0xd                               ; 4F6DD
     rr xor, ax, ax                           ; 4F6E0
@@ -27304,13 +30761,18 @@ loc_F6DD:
     rr add, si, ax                           ; 4F6E5
     mov di,0x180c                            ; 4F6E7
     rr xor, bp, bp                           ; 4F6EA
-    call sub_F56A                            ; 4F6EC
+    call draw_sprite_layout                  ; 4F6EC
     mov si,0xf                               ; 4F6EF
     mov di,0x300c                            ; 4F6F2
-    call sub_F56A                            ; 4F6F5
+    call draw_sprite_layout                  ; 4F6F5
     jmp near loc_F9AA                        ; 4F6F8
 
-sub_F627_case3:
+; Ticket menu state 3 (title): shows the confirmation (with an overwrite warning when a New ticket would replace an existing one) and a Yes/No selector; Yes+A ends with state 5 (sound 2Fh): New-ticket mode stores the ticket number in [1487h] and erases that ticket's SRAM marker; Continue mode loads the ticket into 1480h (sram_load_record) and sets [12D8h] = furthest progress << 8 | 1. No or B goes to state 4 (sound 30h). [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = new keys, [131Ch], [131Dh], [12DFh]
+; out: [131Eh], [1487h], 1480h-14BBh, [12D8h], SRAM marker
+; side effects: port C1h, port 00h, sounds
+; evidence: mov [0x1487],al / inc al / shl ax,6 / mov si,0x40 / out 0xc1,al / mov [es:si],ax (0) ... call sub_F302 / mov ah,[0x148f] / mov al,0x1 / mov [0x12d8],ax
+ticket_load_menu_confirm:
     mov ax,0x27                              ; 4F6FB
     out 0x0,ax                               ; 4F6FE
     rr xor, bp, bp                           ; 4F700
@@ -27323,24 +30785,24 @@ sub_F627_case3:
     jz short loc_F72A                        ; 4F716
     mov si,0x14                              ; 4F718
     mov di,0x3018                            ; 4F71B
-    call sub_F56A                            ; 4F71E
+    call draw_sprite_layout                  ; 4F71E
     mov si,0x11                              ; 4F721
     mov di,0x3024                            ; 4F724
-    call sub_F56A                            ; 4F727
+    call draw_sprite_layout                  ; 4F727
 loc_F72A:
     mov si,0x12                              ; 4F72A
     mov di,0x3030                            ; 4F72D
-    call sub_F56A                            ; 4F730
+    call draw_sprite_layout                  ; 4F730
     mov di,[0x138c]                          ; 4F733
     mov ax,0x8068                            ; 4F737
-    call sub_F5A6                            ; 4F73A
+    call yes_no_selector                     ; 4F73A
     test di,0x400                            ; 4F73D
     jz short loc_F799                        ; 4F741
     cmp byte [0x131d],0x1                    ; 4F743
     jz short loc_F79F                        ; 4F748
     mov byte [0x131e],0x5                    ; 4F74A
     mov ax,0x2f                              ; 4F74F
-    call sub_DD97                            ; 4F752
+    call sound_play                          ; 4F752
     cmp byte [0x12df],0x1                    ; 4F755
     jnz short loc_F77F                       ; 4F75A
     mov al,[0x131c]                          ; 4F75C
@@ -27364,29 +30826,44 @@ loc_F77F:
     rr xor, ah, ah                           ; 4F784
     mov di,0x1480                            ; 4F786
     mov cx,0x1e                              ; 4F789
-    call sub_F302                            ; 4F78C
+    call sram_load_record                    ; 4F78C
     mov ah,[0x148f]                          ; 4F78F
     mov al,0x1                               ; 4F793
     mov [0x12d8],ax                          ; 4F795
     ret                                      ; 4F798
 loc_F799:
     test di,0x800                            ; 4F799
-    jz short sub_F627_case5                  ; 4F79D
+    jz short ticket_menu_idle                ; 4F79D
 loc_F79F:
     inc byte [0x131e]                        ; 4F79F
     mov ax,0x30                              ; 4F7A3
-    call sub_DD97                            ; 4F7A6
+    call sound_play                          ; 4F7A6
 
+; States 5 and 6 of the title ticket menu (finished / cancelled): single RET; the caller reads the state. [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: none
+; side effects: none
+; evidence: ret; tbl_F63A entries 5 and 6
 ; dispatch roles: sub_F627_case5, sub_F627_case6
-sub_F627_case5:
+ticket_menu_idle:
     ret                                      ; 4F7A9
 
-sub_F627_case0:
-    call sub_F360                            ; 4F7AA
+; Title ticket menu state 0: scans SRAM tickets (sram_scan_tickets) and advances to state 1. [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: ticket summaries, [131Eh]
+; side effects: SRAM read
+; evidence: call sub_F360 / inc byte [0x131e]
+ticket_load_menu_scan:
+    call sram_scan_tickets                   ; 4F7AA
     inc byte [0x131e]                        ; 4F7AD
     ret                                      ; 4F7B1
 
-sub_F627_case4:
+; Ticket menu state 4: 40-frame animation that narrows the SCR2/sprite windows (ports 09h/0Bh/0Dh/0Fh from [131Fh]) and scrolls the ticket list ([12DAh] -> [139Fh]) back, then returns to state 1. [high, reviewed: range_A9A0_FFFF.json]
+; in:  [131Fh], [131Ch], [12DAh]
+; out: ports 00h, 09h, 0Bh, 0Dh, 0Fh; [131Fh], [12DAh], [139Fh], [131Eh]
+; side effects: none
+; evidence: mov al,0x40 / sub al,[0x131f] / out 0xd,al / out 0x9,al / mov al,0x64 / add al,[0x131f] / out 0xf,al / cmp byte [0x131f],0x28 / mov byte [0x131e],0x1
+ticket_menu_close_anim:
     mov byte [0x12de],0x0                    ; 4F7B2
     mov ax,0x2f                              ; 4F7B7
     out 0x0,ax                               ; 4F7BA
@@ -27419,8 +30896,13 @@ loc_F7F5:
 loc_F80A:
     jmp near loc_F9AA                        ; 4F80A
 
+; Ticket menu state 2 (shared by the load and save menus): 40-frame animation widening the SCR2/sprite windows around the chosen ticket and scrolling the list ([12DAh] -> [139Fh]); at the end advances the state, sets [12DEh] = 1 (only the chosen ticket is drawn) and copies the overwrite flag [1340h] to the Yes/No choice [131Dh]. [high, reviewed: range_A9A0_FFFF.json]
+; in:  [131Fh], [131Ch]
+; out: ports 00h, 09h, 0Bh, 0Dh, 0Fh; [131Eh], [131Fh], [12DAh], [139Fh], [12DEh], [131Dh]
+; side effects: none
+; evidence: mov al,0x18 / add al,[0x131f] / out 0xd,al / mov al,0x8c / sub al,[0x131f] / out 0xf,al / cmp byte [0x131f],0x28 / mov byte [0x12de],0x1 / mov al,[0x1340] / mov [0x131d],al
 ; dispatch roles: sub_F627_case2, sub_F88E_case2
-sub_F627_case2:
+ticket_menu_open_anim:
     mov ax,0x2f                              ; 4F80D
     out 0x0,ax                               ; 4F810
     mov al,0x18                              ; 4F812
@@ -27455,11 +30937,16 @@ loc_F84B:
 loc_F86A:
     ret                                      ; 4F86A
 
-sub_F86B:
-    call sub_F88E                            ; 4F86B
+; One frame of the 'Save data?' ticket screen (state 11): runs the save-menu state machine (sub_F88E), draws the ticket list except in state 1, and returns AX = 2 when finished/cancelled (state 6), 1 in state 5, else 0. [high, reviewed: range_A9A0_FFFF.json]
+; in:  [131Eh]
+; out: AX
+; side effects: as sub_F88E
+; evidence: call sub_F88E / cmp byte [0x131e],0x1 / call sub_F9CE / mov ax,0x2 / inc ax
+ticket_save_menu_frame:
+    call ticket_save_menu_dispatch           ; 4F86B
     cmp byte [0x131e],0x1                    ; 4F86E
     jz short loc_F878                        ; 4F873
-    call sub_F9CE                            ; 4F875
+    call ticket_list_draw                    ; 4F875
 loc_F878:
     rr xor, ax, ax                           ; 4F878
     cmp byte [0x131e],0x6                    ; 4F87A
@@ -27473,7 +30960,12 @@ loc_F885:
 loc_F88D:
     ret                                      ; 4F88D
 
-sub_F88E:
+; Dispatches the save-ticket menu state [131Eh] (0 scan, 1 'Save data?', 2 open animation, 3 choose/confirm, 4 'Game saved' wait, 5/6 done) through tbl_F8A1 with DI = new keys. [high, reviewed: range_A9A0_FFFF.json]
+; in:  [131Eh], [138Ch]
+; out: via handlers
+; side effects: none
+; evidence: mov di,[0x138c] / mov bl,[0x131e] / jmp [cs:bx+tbl_F8A1]
+ticket_save_menu_dispatch:
     mov di,[0x138c]                          ; 4F88E
     mov bl,[0x131e]                          ; 4F892
     rr xor, bh, bh                           ; 4F896
@@ -27483,22 +30975,27 @@ sub_F88E:
 
 ; jump table tbl_F8A1: 7 words, bound: hint (first use at 4F89F)
 tbl_F8A1:
-    dw sub_F88E_case0
-    dw sub_F88E_case1
-    dw sub_F627_case2
-    dw sub_F88E_case3
-    dw sub_F88E_case4
-    dw sub_F88E_case5
-    dw sub_F88E_case5
+    dw ticket_save_menu_scan
+    dw ticket_save_prompt
+    dw ticket_menu_open_anim
+    dw ticket_save_confirm
+    dw ticket_save_done_wait
+    dw ticket_save_menu_idle
+    dw ticket_save_menu_idle
 
-sub_F88E_case1:
+; Save menu state 1: shows the 'Save data?' prompt (layout 13h) with a Yes/No selector; A on Yes advances (sound 2Eh), A on No ends with state 6 (sound 30h). [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = new keys, [131Dh]
+; out: [131Eh], [12DEh], port 00h
+; side effects: sounds
+; evidence: mov si,0x13 / mov di,0x3830 / call sub_F56A / test di,0x400 / cmp byte [0x131d],0x1 / mov byte [0x131e],0x6 / mov ax,0x785a / call sub_F5A6
+ticket_save_prompt:
     mov ax,0x5                               ; 4F8AF
     out 0x0,ax                               ; 4F8B2
     mov byte [0x12de],0x0                    ; 4F8B4
     mov si,0x13                              ; 4F8B9
     mov di,0x3830                            ; 4F8BC
     rr xor, bp, bp                           ; 4F8BF
-    call sub_F56A                            ; 4F8C1
+    call draw_sprite_layout                  ; 4F8C1
     mov di,[0x138c]                          ; 4F8C4
     test di,0x400                            ; 4F8C8
     jz short loc_F8ED                        ; 4F8CC
@@ -27506,18 +31003,23 @@ sub_F88E_case1:
     jz short loc_F8E2                        ; 4F8D3
     inc byte [0x131e]                        ; 4F8D5
     mov ax,0x2e                              ; 4F8D9
-    call sub_DD97                            ; 4F8DC
+    call sound_play                          ; 4F8DC
     jmp near loc_F8ED                        ; 4F8DF
 loc_F8E2:
     mov byte [0x131e],0x6                    ; 4F8E2
     mov ax,0x30                              ; 4F8E7
-    call sub_DD97                            ; 4F8EA
+    call sound_play                          ; 4F8EA
 loc_F8ED:
     mov ax,0x785a                            ; 4F8ED
-    call sub_F5A6                            ; 4F8F0
+    call yes_no_selector                     ; 4F8F0
     ret                                      ; 4F8F3
 
-sub_F88E_case3:
+; Save menu state 3: shows the selected ticket (with an overwrite note if occupied) and Yes/No; A on Yes writes the save block to the ticket: [1487h] = ticket, sram_save_record(ticket+1), clears the suspend record (sram_suspend_clear), rescans, advances (sound 2Fh). B or No returns to state 1 and resets the scroll/choice (sound 30h). [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = new keys, [131Ch], [131Dh]
+; out: SRAM ticket, [1487h], [131Eh], [12DAh], [139Fh]
+; side effects: port C1h, sounds
+; evidence: mov [0x1487],al / inc al / mov si,0x1480 / mov cx,0x1e / call sub_F332 / call sub_F3FC / call sub_F360
+ticket_save_confirm:
     mov ax,0x27                              ; 4F8F4
     out 0x0,ax                               ; 4F8F7
     rr xor, bp, bp                           ; 4F8F9
@@ -27528,33 +31030,33 @@ sub_F88E_case3:
     jz short loc_F91C                        ; 4F908
     mov si,0x10                              ; 4F90A
     mov di,0x3018                            ; 4F90D
-    call sub_F56A                            ; 4F910
+    call draw_sprite_layout                  ; 4F910
     mov si,0x11                              ; 4F913
     mov di,0x3024                            ; 4F916
-    call sub_F56A                            ; 4F919
+    call draw_sprite_layout                  ; 4F919
 loc_F91C:
     mov si,0x12                              ; 4F91C
     mov di,0x3030                            ; 4F91F
-    call sub_F56A                            ; 4F922
+    call draw_sprite_layout                  ; 4F922
     mov di,[0x138c]                          ; 4F925
     mov ax,0x8068                            ; 4F929
-    call sub_F5A6                            ; 4F92C
+    call yes_no_selector                     ; 4F92C
     test di,0x400                            ; 4F92F
     jz short loc_F960                        ; 4F933
     cmp byte [0x131d],0x1                    ; 4F935
     jz short loc_F966                        ; 4F93A
     inc byte [0x131e]                        ; 4F93C
     mov ax,0x2f                              ; 4F940
-    call sub_DD97                            ; 4F943
+    call sound_play                          ; 4F943
     mov al,[0x131c]                          ; 4F946
     mov [0x1487],al                          ; 4F949
     inc al                                   ; 4F94C
     rr xor, ah, ah                           ; 4F94E
     mov si,0x1480                            ; 4F950
     mov cx,0x1e                              ; 4F953
-    call sub_F332                            ; 4F956
-    call sub_F3FC                            ; 4F959
-    call sub_F360                            ; 4F95C
+    call sram_save_record                    ; 4F956
+    call sram_suspend_clear                  ; 4F959
+    call sram_scan_tickets                   ; 4F95C
     ret                                      ; 4F95F
 loc_F960:
     test di,0x800                            ; 4F960
@@ -27565,11 +31067,16 @@ loc_F966:
     mov byte [0x139f],0x0                    ; 4F971
     mov byte [0x131d],0x0                    ; 4F976
     mov ax,0x30                              ; 4F97B
-    call sub_DD97                            ; 4F97E
+    call sound_play                          ; 4F97E
 loc_F981:
     ret                                      ; 4F981
 
-sub_F88E_case4:
+; Save menu state 4: shows the 'Game saved' message (layout 15h) and advances the state on A or B (each adds 1, so both together skip to state 6). [high, reviewed: range_A9A0_FFFF.json]
+; in:  DI = new keys
+; out: [131Eh]
+; side effects: none
+; evidence: test di,0x400 / inc byte [0x131e] / test di,0x800 / inc byte [0x131e] / mov si,0x15 / call sub_F56A
+ticket_save_done_wait:
     test di,0x400                            ; 4F982
     jz short loc_F98C                        ; 4F986
     inc byte [0x131e]                        ; 4F988
@@ -27581,14 +31088,24 @@ loc_F996:
     mov si,0x15                              ; 4F996
     mov di,0x3024                            ; 4F999
     rr xor, bp, bp                           ; 4F99C
-    call sub_F56A                            ; 4F99E
+    call draw_sprite_layout                  ; 4F99E
 
+; States 5 and 6 of the save menu: single RET. [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: none
+; side effects: none
+; evidence: ret; tbl_F8A1 entries 5 and 6
 ; dispatch roles: sub_F88E_case5, sub_F88E_case6
-sub_F88E_case5:
+ticket_save_menu_idle:
     ret                                      ; 4F9A1
 
-sub_F88E_case0:
-    call sub_F360                            ; 4F9A2
+; Save menu state 0: scans SRAM tickets and advances to state 1 (duplicate of ticket_load_menu_scan). [high, reviewed: range_A9A0_FFFF.json]
+; in:  none
+; out: ticket summaries, [131Eh]
+; side effects: SRAM read
+; evidence: call sub_F360 / inc byte [0x131e]
+ticket_save_menu_scan:
+    call sram_scan_tickets                   ; 4F9A2
     inc byte [0x131e]                        ; 4F9A5
     ret                                      ; 4F9A9
 loc_F9AA:
@@ -27604,10 +31121,15 @@ loc_F9AA:
     rr mov, bp, ax                           ; 4F9C1
     mov si,0x8                               ; 4F9C3
     add di,0x461e                            ; 4F9C6
-    call sub_F56A                            ; 4F9CA
+    call draw_sprite_layout                  ; 4F9CA
     ret                                      ; 4F9CD
 
-sub_F9CE:
+; Draws the three tickets (40 px apart, scrolled by [12DAh]; only the chosen one when [12DEh] = 1): an empty ticket is layout 7; a used ticket shows its lives (sub_F4FD) and either the last cleared stage as big digits W, separator, V plus layout 6 (summary word <= 0506h), or for a finished game ([148Fh] = FFh) layout 16h followed by one layout-18h icon per cleared EX Vision and layout 0Ch. [high, reviewed: range_A9A0_FFFF.json]
+; in:  ticket summaries 1316h/1332h, [12DAh], [12DEh], [131Ch]
+; out: sprite table, [1312h], [1314h], [12DCh]
+; side effects: none
+; evidence: mov word [0x1312],0x22 / cmp byte [bx],0x1 / mov si,0x7 / call sub_F4FD / cmp word [bx],0x506 / call sub_F545 (x3, middle bp=7) / mov si,0x6 / mov cl,[bx+0x3] / mov si,0x16 / mov si,0x18 / mov si,0xc / add word [0x1312],0x28 / cmp word [0x1312],0x9a
+ticket_list_draw:
     mov word [0x1312],0x22                   ; 4F9CE
     mov word [0x1314],0x0                    ; 4F9D4
 loc_F9DA:
@@ -27629,7 +31151,7 @@ loc_F9ED:
     mov di,[0x12dc]                          ; 4FA06
     add di,0x6400                            ; 4FA0A
     rr xor, bp, bp                           ; 4FA0E
-    call sub_F56A                            ; 4FA10
+    call draw_sprite_layout                  ; 4FA10
     jmp near loc_FAB6                        ; 4FA13
 loc_FA16:
     mov bx,[0x1314]                          ; 4FA16
@@ -27639,7 +31161,7 @@ loc_FA16:
     mov al,[bx+0x2]                          ; 4FA22
     mov dx,[0x12dc]                          ; 4FA25
     add dx,0x750c                            ; 4FA29
-    call sub_F4FD                            ; 4FA2D
+    call ticket_draw_lives                   ; 4FA2D
     cmp word [bx],0x506                      ; 4FA30
     jg short loc_FA7A                        ; 4FA34
     mov al,[bx+0x1]                          ; 4FA36
@@ -27647,22 +31169,22 @@ loc_FA16:
     rr mov, bp, ax                           ; 4FA3B
     mov di,[0x12dc]                          ; 4FA3D
     add di,0x5cfb                            ; 4FA41
-    call sub_F545                            ; 4FA45
+    call emit_big_digit_2x2                  ; 4FA45
     mov bp,0x7                               ; 4FA48
     mov di,[0x12dc]                          ; 4FA4B
     add di,0x6cfb                            ; 4FA4F
-    call sub_F545                            ; 4FA53
+    call emit_big_digit_2x2                  ; 4FA53
     mov al,[bx]                              ; 4FA56
     rr xor, ah, ah                           ; 4FA58
     rr mov, bp, ax                           ; 4FA5A
     mov di,[0x12dc]                          ; 4FA5C
     add di,0x7cfb                            ; 4FA60
-    call sub_F545                            ; 4FA64
+    call emit_big_digit_2x2                  ; 4FA64
     mov si,0x6                               ; 4FA67
     mov di,[0x12dc]                          ; 4FA6A
     add di,0x90fb                            ; 4FA6E
     rr xor, bp, bp                           ; 4FA72
-    call sub_F56A                            ; 4FA74
+    call draw_sprite_layout                  ; 4FA74
     jmp near loc_FAB6                        ; 4FA77
 loc_FA7A:
     rr xor, bp, bp                           ; 4FA7A
@@ -27672,7 +31194,7 @@ loc_FA7A:
     mov si,0x16                              ; 4FA83
     mov di,[0x12dc]                          ; 4FA86
     add di,0x8a0c                            ; 4FA8A
-    call sub_F56A                            ; 4FA8E
+    call draw_sprite_layout                  ; 4FA8E
     add di,0x800                             ; 4FA91
 loc_FA95:
     test cl,cl                               ; 4FA95
@@ -27680,13 +31202,13 @@ loc_FA95:
     dec cl                                   ; 4FA99
     mov si,0x18                              ; 4FA9B
     add di,0x900                             ; 4FA9E
-    call sub_F56A                            ; 4FAA2
+    call draw_sprite_layout                  ; 4FAA2
     jmp near loc_FA95                        ; 4FAA5
 loc_FAA8:
     mov si,0xc                               ; 4FAA8
     mov di,[0x12dc]                          ; 4FAAB
     add di,0x5dfb                            ; 4FAAF
-    call sub_F56A                            ; 4FAB3
+    call draw_sprite_layout                  ; 4FAB3
 loc_FAB6:
     inc word [0x1314]                        ; 4FAB6
     add word [0x1312],byte +0x28             ; 4FABA
@@ -27696,21 +31218,26 @@ loc_FAB6:
 loc_FACA:
     ret                                      ; 4FACA
 
-sub_FACB:
+; Loads a screen by id: temporarily sets [12D8h] = DX and tile slot [1303h] = AL, runs the generic screen loader sub_46D5 (tiles/map), and if AH != 0 also loads the background palettes from [1324h]:[12FEh]; restores [12D8h]. [medium, reviewed: range_A9A0_FFFF.json]
+; in:  AL = tile slot, AH = load palettes flag, DX = screen id
+; out: VRAM/map via sub_46D5, ports 20h-2Eh
+; side effects: none
+; evidence: mov cx,[0x12d8] / push cx / mov [0x1303],al / mov [0x12d8],dx / mov byte [0x1302],0 / call sub_46D5 / test ah,ah / mov bx,[0x12fe] / call sub_4A3F / mov [0x12d8],ax
+load_screen_layout:
     mov cx,[0x12d8]                          ; 4FACB
     push cx                                  ; 4FACF
     push ax                                  ; 4FAD0
     mov [0x1303],al                          ; 4FAD1
     mov [0x12d8],dx                          ; 4FAD4
     mov byte [0x1302],0x0                    ; 4FAD8
-    call sub_46D5                            ; 4FADD
+    call level_draw_scr1_full                ; 4FADD
     pop ax                                   ; 4FAE0
     test ah,ah                               ; 4FAE1
     jz short loc_FAF1                        ; 4FAE3
     mov ax,[0x1324]                          ; 4FAE5
     mov es,ax                                ; 4FAE8
     mov bx,[0x12fe]                          ; 4FAEA
-    call sub_4A3F                            ; 4FAEE
+    call load_bg_palettes                    ; 4FAEE
 loc_FAF1:
     pop ax                                   ; 4FAF1
     mov [0x12d8],ax                          ; 4FAF2

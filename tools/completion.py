@@ -40,7 +40,9 @@ generated = code_bank + 16 + by.get('fill', 0) + by.get('bpe', 0)
 n = len(funcs)
 hand = sum(1 for f in funcs if f['basis'] == 'hand')
 role = sum(1 for f in funcs if f['basis'] == 'role')
-none = n - hand - role
+reviewed = sum(1 for f in funcs if f['basis'] == 'reviewed')
+dead = sum(1 for f in funcs if f['basis'] == 'dead')
+none = n - hand - role - reviewed - dead
 ran = sum(1 for f in funcs if f['runtime_executed'])
 fam_vis = sum(1 for a in cat if a['evidence'] == 'visual')
 
@@ -59,9 +61,12 @@ report = {
                                                J(B('inventory.json'))['totals'].get('unref_bank4', 0)),
             'evidence': ['tools/trace.py', 'tools/runtime_coverage.py', 'tests/test_runtime.py::test_runtime_execution_is_covered_by_static_trace']},
         'code_understanding': {
-            'status': 'IN PROGRESS', 'requirement': 'every function documented and understood',
-            'metric': '%d/%d named after reading the code, %d/%d named by proven dispatch role (behaviour not yet '
-                      'described), %d generic; all 20 game states identified' % (hand, n, role, n, none),
+            'status': 'PARTIALLY VERIFIED', 'requirement': 'every function documented and understood',
+            'metric': '%d hand-documented + %d reviewed (summary/inputs/outputs/side effects/evidence from a full read, '
+                      'high or medium confidence) = %d/%d; %d role-only, %d generic, %d dead code; all 20 game states '
+                      'identified.  Reviewed docs were produced by three parallel code-review passes and spot-checked '
+                      '(8 concrete claims re-verified against code/runtime, all correct); not every entry individually '
+                      're-verified' % (hand, reviewed, hand + reviewed, n, role, none, dead),
             'evidence': ['docs/functions.md', 'docs/game-states.md', 'tools/symbols.py']},
         'data_classification': {
             'status': 'IN PROGRESS', 'requirement': 'every ROM byte classified with evidence',
@@ -103,7 +108,8 @@ report = {
     'numbers': {
         'rom_bytes': rom, 'bytes_from_assembly_source': code_bank + 16, 'bytes_generated_from_layout_and_decoded_assets':
             by.get('fill', 0) + by.get('zero_run', 0) + by.get('bpe', 0), 'raw_bytes_copied_from_rom': by.get('raw', 0),
-        'entry_points': n, 'named_hand': hand, 'named_role': role, 'unnamed': none,
+        'entry_points': n, 'named_hand': hand, 'documented_reviewed': reviewed, 'named_role_only': role,
+        'unnamed': none, 'dead_code': dead,
         'instructions': len(trace['insn']), 'runtime_entry_points_executed': ran,
         'bpe_streams': len(cat), 'emulator_runs': len(cov['runs']),
     },

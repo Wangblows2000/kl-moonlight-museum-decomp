@@ -9,9 +9,11 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 rom = open(os.path.join(ROOT, 'baserom', 'baserom.ws'), 'rb').read()
 w = lambda f: rom[f] | rom[f + 1] << 8
 roles = json.load(open(os.path.join(ROOT, 'build', 'roles.json')))
+_rd = os.path.join(ROOT, 'tools', 'routine_docs.json')
+RD = json.load(open(_rd)) if os.path.exists(_rd) else {}
 VISUAL = {
     0x01: ('player (Klonoa)', 'high', 'always slot 6 = RAM 03C0h, the player slot used by objects_collide; crop shows Klonoa'),
-    0x02: ('player companion / held object', 'low', 'always slot 7 (03E0h) right after the player; crop overlaps Klonoa'),
+    0x02: ("player's shot (wind bullet)", 'high', 'slot 7; code review: flies out, decelerates, homes back (obj02_update_player_shot)'),
     0x03: ('Moo-type enemy', 'medium', 'crop shows a round walking enemy'),
     0x08: ('bird/plant enemy (World 5)', 'low', 'single crop in World 5'),
     0x0B: ('round ball enemy', 'medium', 'crop'),
@@ -35,16 +37,19 @@ L = ['# Object types', '',
      'Per-type handlers come from the bank-8 tables 8:01EA (update) and 8:026A (draw); type 0 = '
      'empty slot.  "Worlds seen" = types live during the atlas runs (`emu/scripts/atlas_w*.txt`, '
      'random input, Vision 1 of each world; Worlds 2-EX entered with a forced progress code).', '',
-     '| type | update | draw | worlds seen | identification | conf | evidence |', '|---|---|---|---|---|---|---|']
+     'The "code review" column is the reviewed summary of the update handler (tools/routine_docs.json).', '',
+     '| type | update | draw | worlds seen | visual identification | conf | code review of update handler |', '|---|---|---|---|---|---|---|']
 seen_any = 0
 for t in range(64):
     u, dr = w(0x801EA + 2 * t), w(0x8026A + 2 * t)
-    un = roles.get('%04X' % u, {}).get('name', '%04X' % u)
-    dn = roles.get('%04X' % dr, {}).get('name', '%04X' % dr)
+    un = (RD.get('%04X' % u, {}).get('name') or roles.get('%04X' % u, {}).get('name', '%04X' % u))
+    dn = (RD.get('%04X' % dr, {}).get('name') or roles.get('%04X' % dr, {}).get('name', '%04X' % dr))
+    rv = RD.get('%04X' % u, {})
+    review = ('%s [%s]' % (rv.get('summary', ''), rv.get('confidence', ''))).replace('|', '/')[:220] if rv else ''
     rt = ' '.join(runtime.get(t, []))
     seen_any += bool(rt)
     v = VISUAL.get(t, ('', '', ''))
-    L.append('| %02X | `%s` (%04X) | `%s` (%04X) | %s | %s | %s | %s |' % (t, un, u, dn, dr, rt, v[0], v[1], v[2]))
+    L.append('| %02X | `%s` (%04X) | `%s` (%04X) | %s | %s | %s | %s |' % (t, un, u, dn, dr, rt, v[0], v[1], review))
 L.insert(3, '%d of 63 types were live in at least one run; %d are visually identified.' % (seen_any, len(VISUAL)))
 L.insert(4, '')
 open(os.path.join(ROOT, 'docs', 'objects.md'), 'w').write('\n'.join(L) + '\n')

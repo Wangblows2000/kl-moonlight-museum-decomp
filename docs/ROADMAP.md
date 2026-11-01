@@ -7,7 +7,7 @@ Statuses: NOT STARTED, IN PROGRESS, PARTIALLY VERIFIED, VERIFIED, BLOCKED.
 |---|---|---|---|
 | Build fidelity | exact byte-for-byte ROM match | **VERIFIED** | full ROM match; bank 4 + footer verified from source alone in CI |
 | Code discovery | every executable entry point identified | PARTIALLY VERIFIED | 741 entry points, 0 unresolved transfers, runtime finds nothing outside the trace; 4,142 bank-4 bytes unreached |
-| Code understanding | every function documented and understood | IN PROGRESS | 36 read and named, 447 role-named, 258 generic; 20/20 game states |
+| Code understanding | every function documented and understood | PARTIALLY VERIFIED | 731/746 documented (36 hand + 695 reviewed, with registers/side effects/evidence); 20/20 game states; review spot-checked, not every entry re-verified |
 | Data classification | every ROM byte classified with evidence | IN PROGRESS | 42.6 % with evidence; 559 KB raw |
 | Asset understanding | every structure/format identified | IN PROGRESS | BPE assets all assigned to families; level/sound/object data partial |
 | Compression | all streams decoded and verified | **VERIFIED** | 129/129 decode and re-encode byte-identically |
@@ -18,12 +18,12 @@ Statuses: NOT STARTED, IN PROGRESS, PARTIALLY VERIFIED, VERIFIED, BLOCKED.
 
 ## Milestones (measurable)
 
-**M1 - Code understanding to 50 %** (target: 370 entry points hand-documented)
-1. Document all `objTT_update` / `objTT_draw` pairs: name the 63 object types from the
-   object atlas (below) and from what each handler does.
-2. Name the 258 generic routines, starting with the most-called (`docs/functions.md`
-   sorted by callers): the `D6AE`, `DC70`, `DD97`, `6244`, `B4F0`-style helpers.
-3. Document the sound driver command set (tables DF5F / DF8A / E698).
+**M1 - Code understanding** (done for documentation; verification continues)
+- 731/746 entry points documented.  Remaining: 10 low-confidence routines (named by role
+  only), `sub_509B` (special player mode, never executed), the 1,162-byte `obj01_update_player`
+  (two thirds read), and independent re-verification of reviewed entries (tests that exercise
+  each documented behaviour in the emulator).
+- Sound command set documented (see routine headers DF5F/DF8A/E698 and docs/STATUS.md).
 
 **M2 - Object atlas** (target: every object type seen on screen)
 - Add an `atlas` command to the harness: crop the screen around each newly seen object type

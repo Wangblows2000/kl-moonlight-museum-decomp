@@ -21,9 +21,9 @@
    ]
   },
   "code_understanding": {
-   "status": "IN PROGRESS",
+   "status": "PARTIALLY VERIFIED",
    "requirement": "every function documented and understood",
-   "metric": "36/746 named after reading the code, 447/746 named by proven dispatch role (behaviour not yet described), 263 generic; all 20 game states identified",
+   "metric": "36 hand-documented + 695 reviewed (summary/inputs/outputs/side effects/evidence from a full read, high or medium confidence) = 731/746; 9 role-only, 1 generic, 5 dead code; all 20 game states identified.  Reviewed docs were produced by three parallel code-review passes and spot-checked (8 concrete claims re-verified against code/runtime, all correct); not every entry individually re-verified",
    "evidence": [
     "docs/functions.md",
     "docs/game-states.md",
@@ -99,8 +99,10 @@
   "raw_bytes_copied_from_rom": 558967,
   "entry_points": 746,
   "named_hand": 36,
-  "named_role": 447,
-  "unnamed": 263,
+  "documented_reviewed": 695,
+  "named_role_only": 9,
+  "unnamed": 1,
+  "dead_code": 5,
   "instructions": 23645,
   "runtime_entry_points_executed": 464,
   "bpe_streams": 129,

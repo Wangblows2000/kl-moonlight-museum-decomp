@@ -183,7 +183,13 @@ def main():
             t = re.sub(r'\b%s\b' % re.escape(nm), '0x%04X' % off, t)
         for off, nm in SYM.RAM.items():
             t = re.sub(r'\b%s\b' % re.escape(nm), '0x%04X' % off, t)
+        # any other generated label (role names, reviewed names) used as an operand
+        for tok in set(re.findall(r'\b[A-Za-z_][A-Za-z0-9_]*\b', t)):
+            if tok in ALL_LABELS:
+                t = re.sub(r'\b%s\b' % re.escape(tok), '0x%04X' % ALL_LABELS[tok], t)
         return t
+    global ALL_LABELS
+    ALL_LABELS = {label_name(f): f - BANK for f in set(labels) | set(insn) if f in labels}
     bad = check([(f, numeric(t)) for f, t in plain])
     retry = []
     for f in bad:

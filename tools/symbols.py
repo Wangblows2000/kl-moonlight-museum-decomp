@@ -20,7 +20,7 @@ NAMES = {
     0x21CE: 'state10_world_complete_scene',
     0x2409: 'state03_world_card_story',
     0x24BA: 'state04_vision_load',
-    0x25A6: 'state05_vision_restart_wipe',
+    0x25A6: 'state05_room_transition',
     0x2622: 'state06_miss_retry',
     0x2641: 'state16_resume_card',
     0x27A4: 'state13_lives_vision_over',
@@ -123,7 +123,9 @@ RAM = {
     0x1380: 'game_state',      # [high] index into game_state_table (main_loop)
     0x1386: 'vblank_line',     # [high] set to scanline by irq_vblank_game; HLT loops wait for != 0
     0x1398: 'play_flags',      # [high] bit3 pause menu, bit4 -> state 5, bit5 -> state 7 (clear), bit6 -> state 6 (miss)
-    0x13E0: 'lives_reserve',   # [medium] set to 3 on new game; decremented on a miss (4000:5614)
+    0x13E0: 'hearts',          # [high] player hit points: set to 3, decremented by coll_01_03 (damage); 0 -> state 13
+    0x03D9: 'player_hurt_timer',  # [high] player slot +19h: set to 100 on damage; state 13 when hearts=0 and < 3Ch
+    0x13DE: 'dream_stones',    # [medium] +1 / +5 per collectible type 32h (code review), shown on HUD
     0x13E1: 'lives',           # [high] signed; negative in state 13 -> VISION OVER prompt (runtime-verified)
     0x13FE: 'progress_code',   # [high] story key WVxx (world, vision); looked up by state09_story_sequencer
 }

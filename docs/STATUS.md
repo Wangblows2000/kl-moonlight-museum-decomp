@@ -8,6 +8,7 @@ This file records the target, the evidence behind the main findings, and open qu
 | date | work | commits |
 |---|---|---|
 | 2026-11-01 (1) | tracer, matching bank-4 source, BPE decoder, inventory | 40767c7, 3ff41b4 |
+| 2026-11-01 (3) | three parallel code-review passes document 705 routines (merged by tools/apply_proposals.py after validation and spot checks); RAM names corrected (13E0h = hearts); state 5 = room transition; save format corrected | see git log |
 | 2026-11-01 (2) | ROM-free CI, English build switch, traced emulator, all 20 game states, runtime coverage (found 2 missed HBlank handlers), role names for 447 entry points, runtime save tests, exact BPE re-encoding, data banks rebuilt from decoded assets, asset catalog | 21c2b54 .. HEAD |
 
 Correction to sprint 1: the game was developed by **Namco** ((c)1997 1998 NAMCO on the title
@@ -85,6 +86,19 @@ results under `build/runtime/` (git-ignored, ROM-derived).  Fault-injection comm
 
 Resolved from sprint 1: port C8h is written only on the internal-EEPROM write-timeout path;
 no run ever wrote it (`ports.txt`), consistent with an error path.
+
+## Findings from the code review (spot-checked)
+
+- Pause menu "? ? ?" = screen rotation (`pause_opt_rotate_screen`, 4000:0FAF): toggles
+  `play_flags` bit 0, LCD orientation icon (port 15h), rotates tiles in place.
+- State 5 is the room/door transition: warp records at 8000:[13C2h] (`sub_B332`).
+- 13E0h is the player's hearts (was mis-named lives_reserve); 3D9h is the hurt timer.
+- Original bug: `coll_0D_12` masks AX twice (`and ax,0FFF0h` at 4000:7F6E and 7F71) and never
+  masks DX; every similar callback masks both.  Preserved (matching build).
+- Sound driver: 4 tracks of 58h bytes at RAM 0100h, control block 0260h, bank-5 header
+  (waves, PCM, volume/pitch envelopes, 3-byte sound entries); PCM voice streamed by the
+  HBlank IRQ at 4000:E7B7 to port 89h.
+- Terrain collision map: 2 bits per 8x8 cell at RAM 0C80h (empty/solid/damage/kill).
 
 ## Open questions
 
