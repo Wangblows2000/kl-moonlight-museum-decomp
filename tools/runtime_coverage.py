@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Cross-check the static trace against every emulator run under build/runtime/*.
 
 Reports (and writes build/runtime_coverage.json):

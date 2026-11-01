@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Hand-assigned names for segment 4000h offsets and RAM addresses.
 
 Confidence tags used in comments:

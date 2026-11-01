@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Find every BPE stream in the ROM: header (dword packed_len, dword unpacked_len) whose
 decode consumes exactly packed_len bytes and produces exactly unpacked_len bytes."""
 import json, os, sys

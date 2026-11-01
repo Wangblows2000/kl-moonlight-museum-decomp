@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Generate docs/functions.md and build/functions.json: one row per code entry point.
 
 Naming basis:  hand  = named after reading the routine (symbols.py, with confidence tag)

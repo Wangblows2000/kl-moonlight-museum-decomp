@@ -1,3 +1,4 @@
+; SPDX-License-Identifier: GPL-3.0-or-later (annotations/tooling; see LICENSING.md)
 ; WonderSwan cartridge footer (file FFFF0h-FFFFFh).  Field meanings per WSdev wiki.
 ; Values verified against the baserom; the checksum is re-verified by tools/verify.py.
 

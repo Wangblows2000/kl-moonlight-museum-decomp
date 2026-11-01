@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Write assets/layout.json: an ordered, gap-free description of every data-bank byte.
 
 Region types:  bpe   decoded asset re-compressed at build time (tools/bpe_gage.py)

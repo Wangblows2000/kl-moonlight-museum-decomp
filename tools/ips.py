@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Minimal IPS patch tool (apply / describe), used for the optional English build.
 
   ips.py info  PATCH                     list records per ROM bank (offsets only)

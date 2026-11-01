@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Extract assets from the user's ROM into build/assets (git-ignored; never commit).
 
   build/assets/bpe/XXXXX.bin   decoded BPE stream (file offset XXXXX)

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Runtime tests in the traced Mednafen WonderSwan core (emu/ktrun).
 
 Need the ROM and a built harness (emu/build.sh); skipped otherwise.  Every assertion is

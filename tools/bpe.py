@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Byte-pair-encoding expander - Python port of 4000:C760 (sub_C760, "bpe_expand").
 
 Stream layout (offsets relative to the start of the stream):

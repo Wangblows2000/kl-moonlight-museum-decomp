@@ -1,4 +1,5 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Build the traced emulator harness (emu/ktrun) from a beetle-wswan-libretro checkout.
 #   emu/build.sh /path/to/beetle-wswan-libretro
 # The checkout must have the two hook lines applied (emu/core-hooks.patch).

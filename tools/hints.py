@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Manually verified tracing hints. Every entry needs a comment with its evidence."""
 
 SEEDS = [

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Compare build/klonoa.ws with baserom/baserom.ws and report per-bank results."""
 import hashlib, os, sys
 

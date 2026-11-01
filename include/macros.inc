@@ -1,3 +1,4 @@
+; SPDX-License-Identifier: GPL-3.0-or-later (annotations/tooling; see LICENSING.md)
 ; macros.inc - encoding helpers needed to byte-match the original assembler.
 ;
 ; The original binary was produced by a MASM/TASM-style assembler that encodes

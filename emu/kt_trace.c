@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Execution-tracing hooks linked into the Mednafen WonderSwan core (beetle-wswan).
  * The core is patched with two one-line calls (see emu/README.md):
  *   v30mz_execute():   kt_hook(linear PC)   before every instruction

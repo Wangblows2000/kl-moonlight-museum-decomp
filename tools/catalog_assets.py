@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Classify every BPE asset -> assets/catalog.json and docs/assets.md.
 
 Classification uses only structure (bank, tile count, trailing bytes) plus the visual checks

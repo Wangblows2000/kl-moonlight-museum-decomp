@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Per-routine facts from the trace: extent, callers, I/O ports, segment constants, IRQ status."""
 import json, os, re, bisect
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')

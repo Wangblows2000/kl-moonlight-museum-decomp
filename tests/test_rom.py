@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Byte-perfect ROM reconstruction and regeneration determinism (need the user's ROM)."""
 import hashlib
 import os

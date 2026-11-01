@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """The rr macro must produce the MASM-style D=1 reg,reg encoding for every op/register pair."""
 import itertools
 import os

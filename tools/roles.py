@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Role-based names for code entry points, derived only from how the code is dispatched.
 
 A role name states a proven *dispatch role*, not inferred behaviour:

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Bank-aware ROM inventory -> docs/inventory.md + build/inventory.json.
 
 Every byte gets exactly one class.  Higher-priority evidence wins.  Classes and evidence:

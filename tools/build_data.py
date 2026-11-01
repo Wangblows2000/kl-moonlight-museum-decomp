@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Build build/data.bin (1 MiB image of all data banks) from assets/layout.json.
 
   bpe  : build/assets/bpe/XXXXX.bin compressed with tools/bpe_gage.py (must equal layout sha1)

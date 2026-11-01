@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Source-assembly correctness - runs WITHOUT the ROM (used by CI).
 
 The committed source must assemble to banks whose hashes equal the original's.

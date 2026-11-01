@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Validate routine-documentation proposals (build/proposals/*.json) and merge them into
 tools/routine_docs.json, which gen_bank4.py / funcdoc.py read.
 

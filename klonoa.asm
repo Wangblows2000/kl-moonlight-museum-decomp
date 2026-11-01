@@ -1,3 +1,4 @@
+; SPDX-License-Identifier: GPL-3.0-or-later (annotations/tooling; see LICENSING.md)
 ; Kaze no Klonoa: Moonlight Museum (WonderSwan, SWJ-BAN008) - top-level build file.
 ;
 ;   nasm -O0 -f bin -o build/klonoa.ws klonoa.asm

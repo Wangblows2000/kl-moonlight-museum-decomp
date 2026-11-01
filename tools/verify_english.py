@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Verify the English build: known patch file, known output hash."""
 import hashlib, os, sys
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')

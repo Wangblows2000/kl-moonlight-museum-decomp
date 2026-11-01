@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Assemble asm/bank4.asm + footer WITHOUT the baserom and compare with the original bytes,
 proving the code bank is produced entirely from source (no incbin)."""
 import os, subprocess, sys, tempfile, hashlib

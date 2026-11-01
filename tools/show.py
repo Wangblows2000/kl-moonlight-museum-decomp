@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Show context for unresolved indirect transfers: preceding traced insns + table words."""
 import json, sys, os, re
 HERE = os.path.dirname(os.path.abspath(__file__))

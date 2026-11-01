@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Faithful port of Philip Gage's reference BPE compressor (compress.c, C/C++ Users
 Journal, Feb 1994), wrapped in the game's 8-byte header.
 

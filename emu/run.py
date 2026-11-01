@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Run an emu/scripts/*.txt scenario with the traced harness and summarise it.
 
   python3 emu/run.py SCRIPT [OUTDIR]        (KT_ROM=build/klonoa_en.ws for the English build)

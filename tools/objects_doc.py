@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 """docs/objects.md: every object type (0-63) with its handlers and runtime/visual evidence.
 
 Runtime data: build/runtime/atlas_w*/objtypes.txt (emu 'atlas' command: per-type slot-frame

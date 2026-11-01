@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Fail if anything that looks like ROM data is tracked by git.
 
 Checks tracked files for: ROM extensions, files >= 64 KiB of binary content, any file whose

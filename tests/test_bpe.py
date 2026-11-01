@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Decompression correctness: synthetic round trips (no ROM) and every catalogued stream (ROM)."""
 import hashlib
 import json

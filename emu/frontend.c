@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Headless libretro frontend for scripted runtime tests of Kaze no Klonoa: Moonlight Museum.
  *
  *   ktrun ROM SCRIPT OUTDIR
