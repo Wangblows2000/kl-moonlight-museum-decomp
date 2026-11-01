@@ -3724,21 +3724,19 @@
 },
 {
 "offset": "768A0",
-"size": 276,
-"type": "raw",
-"sha1": "1ba75b9ab3089bb03d26dd3b02f9c9de2db322d5"
+"size": 576,
+"type": "gfx_tiles",
+"family": "unused_sprites",
+"name": "unused_enemy_a_3x3",
+"params": {
+"frame": [
+3,
+3
+],
+"frames_per_row": 4
 },
-{
-"offset": "769B4",
-"size": 18,
-"type": "fill",
-"value": "00"
-},
-{
-"offset": "769C6",
-"size": 282,
-"type": "raw",
-"sha1": "c16ae5b0c7f327828707e93058b0cc9da903bfec"
+"evidence": "UNUSED: no code, pointer table or runtime read references these bytes (docs/formats/gfx.md); classified as sprite tiles because they decode as coherent 2bpp images: four 24x24 animation frames (3x3 tiles each) of a spiked enemy; located between load_obj05_tiles data (ends 768A0h) and lvl1e_tiles_copy (76AE0h)",
+"sha1": "3b2c8c75f7ca0d31da5c7e471beefb5df3aa4ef3"
 },
 {
 "offset": "76AE0",
@@ -3838,27 +3836,19 @@
 },
 {
 "offset": "777C0",
-"size": 14,
-"type": "fill",
-"value": "00"
+"size": 576,
+"type": "gfx_tiles",
+"family": "unused_sprites",
+"name": "unused_enemy_b_3x3",
+"params": {
+"frame": [
+3,
+3
+],
+"frames_per_row": 4
 },
-{
-"offset": "777CE",
-"size": 412,
-"type": "raw",
-"sha1": "3557487bf648140fbf67e5275e7d52bf6d63d1c9"
-},
-{
-"offset": "7796A",
-"size": 18,
-"type": "fill",
-"value": "00"
-},
-{
-"offset": "7797C",
-"size": 132,
-"type": "raw",
-"sha1": "1c543251f53b7ed1b877c166056c7181e5b992ae"
+"evidence": "UNUSED: no code, pointer table or runtime read references these bytes (docs/formats/gfx.md); classified as sprite tiles because they decode as coherent 2bpp images: four 24x24 animation frames (3x3 tiles each) of a hooded enemy; located between copy_tiles_7580_for_obj2e data (ends 777C0h) and copy_tiles_7a00_for_obj2f (77A00h)",
+"sha1": "c020ecfe76d812411d4b4336c8ed6c01cf89c58e"
 },
 {
 "offset": "77A00",
@@ -4037,7 +4027,13 @@
 {
 "offset": "79482",
 "size": 16,
-"type": "raw",
+"type": "gfx_tiles",
+"family": "unused_sprites",
+"name": "unused_ring_tile",
+"params": {
+"width": 1
+},
+"evidence": "UNUSED: no code, pointer table or runtime read references these bytes (docs/formats/gfx.md); classified as sprite tiles because they decode as coherent 2bpp images: one 8x8 ring tile directly after the 16 tiles of lvl1d (79382h-79482h), before the logo tiles",
 "sha1": "60e25c027f3a754399d905fdd7cd450fb465b791"
 },
 {
@@ -4055,7 +4051,11 @@
 {
 "offset": "79862",
 "size": 14,
-"type": "raw",
+"type": "fill",
+"family": "gfx_fill",
+"name": "pad_79862",
+"value": "FF",
+"evidence": "14 FFh bytes between the logo tiles and the collision radius matrix (79870h); never read",
 "sha1": "cd518f635f41f18e181adf579db8e1c3952ba27b"
 },
 {

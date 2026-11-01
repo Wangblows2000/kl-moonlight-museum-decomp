@@ -245,6 +245,22 @@
    "confidence": "high"
   },
   {
+   "offset": "768A0",
+   "size": 576,
+   "type": "gfx_tiles",
+   "family": "unused_sprites",
+   "name": "unused_enemy_a_3x3",
+   "params": {
+    "frame": [
+     3,
+     3
+    ],
+    "frames_per_row": 4
+   },
+   "evidence": "UNUSED: no code, pointer table or runtime read references these bytes (docs/formats/gfx.md); classified as sprite tiles because they decode as coherent 2bpp images: four 24x24 animation frames (3x3 tiles each) of a spiked enemy; located between load_obj05_tiles data (ends 768A0h) and lvl1e_tiles_copy (76AE0h)",
+   "confidence": "medium"
+  },
+  {
    "offset": "76AE0",
    "size": 576,
    "type": "gfx_tiles",
@@ -339,6 +355,22 @@
    },
    "evidence": "copy_tiles_7580_for_obj2e (4000:A9E6): 120h words from 7000:7580 -> AX; runtime reader confirmed (vision runs)",
    "confidence": "high"
+  },
+  {
+   "offset": "777C0",
+   "size": 576,
+   "type": "gfx_tiles",
+   "family": "unused_sprites",
+   "name": "unused_enemy_b_3x3",
+   "params": {
+    "frame": [
+     3,
+     3
+    ],
+    "frames_per_row": 4
+   },
+   "evidence": "UNUSED: no code, pointer table or runtime read references these bytes (docs/formats/gfx.md); classified as sprite tiles because they decode as coherent 2bpp images: four 24x24 animation frames (3x3 tiles each) of a hooded enemy; located between copy_tiles_7580_for_obj2e data (ends 777C0h) and copy_tiles_7a00_for_obj2f (77A00h)",
+   "confidence": "medium"
   },
   {
    "offset": "77A00",
@@ -509,6 +541,18 @@
    "confidence": "high"
   },
   {
+   "offset": "79482",
+   "size": 16,
+   "type": "gfx_tiles",
+   "family": "unused_sprites",
+   "name": "unused_ring_tile",
+   "params": {
+    "width": 1
+   },
+   "evidence": "UNUSED: no code, pointer table or runtime read references these bytes (docs/formats/gfx.md); classified as sprite tiles because they decode as coherent 2bpp images: one 8x8 ring tile directly after the 16 tiles of lvl1d (79382h-79482h), before the logo tiles",
+   "confidence": "medium"
+  },
+  {
    "offset": "79492",
    "size": 976,
    "type": "gfx_tiles",
@@ -518,6 +562,16 @@
     "width": 16
    },
    "evidence": "logo_load_tiles (4000:C046): 1E8h words (61 tiles) from 7000:9492 -> tile RAM 2640h (tiles 64h-), Namco-logo state; absorbs the FFh runs inside it (classed as padding: they are solid tile rows). Runtime: logo_load_tiles",
+   "confidence": "high"
+  },
+  {
+   "offset": "79862",
+   "size": 14,
+   "type": "fill",
+   "family": "gfx_fill",
+   "name": "pad_79862",
+   "value": "FF",
+   "evidence": "14 FFh bytes between the logo tiles and the collision radius matrix (79870h); never read",
    "confidence": "high"
   },
   {

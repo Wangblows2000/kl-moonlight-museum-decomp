@@ -24,8 +24,8 @@ def test_fragment_shape_and_no_overlap():
     prev = 0
     for s in sorted(_structs(), key=lambda s: int(s['offset'], 16)):
         a = int(s['offset'], 16)
-        assert len(s['offset']) == 5 and s['type'].startswith('gfx_')
-        assert s['type'] in fmt_gfx.CODECS
+        assert len(s['offset']) == 5 and (s['type'].startswith('gfx_') or s['type'] == 'fill')
+        assert s['type'] in fmt_gfx.CODECS or s['type'] == 'fill'
         assert 0x20000 <= a and a + s['size'] <= 0x2F000 or 0x70000 <= a and a + s['size'] <= 0x7D870
         assert a >= prev
         prev = a + s['size']
@@ -84,6 +84,9 @@ def test_every_structure_round_trips(tmp_path):
     for s in _structs():
         a = int(s['offset'], 16)
         blob = rom[a:a + s['size']]
+        if s['type'] == 'fill':
+            assert blob == bytes([int(s['value'], 16)]) * s['size'], s['offset']
+            continue
         c = fmt_gfx.CODECS[s['type']]
         c.extract(blob, s, str(tmp_path))
         assert c.build(s, str(tmp_path)) == blob, s['offset']

@@ -41,7 +41,9 @@ for r in amap:
         key = 'generated_unexplained' if r['class'] == 'zero_run' else r['representation']
         data_by_rep[key] = data_by_rep.get(key, 0) + n
 DATA = sum(data_by_class.values())
-data_classified = DATA - data_by_class.get('unknown', 0) - data_by_class.get('zero_run', 0)
+data_classified = DATA - data_by_class.get('unknown', 0) - data_by_class.get('zero_run', 0) - data_by_class.get('exception', 0)
+EXC = J('assets', 'exceptions.json')['exceptions']
+exc_bytes = sum(x['size'] for x in EXC)
 data_decoded = data_by_rep.get('editable', 0) + data_by_rep.get('generated', 0)
 
 n_ep = len(funcs)
@@ -73,13 +75,15 @@ metrics = {
         'percent': pct(data_classified, DATA), 'numerator': data_classified, 'denominator': DATA,
         'definition': 'data bytes whose class (asset, tiles, table, padding) is established by code or decoding',
         'breakdown': data_by_class,
-        'remaining': '%d unknown bytes + %d zero-run bytes of unestablished meaning' % (
-            data_by_class.get('unknown', 0), data_by_class.get('zero_run', 0))},
+        'remaining': '%d unknown bytes + %d zero-run bytes of unestablished meaning + %d bytes in documented '
+                     'exceptions (assets/exceptions.json)' % (
+            data_by_class.get('unknown', 0), data_by_class.get('zero_run', 0), data_by_class.get('exception', 0))},
     'data_decoding_editable': {
         'percent': pct(data_decoded, DATA), 'numerator': data_decoded, 'denominator': DATA,
         'definition': 'data bytes rebuilt from an editable decoded representation (PNG etc.) or generated FFh padding',
         'breakdown': data_by_rep,
-        'remaining': '%d opaque bytes (gamedata/raw) + %d generated zero-run bytes not yet explained' % (
+        'remaining': '%d opaque bytes (gamedata/raw; all listed in assets/exceptions.json) + %d generated '
+                     'zero-run bytes not yet explained' % (
             data_by_rep.get('opaque', 0), data_by_rep.get('generated_unexplained', 0))},
     'runtime_coverage': {
         'percent': pct(cov['static_instructions_executed'], cov['static_instructions']),
@@ -107,6 +111,10 @@ overall = {
     'decompiled_bytes': decompiled, 'rom_bytes': ROM, 'percent': pct(decompiled, ROM),
     'definition': 'bytes that are classified AND represented as source, editable data or explained generated '
                   'padding; 100 % only when this equals 1,048,576 and every metric is 100 %',
+    'documented_exceptions_bytes': exc_bytes,
+    'percent_including_documented_exceptions': pct(decompiled + exc_bytes, ROM),
+    'note': 'documented exceptions are rebuilt exactly and listed with bounds and reason (assets/exceptions.json) '
+            'but are NOT counted as decompiled, because their meaning is not established',
 }
 status = {
     'build_fidelity': 'VERIFIED', 'compression': 'VERIFIED', 'ci': 'VERIFIED (ubuntu + windows)',

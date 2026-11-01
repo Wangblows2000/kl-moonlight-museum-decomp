@@ -5114,7 +5114,12 @@ random_next:
     pop cx                                   ; 42BC1
     ret                                      ; 42BC2
 
-dead_2BC3:
+; UNREFERENCED (no caller; never executed). Steps the 9-bit pseudo-random value at [1394h]: rotates bit 8 into the low bits, folds shifted bits back in with XOR and masks to 1FFh (an LFSR-style step). [medium, reviewed: manual review 2026-11-01 (session 4)]
+; in:  none
+; out: AX = new value; [1394h] = AX
+; side effects: CX, DX preserved
+; evidence: 42BC3-42BE3: mov ax,[0x1394] / and ax,0x1ff / rcr ah,1 / rcr al,1 / rcr ah,1 / rol ah,1 / rcl dx,cl(5) / xor ax,dx / and ax,0x1ff / mov [0x1394],ax / ret
+unused_rng9_step:
     push cx                                  ; 42BC3
     push dx                                  ; 42BC4
     mov cl,0x5                               ; 42BC5
@@ -9569,12 +9574,12 @@ loc_5098:
     pop dx                                   ; 45099
     ret                                      ; 4509A
 
-; Player helper used while [3D2h] bits 1-2 are set: zeroes [3CEh] and the player's vertical velocity/accel bytes, adjusts [3D4h] by the up/down keys and moves vy by -10h (up, unless [3D0h] bit7) or +10h (down), setting [3D2h] bits 4/5. Purpose (climbing/swimming-like mode) not confirmed. [low, reviewed: range_0000_7B9B.json]
-; in:  BX/DX = held/new keys (remapped), [3D0h], [3D2h]
-; out: [3CEh], [3C8h], [3C9h], [3D4h], [3D2h], BP bit4 cleared
+; Player helper called from the player update (4000:51D9) while player +12h bits 1-2 ([3D2h] AND 6) are set: zeroes the player velocity words +0Eh/+8/+9, decrements +14h, and re-adjusts it from the key words BX/DX (keys 50h); key 10h (unless +10h bit 7) subtracts 10h from the y-velocity byte +8 and key 40h adds 10h, setting +12h bits 4/5; finally clears BP bit 4.  Never executed in our runs; the gameplay situation that sets those bits is not identified. [medium, reviewed: manual review 2026-11-01 (session 4)]
+; in:  BX, DX = key words; BP = player flags word
+; out: player slot 03C0h: +8, +9, +0Eh, +12h, +14h; BP
 ; side effects: none
-; evidence: 4509D-450A3 zero [0x3ce],[0x3c8],[0x3c9]; 450A6 dec byte [0x3d4]; 450AA test bx,0x50; 450CC or word [0x3d2],0x10; sub byte [0x3c8],0x10; 450E3 or [0x3d2],0x20; add byte [0x3c8],0x10; 450F4 and bp,0xffef. Not executed in recorded runs.
-sub_509B:
+; evidence: 4509B-450F8: mov [0x3ce],ax(0) / mov [0x3c8],ax / dec byte [0x3d4] / test bx,0x50 / test dx,0x50 / add byte [0x3d4],4 / test bx,0x10 / sub byte [0x3c8],0x10 / test bx,0x40 / add byte [0x3c8],0x10 / and bp,0xffef; caller 451D9 after test word [0x3d2],6
+player_flagged_move_input:
     rr xor, ax, ax                           ; 4509B
     mov [0x3ce],ax                           ; 4509D
     mov [0x3c8],ax                           ; 450A0
@@ -9698,7 +9703,7 @@ loc_51C7:
 loc_51D1:
     test word [0x3d2],0x6                    ; 451D1
     jz short loc_51DF                        ; 451D7
-    call sub_509B                            ; 451D9
+    call player_flagged_move_input           ; 451D9
     jmp near loc_5207                        ; 451DC
 loc_51DF:
     test dx,0x400                            ; 451DF
@@ -13659,7 +13664,12 @@ loc_7149:
     pop ax                                   ; 4714A
     ret                                      ; 4714B
 
-dead_714C:
+; UNREFERENCED (no caller; never executed). Older collision-landing variant: if [SI+0Eh]=0 and AX>=BX, either just sets SI+11h bit 6 (BP<=0) or snaps SI on top of DI (SI.y = (DI.y AND FFF0h)-180h), sets SI+11h bit 6, clears SI+0Ch bit 5 and sets SI+8 = 0100h. [medium, reviewed: manual review 2026-11-01 (session 4)]
+; in:  SI, DI = object slots; AX, BX = overlap distances; BP = vertical delta
+; out: SI fields +4, +8, +0Ch, +11h
+; side effects: none
+; evidence: 4714C-4717D: cmp word [si+0xe],0 / cmp ax,bx / cmp bp,0 / or byte [si+0x11],0x40 / sub ax,0x180 / mov [si+0x4],ax / and word [si+0xc],0xffdf / mov [si+0x8],0x100
+unused_coll_land_variant:
     cmp word [si+0xe],byte +0x0              ; 4714C
     jnz short loc_7156                       ; 47150
     rr cmp, ax, bx                           ; 47152
@@ -16549,11 +16559,11 @@ coll_12_18_platform_push_rev:
     xchg di,si                               ; 48521
     ret                                      ; 48523
 
-; Swaps DI and SI, calls coll_15_18 (type 15h vs platform) with the roles reversed, swaps back. [low, reviewed: range_7B9C_A99F.json]
-; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; Collision callback (matrix convention coll_<type of DI>_<type of SI>). Swapped wrapper: exchanges SI and DI and calls coll_15_18. [high, reviewed: manual review 2026-11-01 (session 4)]
+; in:  SI, DI
 ; out: as coll_15_18
-; side effects: as coll_15_18
-; evidence: xchg di,si / call coll_15_18 / xchg di,si / ret
+; side effects: none
+; evidence: 48524-4852B: xchg di,si / call coll_15_18 / xchg di,si / ret
 ; dispatch roles: coll_18_15, coll_26_15
 coll_18_15:
     xchg di,si                               ; 48524
@@ -16561,11 +16571,11 @@ coll_18_15:
     xchg di,si                               ; 48529
     ret                                      ; 4852B
 
-; Type 15h object (DI) vs moving platform 18h/26h (SI), extents 1C0h x 140h: on side contact while moving toward SI, DI is placed beside SI, its vx is zeroed and +13h set to at least 1 (stops velocity application); on vertical contact DI is set on top of SI (y = SI.y - 140h, x low nibble from SI) or, when below, SI's vertical direction is reversed. [low, reviewed: range_7B9C_A99F.json]
-; in:  DI = object of type 15 (matrix row), SI = object of type 18/26 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
-; out: DI+2/+4/+6/+13h/+11h/+0Ch, SI+12h/+11h
+; Collision callback (matrix convention coll_<type of DI>_<type of SI>). Thrown block DI (15h) vs scripted mover SI (18h/26h): within 1C0h horizontally and 140h vertically (1/16 px). Side contact: if DI moves toward SI, push DI to SI.x +/- 1C0h, set side-contact bits (+11h 10h/20h) on both, zero DI x velocity and set DI+13h to at least 1. Vertical: DI above SI -> DI rests on SI (DI.y = SI.y-140h, keeps its sub-cell x); DI below -> reverse SI direction (+12h) if heading the wrong way and clear DI +0Ch bit 5. [medium, reviewed: manual review 2026-11-01 (session 4)]
+; in:  SI, DI = object slots
+; out: DI +2/+4/+6/+0Ch/+11h/+13h; SI +11h/+12h
 ; side effects: none
-; evidence: cmp ax,1C0h; cmp ax,140h; shr bx,1 / cmp ax,bx; mov [di+6],ax(0); cmp al,1 / adc al,0 / mov [di+13h],al; sub ax,140h / mov [di+4],ax
+; evidence: 4852C-48608: and ax,0xfff0 / cmp ax,0x1c0 / cmp ax,0x140 / shr bx,1 / sub ax,0x1c0 / mov [di+2],ax / or byte [si+0x11],0x20 / mov [di+6],ax(0) / adc al,0 -> [di+0x13] / sub ax,0x140 / mov [di+4],ax
 ; dispatch roles: coll_15_18, coll_15_26
 coll_15_18:
     mov ax,[si+0x2]                          ; 4852C
@@ -16666,11 +16676,11 @@ loc_85EA:
     ret                                      ; 48608
     nop                                      ; 48609
 
-; Moving platform (18h/26h, DI) vs object 0Ah/0Eh/14h (SI) that shares the player's x: side contact pushes SI to DI.x -/+ 1D0h and writes the same x to the player ([3C2h]); vertical contact with DI above: a type-0Ah SI is pushed below DI (y = DI.y + 140h), otherwise DI's vertical direction is reversed and an upward-moving player has its vy cancelled ([3C4h] += -vy, [3C8h] = 0). [low, reviewed: range_7B9C_A99F.json]
-; in:  DI = object of type 18/26 (matrix row), SI = object of type 0A/0E/14 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
-; out: SI+2/+4, [3C2h], [3C4h], [3C8h], DI+12h, contact bits
+; Collision callback (matrix convention coll_<type of DI>_<type of SI>). Solid mover DI (18h/26h) vs carried/held object SI (0Ah carried enemy, 0Eh held enemy, 14h carried block): within 1C0h x / 140h y. Side contact pushes SI to DI.x +/- 1D0h and moves the player there too ([3C2h]), setting side-contact bits. Vertical: clears SI +0Ch bit 5; if SI is below DI: a type-0Ah object is pushed under DI (SI.y = DI.y+140h, bits 40h/80h), otherwise DI direction is reversed if needed and an upward player velocity ([3C8h] < 0) is cancelled by moving the player back ([3C4h]). [medium, reviewed: manual review 2026-11-01 (session 4)]
+; in:  SI, DI = object slots
+; out: SI +2/+4/+0Ch/+11h; DI +11h/+12h; player x/y/vy [3C2h]/[3C4h]/[3C8h]
 ; side effects: none
-; evidence: sub ax,1D0h / mov [si+2],ax / mov [3C2h],ax; cmp byte [si],0Ah; mov al,[3C8h] / neg al / cbw / add [3C4h],ax / mov byte [3C8h],0
+; evidence: 4860A-486DD: cmp ax,0x1c0 / cmp ax,0x140 / sub ax,0x1d0 / mov [si+2],ax / mov [0x3c2],ax / cmp byte [si],0xa / add ax,0x140 / mov al,[0x3c8] / neg al / add [0x3c4],ax / mov byte [0x3c8],0
 ; dispatch roles: coll_18_0A, coll_18_0E, coll_18_14, coll_26_0A, coll_26_0E, coll_26_14
 coll_18_0A:
     mov ax,[di+0x2]                          ; 4860A
@@ -16767,11 +16777,11 @@ loc_86C8:
 loc_86DD:
     ret                                      ; 486DD
 
-; Swaps DI and SI, calls coll_18_0A (platform vs player-attached object) with the roles reversed, swaps back. [low, reviewed: range_7B9C_A99F.json]
-; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; Collision callback (matrix convention coll_<type of DI>_<type of SI>). Swapped wrapper: exchanges SI and DI and calls coll_18_0A. [high, reviewed: manual review 2026-11-01 (session 4)]
+; in:  SI, DI
 ; out: as coll_18_0A
-; side effects: as coll_18_0A
-; evidence: xchg di,si / call coll_18_0A / xchg di,si / ret
+; side effects: none
+; evidence: 486DE-486E5: xchg di,si / call coll_18_0A / xchg di,si / ret
 ; dispatch roles: coll_0A_18, coll_0A_26, coll_0E_18, coll_0E_26, coll_14_18, coll_14_26
 coll_0A_18:
     xchg di,si                               ; 486DE
@@ -16779,11 +16789,11 @@ coll_0A_18:
     xchg di,si                               ; 486E3
     ret                                      ; 486E5
 
-; Block (12h/27h, DI) vs object 0Ah/0Eh/14h (SI), extents 180h: side contact pushes SI (and the player x [3C2h]) to DI.x -/+ 180h, turning a horizontally moving DI around unless SI is 0Ah/0Eh; vertical contact with DI above: SI 0Ah/0Eh is pushed below, otherwise DI is put on top of SI (y = SI.y - 180h) and an upward-moving player has its vy cancelled; DI below: SI+12h = 3. [low, reviewed: range_7B9C_A99F.json]
-; in:  DI = object of type 12/27 (matrix row), SI = object of type 0A/0E/14 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
-; out: SI/DI positions, [3C2h], [3C4h], [3C8h], SI+12h, contact bits
+; Collision callback (matrix convention coll_<type of DI>_<type of SI>). Block DI (12h) vs carried/held object SI (0Ah/0Eh/14h; also used for 12h vs 0Eh/14h/27h pairs): within 180h in both axes. Side contact: unless SI is 0Ah/0Eh or DI is stationary, reverse DI direction (+12h) and update its facing bits (+0Ch bits 0-1); push SI to DI.x +/- 180h and move the player x ([3C2h]) with it. Vertical: SI above DI -> SI+12h = 3 (standing on it). DI above SI: 0Ah/0Eh are pushed below (SI.y = DI.y+180h); a type-05h DI only reverses direction; otherwise DI rests on SI (DI.y = SI.y-180h) and an upward player velocity is cancelled. [medium, reviewed: manual review 2026-11-01 (session 4)]
+; in:  SI, DI = object slots
+; out: SI +2/+4/+0Ch/+11h/+12h; DI +4/+0Ch/+11h/+12h; player [3C2h]/[3C4h]/[3C8h]
 ; side effects: none
-; evidence: cmp ax,180h (x and y); cmp byte [si],0Ah / 0Eh; sub ax,180h / mov [si+2],ax / mov [3C2h],ax; mov byte [si+12h],3. The 'cmp byte [di],5' branch at 87B6 cannot match for the listed row types.
+; evidence: 486E6-48815: cmp ax,0x180 (x and y) / cmp byte [si],0xa / cmp byte [si],0xe / mov bp,[di+0xc] / and bp,0xfffc / neg al / mov [di+0x12],al / sub ax,0x180 / mov [0x3c2],ax / cmp byte [di],5 / mov byte [si+0x12],3
 ; dispatch roles: coll_12_0A, coll_12_0E, coll_12_14, coll_27_14
 coll_12_0A:
     mov ax,[di+0x2]                          ; 486E6
@@ -16937,11 +16947,11 @@ dead_8816:
 dead_882B:
     nop                                      ; 4882B
 
-; Swaps DI and SI, calls coll_12_0A (block vs player-attached object) with the roles reversed, swaps back. [low, reviewed: range_7B9C_A99F.json]
-; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; Collision callback (matrix convention coll_<type of DI>_<type of SI>). Swapped wrapper: exchanges SI and DI and calls coll_12_0A. [high, reviewed: manual review 2026-11-01 (session 4)]
+; in:  SI, DI
 ; out: as coll_12_0A
-; side effects: as coll_12_0A
-; evidence: xchg di,si / call coll_12_0A / xchg di,si / ret
+; side effects: none
+; evidence: 4882C-48833: xchg di,si / call coll_12_0A / xchg di,si / ret
 ; dispatch roles: coll_0A_12, coll_0A_27, coll_0E_12, coll_0E_27, coll_14_12, coll_14_27
 coll_0A_12:
     xchg di,si                               ; 4882C
@@ -16949,11 +16959,11 @@ coll_0A_12:
     xchg di,si                               ; 48831
     ret                                      ; 48833
 
-; Type 05h/06h (DI) vs type 14h (SI). If the player is in the hurt state ([3CCh] bit 12) sets SI+12h = 3; otherwise halves SI+12h, and when within 190h x 180h halves it again (setting it to 3 if the shifted-out bit was 1) and then separates the two like coll_12_0A_solid_separate (also writing the player x / cancelling player vy). [low, reviewed: range_7B9C_A99F.json]
-; in:  DI = object of type 05/06 (matrix row), SI = object of type 14 (column); called by objects_collide when |dx|+|dy| is within the radius from 7:9870
-; out: SI+12h, SI/DI positions, [3C2h], [3C4h], [3C8h]
+; Collision callback (matrix convention coll_<type of DI>_<type of SI>). Script mover DI (05h/06h) vs carried block SI (14h): if player flags [3CCh] bit 12 is set, SI+12h = 3 and return. Otherwise halves SI+12h; within 190h x / 180h y: if the halved-out bit was set, SI+12h = 3; side contact reverses DI direction (and facing bits) and pushes SI and the player x to DI.x +/- 180h; vertical with SI above -> SI+12h = 3; SI below -> reverse DI direction if needed, DI rests on SI (DI.y = SI.y-180h) and an upward player velocity is cancelled. [medium, reviewed: manual review 2026-11-01 (session 4)]
+; in:  SI, DI = object slots
+; out: SI +2/+11h/+12h; DI +4/+0Ch/+11h/+12h; player [3C2h]/[3C4h]/[3C8h]
 ; side effects: none
-; evidence: test word [3CCh],1000h / mov byte [si+12h],3; shr byte [si+12h],1 (twice); cmp ax,190h; cmp ax,180h; sub ax,180h / mov [3C2h],ax. Meaning of +12h for type 14h not established.
+; evidence: 48834-48951: test word [0x3cc],0x1000 / mov byte [si+0x12],3 / shr byte [si+0x12],1 / cmp ax,0x190 / cmp ax,0x180 / jnc / sub ax,0x180 / mov [0x3c2],ax / mov [di+4],ax / add [0x3c4],ax
 ; dispatch roles: coll_05_14, coll_06_14
 coll_05_14:
     test word [0x3cc],0x1000                 ; 48834
@@ -17083,11 +17093,11 @@ loc_894D:
     mov byte [si+0x12],0x3                   ; 4894D
     ret                                      ; 48951
 
-; Swaps DI and SI, calls coll_05_14 (type 05h/06h vs 14h) with the roles reversed, swaps back. [low, reviewed: range_7B9C_A99F.json]
-; in:  DI/SI = the two colliding objects (column type in DI after the swap)
+; Collision callback (matrix convention coll_<type of DI>_<type of SI>). Swapped wrapper: exchanges SI and DI and calls coll_05_14. [high, reviewed: manual review 2026-11-01 (session 4)]
+; in:  SI, DI
 ; out: as coll_05_14
-; side effects: as coll_05_14
-; evidence: xchg di,si / call coll_05_14 / xchg di,si / ret
+; side effects: none
+; evidence: 48952-48959: xchg di,si / call coll_05_14 / xchg di,si / ret
 ; dispatch roles: coll_14_05, coll_14_06
 coll_14_05:
     xchg di,si                               ; 48952
@@ -17142,11 +17152,11 @@ lvl08_spawn_obj19:
     ret                                      ; 489A2
     nop                                      ; 489A3
 
-; Type 19h update (two vertical coordinates over a fixed base +1Ah): +18h is a top level driven upward by the velocity/accel in +8 (min speed -40h) and clamped at base-190h; when the player is more than 600h above it the drawn y (+4) is parked at the base, otherwise +4 rises 4 or 16 units per frame and wraps back near the base depending on the player's y (+/-600h, +/-C00h in rotated mode). Map probes (sub_43E5, CH = 8) at +18h and +1Ch reset them on a hit; +1Ch rises 20h per frame and wraps to base-180h. [low, reviewed: range_7B9C_A99F.json]
-; in:  DI = object slot (called from objects_update with ES = 8000h); player y [3C4h]
-; out: +4, +8, +10h, +12h, +14h, +18h, +1Ch
-; side effects: calls sub_43E5
-; evidence: mov dx,[di+18h] / add al,ah / cmp al,0C0h; sub dx,190h; mov ax,[3C4h] / add ax,600h; and bp,600h / add bp,600h (play_flags bit 0); call sub_43E5 / test bh,8; sub word [di+1Ch],20h. coll_19_12/26 limit the fall speed of objects between +18h and +1Ah. Purpose (bubble/air column?) not confirmed.
+; Type 19h update (rising surface that follows the player from below, drawn by obj19_draw_wobble_sprites): marks the slot updated, counts +14h, integrates a vertical velocity (+8, accel +9, clamped >= -40h) into the surface y +18h (limited to +1Ah-190h). While the player ([3C4h]) is more than 600h above, the surface rises toward (or snaps to) a band around the player y (600h, or C00h when play_flags bit 0 = rotated screen) with a 2-frame wobble; otherwise it stays at its base +1Ah. Terrain checks (terrain_attr_at, attr bit 0Bh) at +18h and +1Ch stop the rise and reset the second level +1Ch, which then climbs 20h per frame. [medium, reviewed: manual review 2026-11-01 (session 4)]
+; in:  DI = object slot
+; out: DI +4, +8, +10h, +12h, +14h, +18h, +1Ch
+; side effects: calls terrain_attr_at
+; evidence: 489A4-48A9D: or byte [di+1],2 / inc byte [di+0x14] / add al,ah / cmp al,0xc0 / sub dx,0x190 / mov ax,[0x3c4] / add ax,0x600 / and bp,0x600 / call terrain_attr_at / test bh,8 / sub word [di+0x1c],0x20
 obj19_update:
     or byte [di+0x1],0x2                     ; 489A4
     inc byte [di+0x14]                       ; 489A8
@@ -23502,7 +23512,12 @@ load_font_tiles:
     popa                                     ; 4B73A
     ret                                      ; 4B73B
 
-dead_B73C:
+; UNREFERENCED (no caller; never executed). Appends one character sprite to the sprite list at [1382h]: tile = AX-20h+14Bh (ASCII code into the font tiles), attribute 2000h, position word DX; advances [1382h] by 4. [medium, reviewed: manual review 2026-11-01 (session 4)]
+; in:  AX = ASCII code; DX = sprite position (y:x)
+; out: [1382h] += 4; one sprite entry written
+; side effects: AX, BX, DX, SI preserved
+; evidence: 4B73C-4B75D: sub ax,0x20 / add ax,0x14b / or ax,0x2000 / mov bx,[0x1382] / add word [0x1382],4 / mov [bx],ax / mov [bx+2],dx
+unused_sprite_put_ascii:
     push ax                                  ; 4B73C
     push bx                                  ; 4B73D
     push dx                                  ; 4B73E
@@ -23521,9 +23536,12 @@ dead_B73C:
     pop ax                                   ; 4B75C
     ret                                      ; 4B75D
 
-; UNREFERENCED CODE 4B75E-4B78A (no caller, jump or table entry; never executed): complete routine: emit one hex-digit sprite (tile 15Bh+digit, A-F +7) at DX
-; evidence: decodes as push/pop-balanced routine; only caller is the dead cluster 4B7F0-4B8F3; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
-sub_B75E:
+; Called only by the unreferenced debug hex printers (4000:B7F0-B8F3, used by the debug sound-test screen 4000:F01A). Appends one hex-digit sprite to the sprite list at [1382h]: tile = 15Bh+digit, +7 for A-F (skipping to the letter tiles), attribute 2C00h, position DX. [high, reviewed: manual review 2026-11-01 (session 4)]
+; in:  AX = digit 0-15; DX = sprite position (y:x)
+; out: [1382h] += 4; one sprite entry written
+; side effects: AX, BX, DX, SI preserved
+; evidence: 4B75E-4B789: cmp ax,0xa / sbb bx,bx / not bx / and bx,7 / add ax,bx / add ax,0x15b / or ax,0x2c00 / mov bx,[0x1382] / add word [0x1382],4; callers 4B7F5..4B8xx all inside dead range B7F0-B8F4
+debug_sprite_hex_digit:
     push ax                                  ; 4B75E
     push bx                                  ; 4B75F
     push dx                                  ; 4B760
@@ -23600,13 +23618,16 @@ loc_B7EE:
     popa                                     ; 4B7EE
     ret                                      ; 4B7EF
 
-; UNREFERENCED CODE 4B7F0-4B8F4 (no caller, jump or table entry; never executed): complete routines: print a nibble / byte / word as hex sprites (horizontal and vertical variants) using 4B75E
-; evidence: decode as complete routines calling 4000:B75E; their only callers are in the dead debug routine 4F01A-4F147; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
-sub_B7F0:
+; Part of the unreferenced debug hex printers: draws the low nibble of AX as one hex-digit sprite (debug_sprite_hex_digit). The following code (B7FB-B8F3) prints bytes/words as 2/4 digits, horizontally or vertically. [high, reviewed: manual review 2026-11-01 (session 4)]
+; in:  AX (low nibble used); DX = position
+; out: one sprite entry
+; side effects: AX, DX preserved
+; evidence: 4B7F0-4B7FA: push ax / push dx / and ax,0xf / call sub_B75E / pop dx / pop ax / ret
+debug_sprite_hex_nibble:
     push ax                                  ; 4B7F0
     push dx                                  ; 4B7F1
     and ax,0xf                               ; 4B7F2
-    call sub_B75E                            ; 4B7F5
+    call debug_sprite_hex_digit              ; 4B7F5
     pop dx                                   ; 4B7F8
     pop ax                                   ; 4B7F9
     ret                                      ; 4B7FA
@@ -23622,12 +23643,12 @@ dead_B7FB:
     add dh,0x8                               ; 4B802
     rr mov, ch, al                           ; 4B805
     and ax,0xf                               ; 4B807
-    call sub_B75E                            ; 4B80A
+    call debug_sprite_hex_digit              ; 4B80A
     sub dh,0x8                               ; 4B80D
     shr ch,cl                                ; 4B810
     rr mov, al, ch                           ; 4B812
     and ax,0xf                               ; 4B814
-    call sub_B75E                            ; 4B817
+    call debug_sprite_hex_digit              ; 4B817
     pop dx                                   ; 4B81A
     pop cx                                   ; 4B81B
     pop ax                                   ; 4B81C
@@ -23644,12 +23665,12 @@ dead_B81E:
     add dl,0x8                               ; 4B825
     rr mov, ch, al                           ; 4B828
     and ax,0xf                               ; 4B82A
-    call sub_B75E                            ; 4B82D
+    call debug_sprite_hex_digit              ; 4B82D
     sub dl,0x8                               ; 4B830
     shr ch,cl                                ; 4B833
     rr mov, al, ch                           ; 4B835
     and ax,0xf                               ; 4B837
-    call sub_B75E                            ; 4B83A
+    call debug_sprite_hex_digit              ; 4B83A
     pop dx                                   ; 4B83D
     pop cx                                   ; 4B83E
     pop ax                                   ; 4B83F
@@ -23666,22 +23687,22 @@ dead_B841:
     add dh,0x18                              ; 4B847
     rr mov, bx, ax                           ; 4B84A
     and ax,0xf                               ; 4B84C
-    call sub_B75E                            ; 4B84F
+    call debug_sprite_hex_digit              ; 4B84F
     sub dh,0x8                               ; 4B852
     shr bx,cl                                ; 4B855
     rr mov, ax, bx                           ; 4B857
     and ax,0xf                               ; 4B859
-    call sub_B75E                            ; 4B85C
+    call debug_sprite_hex_digit              ; 4B85C
     sub dh,0x8                               ; 4B85F
     shr bx,cl                                ; 4B862
     rr mov, ax, bx                           ; 4B864
     and ax,0xf                               ; 4B866
-    call sub_B75E                            ; 4B869
+    call debug_sprite_hex_digit              ; 4B869
     sub dh,0x8                               ; 4B86C
     shr bx,cl                                ; 4B86F
     rr mov, ax, bx                           ; 4B871
     and ax,0xf                               ; 4B873
-    call sub_B75E                            ; 4B876
+    call debug_sprite_hex_digit              ; 4B876
     pop dx                                   ; 4B879
     pop cx                                   ; 4B87A
     pop bx                                   ; 4B87B
@@ -23699,22 +23720,22 @@ dead_B87E:
     add dl,0x18                              ; 4B884
     rr mov, bx, ax                           ; 4B887
     and ax,0xf                               ; 4B889
-    call sub_B75E                            ; 4B88C
+    call debug_sprite_hex_digit              ; 4B88C
     sub dl,0x8                               ; 4B88F
     shr bx,cl                                ; 4B892
     rr mov, ax, bx                           ; 4B894
     and ax,0xf                               ; 4B896
-    call sub_B75E                            ; 4B899
+    call debug_sprite_hex_digit              ; 4B899
     sub dl,0x8                               ; 4B89C
     shr bx,cl                                ; 4B89F
     rr mov, ax, bx                           ; 4B8A1
     and ax,0xf                               ; 4B8A3
-    call sub_B75E                            ; 4B8A6
+    call debug_sprite_hex_digit              ; 4B8A6
     sub dl,0x8                               ; 4B8A9
     shr bx,cl                                ; 4B8AC
     rr mov, ax, bx                           ; 4B8AE
     and ax,0xf                               ; 4B8B0
-    call sub_B75E                            ; 4B8B3
+    call debug_sprite_hex_digit              ; 4B8B3
     pop dx                                   ; 4B8B6
     pop cx                                   ; 4B8B7
     pop bx                                   ; 4B8B8
@@ -23932,7 +23953,12 @@ put_hex_byte_tiles_v:
     pop ax                                   ; 4BA4B
     ret                                      ; 4BA4C
 
-dead_BA4D:
+; UNREFERENCED (no caller; never executed). Writes AX as four hex digits into the screen-1 tile map at 0800h: tile 15Bh+digit (+7 for A-F), attribute 1C00h; the least significant digit goes at pixel x = DH+18h and each further digit 8 px to the left, row = DL/8. [medium, reviewed: manual review 2026-11-01 (session 4)]
+; in:  AX = value; DH = x (pixels), DL = y (pixels)
+; out: 4 map words at 0800h + (row*32+col)*2
+; side effects: AX, BX, CX, DX preserved
+; evidence: 4BA4D-4BB5D: add dh,0x18 / and ax,0xf / add ax,0x15b / or ax,0x1c00 / shr dh,3 / shr dl,3 / xchg dh,dl / and bx,0x1f / and dx,0x3e0 / shl bx,1 / add bx,0x800 / mov [bx],ax / sub dh,8 / shr bx,cl(4) (repeated 4x)
+unused_bg_print_hex_word:
     push ax                                  ; 4BA4D
     push bx                                  ; 4BA4E
     push cx                                  ; 4BA4F
@@ -28370,7 +28396,12 @@ put_grid_cell_tile:
     popa                                     ; 4DC0F
     ret                                      ; 4DC10
 
-dead_DC11:
+; UNREFERENCED (no caller; never executed). Writes a CH x CL rectangle of consecutive tile numbers (starting at BP) into the tile map whose base is AX, at cell (DH, DL) with 32x32 wrap-around; each map word ORs in an attribute byte read from 2000h + BP*16 + CH*CL*16 onward (the attribute bytes stored after the tiles of a picture asset). [medium, reviewed: manual review 2026-11-01 (session 4)]
+; in:  AX = map base; BP = first tile number; DH = column, DL = row; CH = width, CL = height (tiles)
+; out: CH*CL map words
+; side effects: all registers preserved (PUSHA/POPA)
+; evidence: 4DC11-4DC6F: mov ah,dl / shr ax,2 / and ax,0x7c0 (row*64) / shl ax,1 / and ax,0x3e (col*2) / mul cl / shl ax,4 / add ax,0x2000 / or ah,[di] / mov [ds:bp+0],ax / and si,0x3f / add bx,0x40 / and bx,0x7ff
+unused_map_put_tile_rect:
     pusha                                    ; 4DC11
     push ax                                  ; 4DC12
     rr xor, ax, ax                           ; 4DC13
@@ -31045,7 +31076,7 @@ loc_F0A4:
     jnz short loc_F0C5                       ; 4F0BF
     sub dx,0x400                             ; 4F0C1
 loc_F0C5:
-    call sub_B7F0                            ; 4F0C5
+    call debug_sprite_hex_nibble             ; 4F0C5
     mov ax,[0x130c]                          ; 4F0C8
     inc ax                                   ; 4F0CB
     mov dx,0x7040                            ; 4F0CC
@@ -31053,7 +31084,7 @@ loc_F0C5:
     jnz short loc_F0DA                       ; 4F0D4
     sub dx,0x400                             ; 4F0D6
 loc_F0DA:
-    call sub_B7F0                            ; 4F0DA
+    call debug_sprite_hex_nibble             ; 4F0DA
     mov ax,[0x130e]                          ; 4F0DD
     inc ax                                   ; 4F0E0
     mov dx,0x7050                            ; 4F0E1
@@ -31061,17 +31092,17 @@ loc_F0DA:
     jnz short loc_F0EF                       ; 4F0E9
     sub dx,0x400                             ; 4F0EB
 loc_F0EF:
-    call sub_B7F0                            ; 4F0EF
+    call debug_sprite_hex_nibble             ; 4F0EF
     mov ax,[0x1306]                          ; 4F0F2
     mov dx,0x7070                            ; 4F0F5
     cmp byte [0x1308],0x3                    ; 4F0F8
     jnz short loc_F103                       ; 4F0FD
     sub dx,0x400                             ; 4F0FF
 loc_F103:
-    call sub_B7F0                            ; 4F103
+    call debug_sprite_hex_nibble             ; 4F103
     mov ax,[0x1304]                          ; 4F106
     add dx,0x800                             ; 4F109
-    call sub_B7F0                            ; 4F10D
+    call debug_sprite_hex_nibble             ; 4F10D
     mov ax,[0x130a]                          ; 4F110
     inc ax                                   ; 4F113
     shl ax,byte 0xc                          ; 4F114

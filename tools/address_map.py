@@ -111,6 +111,11 @@ for a, b, e in extra:
         if cls[i] in ('unknown', 'zero_run'):
             cls[i], ev[i] = 'table', e
 
+# documented exceptions (assets/exceptions.json): exact bounds + reason, meaning not established
+for x in J('assets', 'exceptions.json')['exceptions']:
+    for i in range(int(x['start'], 16), int(x['end'], 16)):
+        assert cls[i] in ('unknown', 'zero_run', 'exception'), (x, cls[i])
+        cls[i], ev[i] = 'exception', 'documented exception %s-%s: %s' % (x['start'], x['end'], x['reason'])
 assert all(c is not None for c in cls), 'unassigned bytes: %d' % sum(c is None for c in cls)
 # run-length encode
 runs = []

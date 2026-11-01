@@ -3544,7 +3544,7 @@
 "size": 4,
 "class": "exception",
 "representation": "source",
-"evidence": "documented exception 4997D-49981: 4 bytes 08 00 00 F8 (looks like +8/0/0/-8 offsets); follows jmp [cs:bx+tbl_9962]; no instruction reads 4000:997D and it is not read at runtime"
+"evidence": "documented exception 4997D-49981: bank 4: unread bytes after the jump table used by jmp [cs:bx+tbl_9962]; no instruction reads 4000:997D and it is never read at runtime"
 },
 {
 "start": "49981",
@@ -4288,7 +4288,7 @@
 "size": 4,
 "class": "exception",
 "representation": "source",
-"evidence": "documented exception 4B70A-4B720: FFh fill with 4 bytes 00 00 80 00 at 4B710; after the sine table; no reader found statically or at runtime"
+"evidence": "documented exception 4B710-4B714: bank 4: four non-FFh bytes inside the FFh fill after the sine table (4B5CA-4B70A); no reader found statically or at runtime"
 },
 {
 "start": "4B714",
@@ -5168,7 +5168,7 @@
 "size": 16,
 "class": "exception",
 "representation": "source",
-"evidence": "documented exception 4E7DE-4E7EE: 16 bytes F0h,E1h,...,0Fh (descending by 0Fh); directly before the note pitch table 4000:E7EE; no instruction reads it and it is never read at runtime"
+"evidence": "documented exception 4E7DE-4E7EE: bank 4: 16 bytes descending by 0Fh directly before the note pitch table 4000:E7EE; no instruction reads them and they are never read at runtime"
 },
 {
 "start": "4E7EE",
@@ -5184,7 +5184,7 @@
 "size": 2,
 "class": "exception",
 "representation": "source",
-"evidence": "documented exception 4E8A2-4E8A4: word 0000 after the pitch table; not read (would be note 90)"
+"evidence": "documented exception 4E8A2-4E8A4: bank 4: one word after the 90-entry pitch table (would be note 90); never read"
 },
 {
 "start": "4E8A4",
@@ -5334,9 +5334,9 @@
 "start": "500C8",
 "end": "500C9",
 "size": 1,
-"class": "unknown",
+"class": "exception",
 "representation": "opaque",
-"evidence": "raw bytes, not decoded"
+"evidence": "documented exception 500C8-500C9: bank 5: between the last sound entry (63) and the wave table; never read"
 },
 {
 "start": "500C9",
@@ -5366,9 +5366,9 @@
 "start": "503DC",
 "end": "503DD",
 "size": 1,
-"class": "unknown",
+"class": "exception",
 "representation": "opaque",
-"evidence": "raw bytes, not decoded"
+"evidence": "documented exception 503DC-503DD: bank 5: target of volume-envelope pointer 55, only used as the end of envelope 54; the byte itself is never read"
 },
 {
 "start": "503DD",
@@ -5454,9 +5454,9 @@
 "start": "5F6CD",
 "end": "5F6CF",
 "size": 2,
-"class": "unknown",
+"class": "exception",
 "representation": "opaque",
-"evidence": "raw bytes, not decoded"
+"evidence": "documented exception 5F6CD-5F6CF: bank 5: after the end of voice_08 (PCM entry 9), before the FFh padding; never read"
 },
 {
 "start": "5F6CF",
@@ -5540,27 +5540,11 @@
 },
 {
 "start": "768A0",
-"end": "769B4",
-"size": 276,
-"class": "unknown",
-"representation": "opaque",
-"evidence": "raw bytes, not decoded"
-},
-{
-"start": "769B4",
-"end": "769C6",
-"size": 18,
-"class": "zero_run",
-"representation": "generated",
-"evidence": "00h run: generated, meaning not established (may be table data)"
-},
-{
-"start": "769C6",
 "end": "76AE0",
-"size": 282,
-"class": "unknown",
-"representation": "opaque",
-"evidence": "raw bytes, not decoded"
+"size": 576,
+"class": "unused_sprites",
+"representation": "editable",
+"evidence": "UNUSED: no code, pointer table or runtime read references these bytes (docs/formats/gfx.md); classified as sprite tiles because they decode as coherent 2bpp images: four 24x24 animation frames (3x3 tiles each) of a spiked enemy; located between load_obj05_tiles data (ends 768A0h) and lvl1e_tiles_copy (76AE0h)"
 },
 {
 "start": "76AE0",
@@ -5628,35 +5612,11 @@
 },
 {
 "start": "777C0",
-"end": "777CE",
-"size": 14,
-"class": "zero_run",
-"representation": "generated",
-"evidence": "00h run: generated, meaning not established (may be table data)"
-},
-{
-"start": "777CE",
-"end": "7796A",
-"size": 412,
-"class": "unknown",
-"representation": "opaque",
-"evidence": "raw bytes, not decoded"
-},
-{
-"start": "7796A",
-"end": "7797C",
-"size": 18,
-"class": "zero_run",
-"representation": "generated",
-"evidence": "00h run: generated, meaning not established (may be table data)"
-},
-{
-"start": "7797C",
 "end": "77A00",
-"size": 132,
-"class": "unknown",
-"representation": "opaque",
-"evidence": "raw bytes, not decoded"
+"size": 576,
+"class": "unused_sprites",
+"representation": "editable",
+"evidence": "UNUSED: no code, pointer table or runtime read references these bytes (docs/formats/gfx.md); classified as sprite tiles because they decode as coherent 2bpp images: four 24x24 animation frames (3x3 tiles each) of a hooded enemy; located between copy_tiles_7580_for_obj2e data (ends 777C0h) and copy_tiles_7a00_for_obj2f (77A00h)"
 },
 {
 "start": "77A00",
@@ -5766,9 +5726,9 @@
 "start": "79380",
 "end": "79382",
 "size": 2,
-"class": "unknown",
+"class": "exception",
 "representation": "opaque",
-"evidence": "raw bytes, not decoded"
+"evidence": "documented exception 79380-79382: bank 7: between lvl1b_tiles_copy (ends 9380h) and lvl1d_tiles_copy (unaligned 9382h); too short for a tile; no reader"
 },
 {
 "start": "79382",
@@ -5782,9 +5742,9 @@
 "start": "79482",
 "end": "79492",
 "size": 16,
-"class": "unknown",
-"representation": "opaque",
-"evidence": "raw bytes, not decoded"
+"class": "unused_sprites",
+"representation": "editable",
+"evidence": "UNUSED: no code, pointer table or runtime read references these bytes (docs/formats/gfx.md); classified as sprite tiles because they decode as coherent 2bpp images: one 8x8 ring tile directly after the 16 tiles of lvl1d (79382h-79482h), before the logo tiles"
 },
 {
 "start": "79492",
@@ -5798,9 +5758,9 @@
 "start": "79862",
 "end": "79870",
 "size": 14,
-"class": "unknown",
-"representation": "opaque",
-"evidence": "raw bytes, not decoded"
+"class": "padding",
+"representation": "generated",
+"evidence": "FFh run (erased-flash padding)"
 },
 {
 "start": "79870",
@@ -8374,9 +8334,9 @@
 "start": "AE680",
 "end": "AE6C0",
 "size": 64,
-"class": "unknown",
+"class": "exception",
 "representation": "opaque",
-"evidence": "raw bytes, not decoded"
+"evidence": "documented exception AE680-AE6C0: bank A: between the W2-V5 area-4 camera grid and the W2-V6 grid; no camera table or pointer references it; no runtime reads"
 },
 {
 "start": "AE6C0",
@@ -9918,9 +9878,9 @@
 "start": "D1BF4",
 "end": "D1C18",
 "size": 36,
-"class": "unknown",
+"class": "exception",
 "representation": "opaque",
-"evidence": "raw bytes, not decoded"
+"evidence": "documented exception D1BF4-D1C18: bank D: after screen 7102h palette - 16 palette-like bytes, 6 bytes, 14 zero bytes; not read; probably build-tool residue"
 },
 {
 "start": "D1C18",
@@ -9934,9 +9894,9 @@
 "start": "D1E30",
 "end": "D1E54",
 "size": 36,
-"class": "unknown",
+"class": "exception",
 "representation": "opaque",
-"evidence": "raw bytes, not decoded"
+"evidence": "documented exception D1E30-D1E54: bank D: same pattern after screen 7103h; not read; probably build-tool residue"
 },
 {
 "start": "D1E54",

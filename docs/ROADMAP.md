@@ -11,13 +11,13 @@ Live numbers: `docs/completion.json` (`python3 tools/completion.py`), per-byte d
 
 | metric | value | definition |
 |---|---:|---|
-| **Overall decompiled bytes** | **99.87 %** | classified AND source / editable / explained-generated |
+| **Overall decompiled bytes** | **99.98 %** | classified AND source / editable / explained-generated (168 bytes = documented exceptions, not counted) |
 | Executable code classification | 99.96 % | code-bank bytes with evidence-backed class (26 bytes = documented exceptions) |
-| Routine documentation | 97.82 % | 762 / 779 entry points described (hand, reviewed high/medium, or described dead code) |
-| Data classification | 99.87 % | data bytes with established class |
-| Data decoding / editable representation | 99.87 % | data bytes rebuilt from editable formats or FFh padding |
+| Routine documentation | 100 % | 779 / 779 entry points described (hand, reviewed high/medium, or described dead code) |
+| Data classification | 99.99 % | data bytes with established class (142 bytes = documented exceptions) |
+| Data decoding / editable representation | 99.99 % | data bytes rebuilt from editable formats or FFh padding |
 | Runtime coverage | 79.85 % | live instructions executed (18,705 / 23,425; 562 / 743 live entry points); all 36 Visions loaded |
-| Reproducible ROM-free build | 100 % | of which source 6.25 %, editable 76.39 %, generated 17.24 %, opaque 0.12 % |
+| Reproducible ROM-free build | 100 % | of which source 6.25 %, editable 76.50 %, generated 17.23 %, opaque 0.01 % |
 
 Decoded: BPE pictures/tilesets (with attribute grids), PCM voices (WAV), sound tables +
 sequences (text scripts), level data banks 9-E (CSV/JSON), graphics banks 2/7 (PNG,
@@ -26,13 +26,12 @@ records and bank-3 graphics (banks 3, 8; JSON + PNG), all in-code tables of bank
 
 ## Where the remaining bytes are
 
-| range | bytes | status |
+| item | size | status |
 |---|---:|---|
-| bank 7 768A0-77A00 | 1,102 + 50 zero | unreferenced, never read in any run (docs/formats/gfx.md); candidate: unused tiles |
-| banks 7, D, A, 5 | 172 | small unreferenced groups: 79380, 79482, 79862, AE680, D1BF4, D1E30, 500C8, 503DC, 5F6CD |
-| bank 4 | 26 | documented exceptions: 4997D (4), 4B710 (4), 4E7DE (16), 4E8A2 (2) - unread, no reader |
-| routines | 17 | 9 role-only, 3 generic, 5 older dead routines (2BC3, 714C, B73C, BA4D, DC11) without description |
-| runtime | 4,720 insns | live code not yet executed (181 entry points) |
+| documented exceptions | 168 bytes | 11 groups, all registered in `assets/exceptions.json` with bounds and reason (no reader in code or at runtime); rebuilt exactly, not counted as decompiled |
+| runtime | 4,720 instructions | live code not yet executed (181 of 743 live entry points) |
+| natural reach | 7 states | states 7, 10, 11, 14, 15, 17, 18 reached only with fault injection |
+| review depth | 712 reviewed routines | descriptions are spot-checked, not individually re-verified at runtime |
 
 ## Stages (each must keep the build byte-identical and add tests)
 
@@ -45,8 +44,8 @@ records and bank-3 graphics (banks 3, 8; JSON + PNG), all in-code tables of bank
    format using the command set already documented in the driver.
 4. **Object data (banks 3, 8)** - DONE: Vision directory, area blocks, spawn records,
    motion scripts, warps, per-kind tables, bank-3 graphics (docs/formats/objects.md).
-5. **Remaining tables and zero runs** - classify every leftover range or document it as an
-   explained exception (exact bounds, contents, why it cannot be interpreted).
+5. **Remaining tables and zero runs** - DONE: unused sprite tiles in bank 7 decoded (PNG); every
+   other leftover registered in assets/exceptions.json; tests forbid unknown/zero_run bytes.
 6. **Code bank leftovers** - DONE: 3,657 bytes = 994 data, 2,467 dead code (disassembled,
    described), FFh fill, and 26 bytes of documented exceptions.
 7. **Runtime** - natural play of all worlds (needs a Vision-select script from a valid

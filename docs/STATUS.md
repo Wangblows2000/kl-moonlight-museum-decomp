@@ -52,7 +52,8 @@ See `docs/completion.json` (computed by `tools/completion.py` from the trace, la
 catalog, function index and runtime coverage).  Headline: byte-perfect ROM-free build;
 24,782 instructions in source (23,425 live + 1,357 unreferenced); 779 entry points
 (743 live, 36 unreferenced routines); 129/129 compressed streams re-encode exactly;
-99.87 % of ROM bytes classified and represented as source or editable data; 18,705 live
+99.98 % of ROM bytes classified and represented as source or editable data (the other 168
+bytes are documented exceptions, assets/exceptions.json); 18,705 live
 instructions (79.85 %) and 562 entry points executed in the emulator; no unreferenced
 instruction ever executed.
 
@@ -105,9 +106,8 @@ no run ever wrote it (`ports.txt`), consistent with an error path.
 
 ## Open questions
 
-1. 1,274 data bytes are still raw (bank 7 leftovers 768A0-77A00 and small groups in banks
-   5, 7, A, D; see docs/ROADMAP.md) plus 50 zero bytes; each is listed with bounds and the
-   reason in docs/formats/*.md.
+1. 168 bytes in 11 groups have no reader and no established meaning (assets/exceptions.json).
+   Bank 7 768A0-77A00 turned out to be two unused 24x24 enemy sprites (4 frames each).
 2. Why `ieep_write_word` touches port C8h on timeout (never observed at runtime).
 3. Resolved: 4000:091C-0DC7 and 30 other blocks are unreferenced routines (no caller,
    pointer or table entry; never executed in 63 runs), e.g. a debug sound-test screen at

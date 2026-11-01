@@ -270,7 +270,19 @@ list only so that tools globbing `assets/structures/*.json` (validate_fragment.p
 | dead_code | 2,467 | 175 alignment NOPs / stray RETs after unconditional transfers (183 bytes), plus complete unreferenced routines: a palette fade-in (4:091C-0DC7, 1,196 bytes), a debug sound-test screen (4:F01A-F147) with its hex-number sprite printers (4:B75E, 4:B7F0-B8F3), an empty IRQ stub (4:055F), a scroll-port setter (4:03D0), type-29h fragment initialisers (4:A343), 3x2 sprite drawers (4:CF7F), an older fade_sprite_spawn_record (4:BFF0), a static anim-tile copier (4:6254), sound-driver handler fragments (4:DEEF, 4:E0D4, 4:E9B0) |
 | unknown | 196 | FFh fill between routines (most of it) and three small unread byte groups: 4:997D (08 00 00 F8), 4:B70A-B71F (FFh + 00 00 80 00), 4:E7DE (F0 E1 ... 0F), 4:E8A2 (0000) |
 
-"Dead" means: emitted as `db` by tools/gen_bank4.py (no decoded instruction, call, jump or jump
+Integration (main build): the dead routines are now disassembled as instructions after the
+live trace (`tools/trace.py`, labels `dead_XXXX` with these descriptions as header comments in
+asm/bank4.asm); filler NOP/RET bytes are decoded but unlabelled; FFh fill is classed as padding.
+The four unread groups are registered in `assets/exceptions.json` with exact bounds:
+
+| file range | bytes | contents | reason not interpreted |
+|---|---:|---|---|
+| 4997D-49980 | 4 | 08 00 00 F8 | follows `jmp [cs:bx+tbl_9962]`; no instruction reads it; never read at runtime |
+| 4B710-4B713 | 4 | 00 00 80 00 | inside the FFh fill after the sine table (4B5CA-4B709); no reader |
+| 4E7DE-4E7ED | 16 | F0 E1 ... 0F (descending by 0Fh) | directly before the pitch table 4E7EE; no reader |
+| 4E8A2-4E8A3 | 2 | 00 00 | after the 90-entry pitch table (would be note 90); never read |
+
+"Dead" (as classified by the domain pass) means: emitted as `db` by the earlier tools/gen_bank4.py (no decoded instruction, call, jump or jump
 table targets it), never executed in the trace or the 36-Vision runs, and it decodes as complete
 instructions/routines.  A routine reached only through a pointer computed at run time that no run
 exercised cannot be excluded, hence `medium` for the fragments.

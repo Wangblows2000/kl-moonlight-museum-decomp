@@ -162,16 +162,25 @@ obj3d_update_text_window / text_put_glyph at 2:DBAF, 2:E384 and 2:F210-FD3F come
 English runs (patched glyph base F000h) and do not describe the Japanese layout; the bounds above
 come from the Japanese code. Bank 7 is not touched by the patch.
 
+## Unused graphics (decoded, never referenced)
+
+No code, pointer table or runtime read in any of the 63 emulator runs references these
+bytes.  They are decoded as tiles because they render as coherent sprite images (checked
+visually); the frame layout is chosen for readability and does not affect the rebuilt bytes.
+
+| file range | bytes | structure | content |
+|---|---:|---|---|
+| 768A0-76ADF | 576 | `unused_enemy_a_3x3` | four 24x24 frames (3x3 tiles) of a spiked enemy; between load_obj05_tiles data (ends 768A0h) and lvl1e_tiles_copy (76AE0h) |
+| 777C0-779FF | 576 | `unused_enemy_b_3x3` | four 24x24 frames of a hooded enemy; between copy_tiles_7580_for_obj2e data (ends 777C0h) and copy_tiles_7a00_for_obj2f |
+| 79482-79491 | 16 | `unused_ring_tile` | one ring tile after the 16 tiles of lvl1d, before the logo |
+| 79862-7986F | 14 | `pad_79862` (fill FFh) | FFh bytes between the logo tiles and the radius matrix |
+
 ## Bytes in the range not decoded
 
 | file range | bytes | content / reason |
 |---|---:|---|
-| 768A0-76ADF | 576 | 36 tiles' worth of sprite-like data between load_obj05_tiles (ends 768A0h) and lvl1e_tiles_copy (76AE0h); no code, table or runtime read references 7000:68A0 |
-| 777C0-779FF | 576 | same situation between copy_tiles_7580_for_obj2e (ends 777C0h) and copy_tiles_7a00_for_obj2f |
-| 79380-79381 | 2 | between lvl1b_tiles_copy (ends 9380h) and lvl1d_tiles_copy (starts at the unaligned 9382h); no reader |
-| 79482-79491 | 16 | one tile (a ring) after lvl1d's 16 tiles, before the logo; no reader |
-| 79862-7986F | 14 | FFh bytes between the logo tiles and the radius matrix; no reader |
+| 79380-79381 | 2 | bytes 20h 64h between lvl1b_tiles_copy (ends 9380h) and lvl1d_tiles_copy (starts at the unaligned 9382h); too short to be a tile, no reader |
 
-These stay raw. The FFh runs inside bank-7 tile sets (70000-70005 and the logo) were classed as
+This stays raw. The FFh runs inside bank-7 tile sets (70000-70005 and the logo) were classed as
 padding by the address map; they are tile rows copied by the loaders and are absorbed by those
 structures (336 bytes). Bank-2 padding 2EE39-2FFFF is not part of this fragment.

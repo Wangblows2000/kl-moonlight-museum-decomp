@@ -1,0 +1,82 @@
+{
+ "note": "Documented exceptions: bytes that are rebuilt exactly but whose meaning cannot be established. Each has no code reader (static trace) and was never read in any emulator run. Contents are not stored here (they are rebuilt from asm/bank4.asm or gamedata/raw). Counted as classified-with-exception, never as decoded.",
+ "exceptions": [
+  {
+   "start": "4997D",
+   "end": "49981",
+   "size": 4,
+   "reason": "bank 4: unread bytes after the jump table used by jmp [cs:bx+tbl_9962]; no instruction reads 4000:997D and it is never read at runtime",
+   "doc": "docs/formats/objects.md"
+  },
+  {
+   "start": "4B710",
+   "end": "4B714",
+   "size": 4,
+   "reason": "bank 4: four non-FFh bytes inside the FFh fill after the sine table (4B5CA-4B70A); no reader found statically or at runtime",
+   "doc": "docs/formats/objects.md"
+  },
+  {
+   "start": "4E7DE",
+   "end": "4E7EE",
+   "size": 16,
+   "reason": "bank 4: 16 bytes descending by 0Fh directly before the note pitch table 4000:E7EE; no instruction reads them and they are never read at runtime",
+   "doc": "docs/formats/objects.md"
+  },
+  {
+   "start": "4E8A2",
+   "end": "4E8A4",
+   "size": 2,
+   "reason": "bank 4: one word after the 90-entry pitch table (would be note 90); never read",
+   "doc": "docs/formats/objects.md"
+  },
+  {
+   "start": "500C8",
+   "end": "500C9",
+   "size": 1,
+   "reason": "bank 5: between the last sound entry (63) and the wave table; never read",
+   "doc": "docs/formats/sound.md"
+  },
+  {
+   "start": "503DC",
+   "end": "503DD",
+   "size": 1,
+   "reason": "bank 5: target of volume-envelope pointer 55, only used as the end of envelope 54; the byte itself is never read",
+   "doc": "docs/formats/sound.md"
+  },
+  {
+   "start": "5F6CD",
+   "end": "5F6CF",
+   "size": 2,
+   "reason": "bank 5: after the end of voice_08 (PCM entry 9), before the FFh padding; never read",
+   "doc": "docs/formats/sound.md"
+  },
+  {
+   "start": "79380",
+   "end": "79382",
+   "size": 2,
+   "reason": "bank 7: between lvl1b_tiles_copy (ends 9380h) and lvl1d_tiles_copy (unaligned 9382h); too short for a tile; no reader",
+   "doc": "docs/formats/gfx.md"
+  },
+  {
+   "start": "AE680",
+   "end": "AE6C0",
+   "size": 64,
+   "reason": "bank A: between the W2-V5 area-4 camera grid and the W2-V6 grid; no camera table or pointer references it; no runtime reads",
+   "doc": "docs/formats/level.md"
+  },
+  {
+   "start": "D1BF4",
+   "end": "D1C18",
+   "size": 36,
+   "reason": "bank D: after screen 7102h palette - 16 palette-like bytes, 6 bytes, 14 zero bytes; not read; probably build-tool residue",
+   "doc": "docs/formats/level.md"
+  },
+  {
+   "start": "D1E30",
+   "end": "D1E54",
+   "size": 36,
+   "reason": "bank D: same pattern after screen 7103h; not read; probably build-tool residue",
+   "doc": "docs/formats/level.md"
+  }
+ ]
+}
