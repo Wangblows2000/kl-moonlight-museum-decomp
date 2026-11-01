@@ -6,7 +6,7 @@ t = json.load(open(os.path.join(ROOT, 'build', 'trace.json')))
 insn = {int(k): v for k, v in t['insn'].items()}
 labels = {int(k): set(v) for k, v in t['labels'].items()}
 xrefs = {int(k): v for k, v in t['xrefs'].items()}
-heads = sorted(k for k, v in labels.items() if v & {'call', 'farcall', 'entry', 'irq', 'table'} and k in insn)
+heads = sorted(k for k, v in labels.items() if v & {'call', 'farcall', 'entry', 'irq', 'table', 'dead'} and k in insn)
 rep = {}
 for i, h in enumerate(heads):
     nxt = heads[i + 1] if i + 1 < len(heads) else 0x50000

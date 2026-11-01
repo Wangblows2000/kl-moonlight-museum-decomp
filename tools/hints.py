@@ -82,5 +82,17 @@ IRQ_TABLES = {
     '4000:D9D0': 4,
 }
 
+# Unreferenced code: blocks in bank 4 that decode as complete routines (valid 80186 opcodes,
+# end in RET/IRET/JMP), are never referenced by any traced instruction or table, have no
+# 16-bit pointer to them anywhere in the ROM ('refs:0' in the gap scan) and never executed
+# in any emulator run.  Traced as code but labelled dead_XXXX and counted separately.
+DEAD_CODE = [
+    '4000:2BC3',   # 33 bytes, push cx/dx; ... ret
+    '4000:714C',   # 50 bytes, cmp [si+0Eh],0 ... ret
+    '4000:B73C',   # 78 bytes, push ax/bx/dx/si ... ret
+    '4000:BA4D',   # 273 bytes, push ax/bx/cx/dx ... ret
+    '4000:DC11',   # 95 bytes, pusha; push ax ... ret
+]
+
 NORETURN_INDIRECT = set()
 INDIRECT_NOTES = {}

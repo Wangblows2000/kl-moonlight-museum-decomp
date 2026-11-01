@@ -13,7 +13,7 @@
   "code_discovery": {
    "status": "PARTIALLY VERIFIED",
    "requirement": "every executable entry point identified",
-   "metric": "741 entry points, 23425 instructions, 0 unresolved indirect transfers; runtime found 0 executed addresses outside the static trace across 45 runs; 4142 bank-4 bytes still unreached (data or dead code)",
+   "metric": "746 entry points, 23645 instructions, 0 unresolved indirect transfers; runtime found 0 executed addresses outside the static trace across 51 runs; 3657 bank-4 bytes still unreached (data or dead code)",
    "evidence": [
     "tools/trace.py",
     "tools/runtime_coverage.py",
@@ -23,7 +23,7 @@
   "code_understanding": {
    "status": "IN PROGRESS",
    "requirement": "every function documented and understood",
-   "metric": "36/741 named after reading the code, 447/741 named by proven dispatch role (behaviour not yet described), 258 generic; all 20 game states identified",
+   "metric": "36/746 named after reading the code, 447/746 named by proven dispatch role (behaviour not yet described), 263 generic; all 20 game states identified",
    "evidence": [
     "docs/functions.md",
     "docs/game-states.md",
@@ -33,7 +33,7 @@
   "data_classification": {
    "status": "IN PROGRESS",
    "requirement": "every ROM byte classified with evidence",
-   "metric": "code bank 65536 + footer 16 + BPE assets 194269 + FFh padding 186944 = 446765 bytes (42.6%) classified with evidence; zero runs 42844 (generated, but may be table data); raw (undecoded) 558967 bytes",
+   "metric": "code bank 65536 + footer 16 + BPE assets 194269 + FFh padding 186944 + annotated tables 5875 = 452640 bytes (43.2%) classified with evidence; zero runs 42844 (generated, may be table data); raw unannotated 553092 bytes",
    "evidence": [
     "assets/layout.json",
     "docs/inventory.md"
@@ -60,7 +60,7 @@
   "runtime_validation": {
    "status": "PARTIALLY VERIFIED",
    "requirement": "all reachable game systems tested",
-   "metric": "404/741 entry points executed in 45 emulator runs; all 20 states reached (some only with fault injection); Worlds 2-6 gameplay not yet played",
+   "metric": "464/746 entry points executed in 51 emulator runs; all 20 states reached (some only with fault injection); Worlds 2-6 gameplay not yet played",
    "evidence": [
     "tests/test_runtime.py",
     "emu/scripts/",
@@ -97,13 +97,13 @@
   "bytes_from_assembly_source": 65552,
   "bytes_generated_from_layout_and_decoded_assets": 424057,
   "raw_bytes_copied_from_rom": 558967,
-  "entry_points": 741,
+  "entry_points": 746,
   "named_hand": 36,
   "named_role": 447,
-  "unnamed": 258,
-  "instructions": 23425,
-  "runtime_entry_points_executed": 404,
+  "unnamed": 263,
+  "instructions": 23645,
+  "runtime_entry_points_executed": 464,
   "bpe_streams": 129,
-  "emulator_runs": 45
+  "emulator_runs": 51
  }
 }

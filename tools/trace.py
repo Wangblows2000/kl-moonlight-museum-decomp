@@ -193,6 +193,9 @@ def main():
     for s in hints.SEEDS:
         seg, off = (int(x, 16) for x in s.split(':'))
         t.add(seg, off, 'entry')
+    for k in getattr(hints, 'DEAD_CODE', []):
+        seg, off = (int(x, 16) for x in k.split(':'))
+        t.add(seg, off, 'dead')
     for k, n in getattr(hints, 'IRQ_TABLES', {}).items():
         seg, off = (int(x, 16) for x in k.split(':'))
         tf = to_file(seg, off)

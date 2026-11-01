@@ -1,0 +1,11 @@
+{
+ "note": "Content annotations for data regions with EXACT bounds established by the code that reads them. Used by tools/inventory.py and tools/completion.py. Offsets are ROM file offsets; end is exclusive.",
+ "regions": [
+  {"start": "2E9DF", "end": "2F1DF", "family": "font_ascii_tiles", "confidence": "high", "evidence": "4000:B720 copies 400h words from 2000:E9DF to tile RAM 34B0h; renders as 0-9 A-Z glyphs"},
+  {"start": "2EDDF", "end": "2EE39", "family": "story_sequencer_table", "confidence": "high", "evidence": "state09_story_sequencer reads 15 x 6-byte records at 2000:EDDF (docs/game-states.md)"},
+  {"start": "30020", "end": "3003C", "family": "bp_value_table", "confidence": "medium", "evidence": "4000:C1F4 mov bp,es:[bx+20h], ES=3000h"},
+  {"start": "79870", "end": "7B870", "family": "collision_radius_matrix", "confidence": "high", "evidence": "objects_collide: cmp ax,es:[bx+9870h], ES=7000h; 64x64 words"},
+  {"start": "90000", "end": "90270", "family": "level_directory", "confidence": "high", "evidence": "4000:4451D loads ES:SI from 9000:[si]; 156 far pointers (docs/level-data.md)"},
+  {"start": "4ACC0", "end": "4ACD0", "family": "level_segment_table", "confidence": "high", "evidence": "mov ax,cs:[bx+ACC0h] -> [13C4h]"}
+ ]
+}

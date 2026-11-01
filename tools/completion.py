@@ -21,6 +21,19 @@ by = {}
 for r in layout:
     t = r['type'] if r['type'] != 'fill' else ('fill' if r['value'] == 'FF' else 'zero_run')
     by[t] = by.get(t, 0) + r['size']
+ann = J(os.path.join(ROOT, 'assets', 'annotations.json'))['regions']
+# annotated bytes that fall inside raw layout regions count as classified data tables
+raw_set = set()
+for r in layout:
+    if r['type'] == 'raw':
+        raw_set.update(range(int(r['offset'], 16), int(r['offset'], 16) + r['size']))
+import sys as _s
+_s.path.insert(0, os.path.join(ROOT, 'tools'))
+import hints as _h
+ann_bytes = {i for a in ann for i in range(int(a['start'], 16), int(a['end'], 16))}
+for _site, _v in _h.EXT_TABLES.items():          # pointer tables proven by the tracer
+    ann_bytes.update(range(_v[0], _v[0] + 2 * (_v[1] + _v[2])))
+annotated = len(ann_bytes & raw_set)
 code_bank = 0x10000
 rom = 0x100000
 generated = code_bank + 16 + by.get('fill', 0) + by.get('bpe', 0)
@@ -52,12 +65,12 @@ report = {
             'evidence': ['docs/functions.md', 'docs/game-states.md', 'tools/symbols.py']},
         'data_classification': {
             'status': 'IN PROGRESS', 'requirement': 'every ROM byte classified with evidence',
-            'metric': 'code bank %d + footer 16 + BPE assets %d + FFh padding %d = %d bytes (%.1f%%) classified with evidence; '
-                      'zero runs %d (generated, but may be table data); raw (undecoded) %d bytes' % (
-                          code_bank, by.get('bpe', 0), by.get('fill', 0),
-                          code_bank + 16 + by.get('bpe', 0) + by.get('fill', 0),
-                          100.0 * (code_bank + 16 + by.get('bpe', 0) + by.get('fill', 0)) / rom,
-                          by.get('zero_run', 0), by.get('raw', 0)),
+            'metric': 'code bank %d + footer 16 + BPE assets %d + FFh padding %d + annotated tables %d = %d bytes (%.1f%%) '
+                      'classified with evidence; zero runs %d (generated, may be table data); raw unannotated %d bytes' % (
+                          code_bank, by.get('bpe', 0), by.get('fill', 0), annotated,
+                          code_bank + 16 + by.get('bpe', 0) + by.get('fill', 0) + annotated,
+                          100.0 * (code_bank + 16 + by.get('bpe', 0) + by.get('fill', 0) + annotated) / rom,
+                          by.get('zero_run', 0), by.get('raw', 0) - annotated),
             'evidence': ['assets/layout.json', 'docs/inventory.md']},
         'asset_understanding': {
             'status': 'IN PROGRESS', 'requirement': 'every data structure and asset format identified',

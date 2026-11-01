@@ -48,6 +48,10 @@ DATA_TABLES = [
 ]
 for a, b, n, e in DATA_TABLES:
     mark(a, b, 'data_table')
+ANN = json.load(open(os.path.join(ROOT, 'assets', 'annotations.json')))['regions']
+for r in ANN:
+    mark(int(r['start'], 16), int(r['end'], 16), 'data_table')
+    DATA_TABLES.append((int(r['start'], 16), int(r['end'], 16), r['family'], r['evidence']))
 for f, tot, usz in BPE:
     mark(f, f + tot, 'bpe')
 # padding: FF runs >= 16

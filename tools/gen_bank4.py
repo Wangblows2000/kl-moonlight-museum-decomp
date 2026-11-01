@@ -25,6 +25,8 @@ labels = {int(k): set(v) for k, v in T['labels'].items() if BANK <= int(k) < BAN
 tables = {int(k): v for k, v in T['tables'].items() if BANK <= int(k) < BANK + 0x10000 and not str(v[2]).startswith('ext:')}
 
 # ---------------------------------------------------------------- labels
+_rd = os.path.join(ROOT, 'tools', 'routine_docs.json')
+RDOCS = json.load(open(_rd)) if os.path.exists(_rd) else {}
 ROLES = json.load(open(os.path.join(ROOT, 'build', 'roles.json'))) if os.path.exists(os.path.join(ROOT, 'build', 'roles.json')) else {}
 
 
@@ -32,9 +34,13 @@ def label_name(f):
     off = f - BANK
     if off in SYM.NAMES:
         return SYM.NAMES[off]
+    if RDOCS.get('%04X' % off, {}).get('name'):
+        return RDOCS['%04X' % off]['name']
     if '%04X' % off in ROLES:
         return ROLES['%04X' % off]['name']
     k = labels.get(f, set())
+    if k == {'dead'}:
+        return 'dead_%04X' % off
     if 'entry' in k or 'irq' in k:
         return 'irq_%04X' % off if 'irq' in k or off in (0x00E2, 0x00FC) else 'entry_%04X' % off
     if 'call' in k or 'farcall' in k or 'table' in k and 'jump' not in k:
@@ -238,6 +244,13 @@ def main():
                     out.append('')
                     c = SYM.COMMENTS.get(f - BANK)
                     r = ROLES.get('%04X' % (f - BANK))
+                    rd = RDOCS.get('%04X' % (f - BANK))
+                    if not c and rd:
+                        c = '%s [%s, reviewed: %s]\nin:  %s\nout: %s\nside effects: %s\nevidence: %s' % (
+                            rd['summary'], rd['confidence'], rd['source'], rd['inputs'], rd['outputs'],
+                            rd['side_effects'], rd['evidence'])
+                        if r and len(r['roles']) > 1:
+                            c += '\ndispatch roles: ' + ', '.join(r['roles'][:8])
                     if not c and r and len(r['roles']) > 1:
                         c = 'dispatch roles: ' + ', '.join(r['roles'][:8]) + (' ...' if len(r['roles']) > 8 else '')
                     if c:
