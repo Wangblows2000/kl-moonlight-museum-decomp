@@ -24,17 +24,16 @@ tables + sequences (text scripts), level data banks 9-E (CSV/JSON), graphics ban
 dialogue as Japanese text), collision matrices (JSON).  In progress: banks 3 and 8 (object
 records/sprite definitions) and the code bank's unreached bytes.
 
-## Where the unknown data is
+## Where the remaining bytes are
 
-| bank | unknown bytes (approx.) | lead |
+| range | bytes | status |
 |---|---:|---|
-| 9-E | ~310 KB | level data: Vision records (docs/level-data.md), metatiles 4x4, 8x8-metatile blocks, object placement records read by `lvlKK_*` spawners, collision thresholds |
-| 5 | ~63 KB | sound: header (waves, PCM, envelopes), 3-byte sound entries, sequences in the documented command set |
-| 2 | ~60 KB | uncompressed tiles: title, player animation frames (16-tile frames), ASCII font, dialogue glyphs (2000:D9DF), story sequencer table |
-| 8 | ~51 KB | object definitions: sprite-offset tables from 8:02EA, sprite definitions, warp records 8000:[13C2h] |
-| 3 | ~49 KB | records from 3:00DC, banner assets, tables |
-| 7 | ~39 KB | per-type sprite graphics copied by `lvlKK_tick` loaders, animation data |
-| 0, 1, F | small | gaps between BPE streams |
+| banks 3 and 8 | ~96 KB | object records, sprite definitions, warp/spawn records, motion scripts, bank-3 tiles - being decoded |
+| code bank 4 | 3,657 | unreached bytes: data vs dead code being classified (823 seen as data reads) |
+| banks 2, 7 | 1,184 | unreferenced, never read (documented in docs/formats/gfx.md) |
+| banks 9-E | 136 | unreferenced trailers / leftover block (docs/formats/level.md) |
+| bank 5 | 4 | single unread bytes (docs/formats/sound.md) |
+| all banks | ~4.6 KB | zero runs not yet tied to a structure |
 
 ## Stages (each must keep the build byte-identical and add tests)
 
