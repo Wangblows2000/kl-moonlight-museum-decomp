@@ -25,10 +25,15 @@ labels = {int(k): set(v) for k, v in T['labels'].items() if BANK <= int(k) < BAN
 tables = {int(k): v for k, v in T['tables'].items() if BANK <= int(k) < BANK + 0x10000 and not str(v[2]).startswith('ext:')}
 
 # ---------------------------------------------------------------- labels
+ROLES = json.load(open(os.path.join(ROOT, 'build', 'roles.json'))) if os.path.exists(os.path.join(ROOT, 'build', 'roles.json')) else {}
+
+
 def label_name(f):
     off = f - BANK
     if off in SYM.NAMES:
         return SYM.NAMES[off]
+    if '%04X' % off in ROLES:
+        return ROLES['%04X' % off]['name']
     k = labels.get(f, set())
     if 'entry' in k or 'irq' in k:
         return 'irq_%04X' % off if 'irq' in k or off in (0x00E2, 0x00FC) else 'entry_%04X' % off
@@ -229,9 +234,12 @@ def main():
         if f in insn:
             if f in labels or (f - BANK) in SYM.NAMES:
                 nm = label_name(f)
-                if nm.startswith('sub_') or nm.startswith('irq_') or nm.startswith('entry_') or (f - BANK) in SYM.NAMES:
+                if not nm.startswith('loc_') or (f - BANK) in SYM.NAMES:
                     out.append('')
                     c = SYM.COMMENTS.get(f - BANK)
+                    r = ROLES.get('%04X' % (f - BANK))
+                    if not c and r and len(r['roles']) > 1:
+                        c = 'dispatch roles: ' + ', '.join(r['roles'][:8]) + (' ...' if len(r['roles']) > 8 else '')
                     if c:
                         for line in c.strip().splitlines():
                             out.append('; ' + line)

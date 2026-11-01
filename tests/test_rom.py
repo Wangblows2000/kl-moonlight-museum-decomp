@@ -27,7 +27,7 @@ def test_full_rebuild_matches():
 @needs_rom
 def test_regeneration_is_deterministic(tmp_path):
     before = open(os.path.join(ROOT, 'asm', 'bank4.asm')).read()
-    for cmd in (['python3', 'tools/trace.py'], ['python3', 'tools/gen_bank4.py']):
+    for cmd in (['python3', 'tools/trace.py'], ['python3', 'tools/roles.py'], ['python3', 'tools/gen_bank4.py']):
         r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
         assert r.returncode == 0, r.stderr
     assert open(os.path.join(ROOT, 'asm', 'bank4.asm')).read() == before

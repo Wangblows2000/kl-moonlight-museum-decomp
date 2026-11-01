@@ -1,5 +1,5 @@
 # FORCED lives to 0 (13E1=0), then answer the game-over prompt with the other option
-loadsram build/save_after_play.bin
+loadsram build/runtime/make_save/sram_end.bin
 reset
 autoshot
 wait 700

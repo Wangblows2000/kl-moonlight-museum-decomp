@@ -1,5 +1,5 @@
 # FORCED: gameover3
-loadsram build/save_after_play.bin
+loadsram build/runtime/make_save/sram_end.bin
 reset
 autoshot
 wait 700

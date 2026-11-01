@@ -1,6 +1,6 @@
 # FORCED (fault injection): set gameplay exit flag [1398h] |= 20h during Vision 1-1.
-# Starts from a save made by an earlier run (build/save_after_play.bin, ROM-derived, not committed).
-loadsram build/save_after_play.bin
+# Starts from a save made by an earlier run (build/runtime/make_save/sram_end.bin from emu/scripts/make_save.txt).
+loadsram build/runtime/make_save/sram_end.bin
 reset
 autoshot
 wait 700

@@ -1,0 +1,6 @@
+# Create save data by playing (seeded random input on Vision 1-1); the game autosaves to SRAM.
+wait 650
+tap start
+wait 30
+monkey 30000 2
+sram sram_end

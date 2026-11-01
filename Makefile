@@ -64,6 +64,7 @@ test:
 trace: baserom-check
 	@mkdir -p build
 	$(PYTHON) tools/trace.py
+	$(PYTHON) tools/roles.py
 
 regen: trace
 	$(PYTHON) tools/gen_bank4.py

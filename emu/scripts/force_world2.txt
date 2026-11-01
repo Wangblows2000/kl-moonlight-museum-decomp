@@ -1,5 +1,5 @@
 # FORCED: progress_code=2101h then clear -> does the sequencer load World 2?
-loadsram build/save_after_play.bin
+loadsram build/runtime/make_save/sram_end.bin
 reset
 autoshot
 wait 700

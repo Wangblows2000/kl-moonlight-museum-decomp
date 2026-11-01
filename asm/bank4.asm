@@ -523,7 +523,9 @@ irq_03B8:
     out 0xb6,al                              ; 403BB
     pop ax                                   ; 403BD
     iret                                     ; 403BE
-h_03BF:
+
+; dispatch roles: sub_03F0_case0, sub_03F0_case1, sub_03F0_case2, sub_03F0_case3
+sub_03F0_case0_03BF:
     mov cl,0x4                               ; 403BF
     mov ax,[0x13a0]                          ; 403C1
     shr ax,cl                                ; 403C4
@@ -537,13 +539,13 @@ h_03BF:
 
 ; jump table tbl_03E8: 4 words, bound: hint (first use at 40413)
 tbl_03E8:
-    dw h_4E18
-    dw h_4DD0
+    dw sub_03F0_case0_4E18
+    dw sub_03F0_case1
 
 ; jump table tbl_03EC: 2 words, bound: mask (first use at 40401)
 tbl_03EC:
-    dw h_03BF
-    dw h_03BF
+    dw sub_03F0_case0_03BF
+    dw sub_03F0_case0_03BF
 
 irq_03F0:
     pusha                                    ; 403F0
@@ -775,7 +777,7 @@ loc_0593:
     popa                                     ; 405AC
     ret                                      ; 405AD
 
-sub_05AE:
+state19_world_record_case0:
     pusha                                    ; 405AE
     push ds                                  ; 405AF
     push es                                  ; 405B0
@@ -844,7 +846,8 @@ loc_062C:
     pop ds                                   ; 40638
     popa                                     ; 40639
     ret                                      ; 4063A
-h_063B:
+
+state19_world_record_case1:
     pusha                                    ; 4063B
     mov ax,0x8000                            ; 4063C
     mov es,ax                                ; 4063F
@@ -917,8 +920,8 @@ loc_06C4:
 
 ; jump table tbl_06D2: 2 words, bound: hint (first use at 41FD7)
 tbl_06D2:
-    dw sub_05AE
-    dw h_063B
+    dw state19_world_record_case0
+    dw state19_world_record_case1
 
 ; objects_collide [high]
 ; Pairwise object collision.  For player (0300h+0C0h) vs every slot, then other groups,
@@ -1172,16 +1175,16 @@ loc_08A1:
 loc_08B5:
     test si,si                               ; 408B5
     jnz short loc_08BF                       ; 408B7
-    call sub_C810                            ; 408B9
+    call obj3B_update_case3_C810             ; 408B9
     jmp near loc_08D0                        ; 408BC
 loc_08BF:
     cmp si,byte +0x1                         ; 408BF
     jnz short loc_08CA                       ; 408C2
-    call sub_CAE3                            ; 408C4
+    call obj3B_update_case2_CAE3             ; 408C4
     jmp near loc_08D0                        ; 408C7
 loc_08CA:
-    call sub_C810                            ; 408CA
-    call sub_CAE3                            ; 408CD
+    call obj3B_update_case3_C810             ; 408CA
+    call obj3B_update_case2_CAE3             ; 408CD
 loc_08D0:
     popa                                     ; 408D0
     cmp di,byte +0x3c                        ; 408D1
@@ -1340,7 +1343,8 @@ loc_0E21:
     out 0xc2,al                              ; 40E23
     popa                                     ; 40E25
     ret                                      ; 40E26
-h_0E27:
+
+sub_11B6_case2:
     pusha                                    ; 40E27
     mov ax,0x2b                              ; 40E28
     out 0x0,ax                               ; 40E2B
@@ -1489,7 +1493,8 @@ loc_0F8F:
     out 0x0,ax                               ; 40FAB
     popa                                     ; 40FAD
     ret                                      ; 40FAE
-h_0FAF:
+
+sub_11B6_case4:
     pusha                                    ; 40FAF
     test byte [play_flags],0x1               ; 40FB0
     jnz short loc_0FD6                       ; 40FB5
@@ -1530,7 +1535,8 @@ loc_0FEE:
     popa                                     ; 41000
     mov ax,0x1                               ; 41001
     ret                                      ; 41004
-h_1005:
+
+sub_11B6_case3:
     rr xor, ax, ax                           ; 41005
     mov ds,ax                                ; 41007
     mov byte [0x262],0x81                    ; 41009
@@ -1546,23 +1552,26 @@ h_1005:
     or [0x14b8],al                           ; 41028
     mov word [game_state],0x2                ; 4102C
     jmp near main_loop                       ; 41032
-h_1035:
+
+sub_11B6_case1:
     call sub_DE51                            ; 41035
     or byte [play_flags],0x40                ; 41038
     mov ax,0x1                               ; 4103D
     ret                                      ; 41040
-h_1041:
+
+; dispatch roles: sub_11B6_case0, sub_11B6_case5
+sub_11B6_case0:
     mov ax,0x1                               ; 41041
     ret                                      ; 41044
 
 ; jump table tbl_1045: 6 words, bound: adjacent (first use at 41329)
 tbl_1045:
-    dw h_1041
-    dw h_1035
-    dw h_0E27
-    dw h_1005
-    dw h_0FAF
-    dw h_1041
+    dw sub_11B6_case0
+    dw sub_11B6_case1
+    dw sub_11B6_case2
+    dw sub_11B6_case3
+    dw sub_11B6_case4
+    dw sub_11B6_case0
 
 sub_1051:
     pusha                                    ; 41051
@@ -2019,7 +2028,7 @@ sub_1426:
 loc_1456:
     call sub_6274                            ; 41456
     call sub_62E1                            ; 41459
-    call sub_5CBC                            ; 4145C
+    call obj01_draw_case0_5CBC               ; 4145C
     call sub_5DA6                            ; 4145F
     rr xor, ax, ax                           ; 41462
     mov ds,ax                                ; 41464
@@ -2620,7 +2629,7 @@ loc_1A1B:
     mov ds,ax                                ; 41A1D
     mov [vblank_line],al                     ; 41A1F
     call objects_update                      ; 41A22
-    call sub_05AE                            ; 41A25
+    call state19_world_record_case0          ; 41A25
     test word [0x1388],0x10                  ; 41A28
     jz short loc_1A35                        ; 41A2E
     sub word [0x3c4],byte +0x10              ; 41A30
@@ -3588,7 +3597,7 @@ loc_239B:
     mov ds,ax                                ; 4239D
     mov [vblank_line],al                     ; 4239F
     call objects_update                      ; 423A2
-    call sub_05AE                            ; 423A5
+    call state19_world_record_case0          ; 423A5
 loc_23A8:
     hlt                                      ; 423A8
     cmp byte [vblank_line],0x0               ; 423A9
@@ -3775,10 +3784,10 @@ loc_258B:
 
 ; jump table tbl_259E: 4 words, bound: hint (first use at 425D7)
 tbl_259E:
-    dw h_3726
-    dw h_33A9
-    dw h_3011
-    dw h_2C37
+    dw state05_vision_restart_wipe_case0
+    dw state05_vision_restart_wipe_case1
+    dw state05_vision_restart_wipe_case2
+    dw state05_vision_restart_wipe_case3
 
 state05_vision_restart_wipe:
     rr xor, ax, ax                           ; 425A6
@@ -4416,7 +4425,8 @@ loc_2C02:
     out 0xb6,al                              ; 42C33
     popa                                     ; 42C35
     iret                                     ; 42C36
-h_2C37:
+
+state05_vision_restart_wipe_case3:
     pusha                                    ; 42C37
     rr xor, ax, ax                           ; 42C38
     mov ds,ax                                ; 42C3A
@@ -4838,7 +4848,8 @@ loc_2FE3:
     out 0xb6,al                              ; 4300D
     pop di                                   ; 4300F
     iret                                     ; 43010
-h_3011:
+
+state05_vision_restart_wipe_case2:
     pusha                                    ; 43011
     rr xor, ax, ax                           ; 43012
     mov ds,ax                                ; 43014
@@ -5232,7 +5243,8 @@ loc_337D:
     mov al,0x40                              ; 433A4
     out 0xb6,al                              ; 433A6
     iret                                     ; 433A8
-h_33A9:
+
+state05_vision_restart_wipe_case1:
     pusha                                    ; 433A9
     rr xor, ax, ax                           ; 433AA
     mov ds,ax                                ; 433AC
@@ -5618,7 +5630,8 @@ loc_3706:
     pop ds                                   ; 43723
     popa                                     ; 43724
     iret                                     ; 43725
-h_3726:
+
+state05_vision_restart_wipe_case0:
     pusha                                    ; 43726
     rr xor, ax, ax                           ; 43727
     mov ds,ax                                ; 43729
@@ -7842,7 +7855,8 @@ sub_4A60:
     pop cx                                   ; 44AA7
     pop ax                                   ; 44AA8
     ret                                      ; 44AA9
-h_4AAA:
+
+sub_4C84_case0:
     pusha                                    ; 44AAA
     rr xor, ax, ax                           ; 44AAB
     mov ds,ax                                ; 44AAD
@@ -7945,7 +7959,8 @@ loc_4B66:
     call [cs:bx+tbl_4CF0]                    ; 44B95
     popa                                     ; 44B9A
     ret                                      ; 44B9B
-h_4B9C:
+
+sub_4C84_case1:
     pusha                                    ; 44B9C
     rr xor, ax, ax                           ; 44B9D
     mov ds,ax                                ; 44B9F
@@ -8046,8 +8061,8 @@ loc_4C64:
 
 ; jump table tbl_4C80: 2 words, bound: hint (first use at 44C8F)
 tbl_4C80:
-    dw h_4AAA
-    dw h_4B9C
+    dw sub_4C84_case0
+    dw sub_4C84_case1
 
 sub_4C84:
     push bx                                  ; 44C84
@@ -8102,11 +8117,13 @@ loc_4CEE:
 
 ; jump table tbl_4CF0: 4 words, bound: hint (first use at 44C79)
 tbl_4CF0:
-    dw h_4CF8
-    dw h_4D2C
-    dw h_4D60
-    dw h_4D96
-h_4CF8:
+    dw sub_4B9C_case0
+    dw sub_4B9C_case1
+    dw sub_4B9C_case2
+    dw sub_4B9C_case3
+
+; dispatch roles: sub_4B9C_case0, sub_4C84_case1_case0
+sub_4B9C_case0:
     mov byte [0x13b4],0x0                    ; 44CF8
     mov dx,[0x13a0]                          ; 44CFD
     sub dx,byte +0x40                        ; 44D01
@@ -8127,7 +8144,9 @@ loc_4D10:
     mov [0x12d6],ax                          ; 44D25
     call sub_492B                            ; 44D28
     ret                                      ; 44D2B
-h_4D2C:
+
+; dispatch roles: sub_4B9C_case1, sub_4C84_case1_case1
+sub_4B9C_case1:
     mov byte [0x13b4],0x1                    ; 44D2C
     mov dx,[0x13a2]                          ; 44D31
     sub dx,byte +0x40                        ; 44D35
@@ -8148,7 +8167,9 @@ loc_4D44:
     mov [0x12d6],dx                          ; 44D58
     call sub_484D                            ; 44D5C
     ret                                      ; 44D5F
-h_4D60:
+
+; dispatch roles: sub_4B9C_case2, sub_4C84_case1_case2
+sub_4B9C_case2:
     mov byte [0x13b4],0x2                    ; 44D60
     mov dx,[0x13a0]                          ; 44D65
     sub dx,byte +0x10                        ; 44D69
@@ -8169,7 +8190,9 @@ loc_4D78:
     mov [0x12d6],ax                          ; 44D8F
     call sub_492B                            ; 44D92
     ret                                      ; 44D95
-h_4D96:
+
+; dispatch roles: sub_4B9C_case3, sub_4C84_case1_case3
+sub_4B9C_case3:
     mov byte [0x13b4],0x3                    ; 44D96
     mov dx,[0x13a2]                          ; 44D9B
     sub dx,byte +0x40                        ; 44D9F
@@ -8191,7 +8214,8 @@ loc_4DAE:
     call sub_484D                            ; 44DC6
     ret                                      ; 44DC9
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 44DCA
-h_4DD0:
+
+sub_03F0_case1:
     cmp byte [0x1384],0x0                    ; 44DD0
     jnz short loc_4E17                       ; 44DD5
     pusha                                    ; 44DD7
@@ -8221,7 +8245,8 @@ loc_4E06:
     popa                                     ; 44E16
 loc_4E17:
     ret                                      ; 44E17
-h_4E18:
+
+sub_03F0_case0_4E18:
     cmp byte [0x1384],0x0                    ; 44E18
     jnz short loc_4E55                       ; 44E1D
     pusha                                    ; 44E1F
@@ -8350,7 +8375,8 @@ loc_4F39:
     pop ax                                   ; 44F3D
     ret                                      ; 44F3E
     db 0x90   ; 44F3F
-h_4F40:
+
+obj02_update:
     inc byte [di+0x14]                       ; 44F40
     mov bp,[di+0xc]                          ; 44F43
     test bp,0x100                            ; 44F46
@@ -8415,7 +8441,8 @@ loc_4FB8:
     add [di+0x4],ax                          ; 44FCD
     ret                                      ; 44FD0
     db 0x90   ; 44FD1
-h_4FD2:
+
+obj02_draw:
     mov bp,0x29ec                            ; 44FD2
     jmp near loc_D092                        ; 44FD5
 
@@ -8578,7 +8605,8 @@ loc_5167:
     pop ax                                   ; 45167
     ret                                      ; 45168
     db 0x90   ; 45169
-h_516A:
+
+obj01_update:
     inc byte [di+0x14]                       ; 4516A
     cmp byte [di+0x1f],0x9                   ; 4516D
     sbb byte [di+0x1f],0x0                   ; 45171
@@ -9063,7 +9091,8 @@ loc_55EA:
     ret                                      ; 455F4
     db 0x90   ; 455F5
 
-sub_55F6:
+; dispatch roles: coll_01_03, coll_01_04, coll_01_05, coll_01_06, coll_01_07, coll_01_17, coll_01_2D, coll_01_2E ...
+coll_01_03:
     mov bp,[0x3cc]                           ; 455F6
     test bp,0x1000                           ; 455FA
     jnz short loc_564C                       ; 455FE
@@ -9096,12 +9125,16 @@ loc_564C:
     mov [0x3cc],bp                           ; 4564C
     ret                                      ; 45650
     db 0x90   ; 45651
-h_5652:
+
+; dispatch roles: coll_03_01, coll_04_01, coll_05_01, coll_06_01, coll_07_01, coll_17_01, coll_2D_01, coll_2E_01 ...
+coll_03_01:
     xchg di,si                               ; 45652
-    call sub_55F6                            ; 45654
+    call coll_01_03                          ; 45654
     xchg di,si                               ; 45657
     ret                                      ; 45659
-h_565A:
+
+; dispatch roles: coll_01_12, coll_01_30
+coll_01_12:
     test word [si+0xc],0x20                  ; 4565A
     jnz short loc_5688                       ; 4565F
     test word [di+0xc],0x4000                ; 45661
@@ -9297,7 +9330,9 @@ loc_582F:
     pop ax                                   ; 4582F
     ret                                      ; 45830
     db 0x90   ; 45831
-h_5832:
+
+; dispatch roles: coll_01_18, coll_01_26
+coll_01_18:
     pusha                                    ; 45832
     cmp byte [si],0x18                       ; 45833
     jnz short loc_585F                       ; 45836
@@ -9435,7 +9470,8 @@ loc_5983:
     popa                                     ; 45983
     ret                                      ; 45984
     db 0x90   ; 45985
-h_5986:
+
+coll_01_19:
     pusha                                    ; 45986
     test word [di+0x12],0xc0                 ; 45987
     jnz short loc_59AF                       ; 4598C
@@ -9541,7 +9577,8 @@ loc_5A5D:
     mov word [si+0x8],0xff00                 ; 45A5D
     popa                                     ; 45A62
     ret                                      ; 45A63
-h_5A64:
+
+coll_01_27:
     test word [di+0xc],0x4000                ; 45A64
     jnz short loc_5A9A                       ; 45A69
     mov ax,[si+0x4]                          ; 45A6B
@@ -9700,7 +9737,8 @@ loc_5BE3:
     mov [di+0x4],ax                          ; 45BEC
     jmp near loc_5BC4                        ; 45BEF
     db 0x60,0x61,0xC3,0x90   ; 45BF2
-h_5BF6:
+
+obj01_draw_case1_5BF6:
     pusha                                    ; 45BF6
     rr xor, ax, ax                           ; 45BF7
     mov ds,ax                                ; 45BF9
@@ -9784,7 +9822,7 @@ loc_5C9E:
     ret                                      ; 45CBA
     db 0x90   ; 45CBB
 
-sub_5CBC:
+obj01_draw_case0_5CBC:
     pusha                                    ; 45CBC
     rr xor, ax, ax                           ; 45CBD
     mov ds,ax                                ; 45CBF
@@ -9908,7 +9946,8 @@ sub_5DA6:
     pop ds                                   ; 45DD8
     popa                                     ; 45DD9
     ret                                      ; 45DDA
-h_5DDB:
+
+obj01_draw_case0_5DDB:
     sub dh,0x10                              ; 45DDB
     sub dl,0x14                              ; 45DDE
     mov bx,[0x1382]                          ; 45DE1
@@ -9973,7 +10012,8 @@ loc_5E3A:
     add al,0x8                               ; 45E6C
     loop loc_5E3A                            ; 45E6E
     ret                                      ; 45E70
-h_5E71:
+
+obj01_draw_case1_5E71:
     sub dh,0xd                               ; 45E71
     sub dl,0x10                              ; 45E74
     mov bx,[0x1382]                          ; 45E77
@@ -10041,15 +10081,16 @@ loc_5ED0:
 
 ; jump table tbl_5F07: 2 words, bound: mask (first use at 45F3C)
 tbl_5F07:
-    dw sub_5CBC
-    dw h_5BF6
+    dw obj01_draw_case0_5CBC
+    dw obj01_draw_case1_5BF6
 
 ; jump table tbl_5F0B: 2 words, bound: mask (first use at 45F30)
 tbl_5F0B:
-    dw h_5DDB
-    dw h_5E71
+    dw obj01_draw_case0_5DDB
+    dw obj01_draw_case1_5E71
     db 0x90   ; 45F0F
-h_5F10:
+
+obj01_draw:
     mov di,0x3c0                             ; 45F10
     mov bp,[di+0xc]                          ; 45F13
     test bp,0x1000                           ; 45F16
@@ -10521,21 +10562,23 @@ sub_6338:
 
 ; jump table tbl_636B: 10 words, bound: adjacent (first use at 46683)
 tbl_636B:
-    dw h_663C
-    dw h_655E
-    dw h_6462
-    dw h_63AC
-    dw h_666E
+    dw sub_6670_case0
+    dw sub_6670_case1
+    dw sub_6670_case2
+    dw sub_6670_case3
+    dw sub_663C_case0
 
 ; jump table tbl_6375: 5 words, bound: adjacent (first use at 46668)
 tbl_6375:
-    dw h_666E
-    dw h_651C
-    dw h_6448
-    dw h_6380
-    dw h_666E
+    dw sub_663C_case0
+    dw sub_663C_case1
+    dw sub_663C_case2
+    dw sub_663C_case3
+    dw sub_663C_case0
     db 0x90   ; 4637F
-h_6380:
+
+; dispatch roles: sub_663C_case3, sub_6670_case0_case3, sub_6670_case8
+sub_663C_case3:
     pusha                                    ; 46380
     mov ax,[es:si+0x4]                       ; 46381
     mov cl,0x4                               ; 46385
@@ -10553,7 +10596,8 @@ h_6380:
     popa                                     ; 463A9
     ret                                      ; 463AA
     db 0x90   ; 463AB
-h_63AC:
+
+sub_6670_case3:
     pusha                                    ; 463AC
     mov al,[di+0x1e]                         ; 463AD
     shr al,1                                 ; 463B0
@@ -10619,7 +10663,9 @@ loc_6432:
     mov [di+0x16],ax                         ; 46443
     popa                                     ; 46446
     ret                                      ; 46447
-h_6448:
+
+; dispatch roles: sub_663C_case2, sub_6670_case0_case2, sub_6670_case7
+sub_663C_case2:
     push ax                                  ; 46448
     mov al,[es:si]                           ; 46449
     mov [di+0x8],al                          ; 4644C
@@ -10629,7 +10675,8 @@ h_6448:
     mov word [di+0x1c],0x0                   ; 4645B
     pop ax                                   ; 46460
     ret                                      ; 46461
-h_6462:
+
+sub_6670_case2:
     pusha                                    ; 46462
     mov cl,0x4                               ; 46463
     mov dl,[di+0x12]                         ; 46465
@@ -10711,7 +10758,9 @@ loc_64FF:
     popa                                     ; 46519
     ret                                      ; 4651A
     db 0x90   ; 4651B
-h_651C:
+
+; dispatch roles: sub_663C_case1, sub_6670_case0_case1, sub_6670_case6
+sub_663C_case1:
     push dx                                  ; 4651C
     mov al,[es:si]                           ; 4651D
     cmp byte [es:si+0xa],0x0                 ; 46520
@@ -10737,7 +10786,8 @@ loc_6535:
     mov word [di+0x1c],0x0                   ; 46557
     pop dx                                   ; 4655C
     ret                                      ; 4655D
-h_655E:
+
+sub_6670_case1:
     pusha                                    ; 4655E
     mov cl,0x4                               ; 4655F
     rr xor, dx, dx                           ; 46561
@@ -10825,7 +10875,8 @@ loc_6637:
     call sub_79A6                            ; 46637
     popa                                     ; 4663A
     ret                                      ; 4663B
-h_663C:
+
+sub_6670_case0:
     rr xor, ax, ax                           ; 4663C
     mov al,[es:si+0x3]                       ; 4663E
     test ax,ax                               ; 46642
@@ -10847,7 +10898,9 @@ loc_664F:
     call [cs:bx+tbl_6375]                    ; 46668
 loc_666D:
     ret                                      ; 4666D
-h_666E:
+
+; dispatch roles: sub_663C_case0, sub_663C_case4, sub_6670_case0_case0, sub_6670_case0_case4, sub_6670_case4, sub_6670_case5, sub_6670_case9
+sub_663C_case0:
     ret                                      ; 4666E
     db 0x90   ; 4666F
 
@@ -10867,7 +10920,8 @@ sub_6670:
     pop ax                                   ; 4668A
     ret                                      ; 4668B
     db 0xC3,0x90,0xC3,0x90   ; 4668C
-h_6690:
+
+obj1B_update:
     or byte [di+0x1],0x2                     ; 46690
     inc word [di+0x1c]                       ; 46694
     rr xor, ax, ax                           ; 46697
@@ -10883,7 +10937,8 @@ loc_66A6:
     mov [di],ax                              ; 466AB
     mov byte [di+0x1e],0x0                   ; 466AD
     ret                                      ; 466B1
-h_66B2:
+
+obj1B_draw:
     cmp word [0x1382],0x17e8                 ; 466B2
     jc short loc_66BB                        ; 466B8
     ret                                      ; 466BA
@@ -10933,7 +10988,7 @@ loc_66E7:
     mov [si+0x2],dx                          ; 46724
     ret                                      ; 46727
 
-sub_6728:
+coll_02_1B:
     rr xor, ax, ax                           ; 46728
     mov ah,[di]                              ; 4672A
     shr ax,1                                 ; 4672C
@@ -10949,9 +11004,10 @@ sub_6728:
 loc_6744:
     ret                                      ; 46744
     db 0x90   ; 46745
-h_6746:
+
+coll_1B_02:
     xchg di,si                               ; 46746
-    call sub_6728                            ; 46748
+    call coll_02_1B                          ; 46748
     xchg di,si                               ; 4674B
     ret                                      ; 4674D
 
@@ -10970,7 +11026,9 @@ sub_674E:
     popa                                     ; 46767
     ret                                      ; 46768
     db 0x90   ; 46769
-h_676A:
+
+; dispatch roles: lvl00_spawn, lvl2B_spawn, lvl2C_spawn, lvl2D_spawn
+lvl00_spawn:
     mov cl,0x4                               ; 4676A
     shl ax,cl                                ; 4676C
     shl dx,cl                                ; 4676E
@@ -10987,7 +11045,8 @@ h_676A:
     or word [di+0xc],0x2                     ; 4678F
     ret                                      ; 46794
     db 0x90   ; 46795
-h_6796:
+
+obj03_update:
     or byte [di+0x1],0x2                     ; 46796
     inc byte [di+0x14]                       ; 4679A
     inc word [di+0x1c]                       ; 4679D
@@ -11002,7 +11061,8 @@ loc_67AB:
     call sub_622B                            ; 467B4
 loc_67B7:
     jmp near sub_6146                        ; 467B7
-h_67BA:
+
+obj03_draw:
     cmp word [0x1382],0x17d4                 ; 467BA
     jc short loc_67C3                        ; 467C0
     ret                                      ; 467C2
@@ -11014,13 +11074,16 @@ loc_67C3:
     shl bx,1                                 ; 467D2
     jmp [cs:bx+tbl_D31E]                     ; 467D4
     db 0x90   ; 467D9
-h_67DA:
+
+; dispatch roles: coll_03_02, coll_04_02, coll_2E_02
+coll_03_02:
     xchg di,si                               ; 467DA
-    call sub_67E2                            ; 467DC
+    call coll_02_03                          ; 467DC
     xchg di,si                               ; 467DF
     ret                                      ; 467E1
 
-sub_67E2:
+; dispatch roles: coll_02_03, coll_02_04, coll_02_2E
+coll_02_03:
     mov dl,0x9                               ; 467E2
     call sub_60D4                            ; 467E4
     ret                                      ; 467E7
@@ -11035,7 +11098,8 @@ sub_67E8:
     mov es,ax                                ; 467F7
     rep movsw                                ; 467F9
     ret                                      ; 467FB
-h_67FC:
+
+lvl01_tick:
     cmp word [0x1410],byte +0x0              ; 467FC
     jnz short loc_6827                       ; 46801
     push ax                                  ; 46803
@@ -11058,7 +11122,8 @@ loc_6811:
     pop ax                                   ; 46826
 loc_6827:
     ret                                      ; 46827
-h_6828:
+
+lvl01_spawn:
     mov cl,0x4                               ; 46828
     shl ax,cl                                ; 4682A
     shl dx,cl                                ; 4682C
@@ -11074,7 +11139,9 @@ h_6828:
     or word [di+0xc],0x12                    ; 46849
     ret                                      ; 4684E
     db 0x90   ; 4684F
-h_6850:
+
+; dispatch roles: obj04_update, obj17_update
+obj04_update:
     or byte [di+0x1],0x2                     ; 46850
     inc byte [di+0x14]                       ; 46854
     inc word [di+0x1c]                       ; 46857
@@ -11108,7 +11175,8 @@ loc_6890:
 loc_689C:
     ret                                      ; 4689C
     db 0x90   ; 4689D
-h_689E:
+
+obj04_draw:
     cmp word [0x1382],0x17d4                 ; 4689E
     jc short loc_68A7                        ; 468A4
     ret                                      ; 468A6
@@ -11130,7 +11198,9 @@ sub_68BE:
     mov es,ax                                ; 468CD
     rep movsw                                ; 468CF
     ret                                      ; 468D1
-h_68D2:
+
+; dispatch roles: lvl04_tick, lvl24_tick
+lvl04_tick:
     cmp word [0x1416],byte +0x0              ; 468D2
     jnz short loc_68FD                       ; 468D7
     push ax                                  ; 468D9
@@ -11153,12 +11223,13 @@ loc_68E7:
     pop ax                                   ; 468FC
 loc_68FD:
     ret                                      ; 468FD
-h_68FE:
-    call sub_6906                            ; 468FE
+
+lvl24_spawn:
+    call lvl04_spawn                         ; 468FE
     mov byte [di+0x1f],0x1                   ; 46901
     ret                                      ; 46905
 
-sub_6906:
+lvl04_spawn:
     mov cl,0x4                               ; 46906
     shl ax,cl                                ; 46908
     shl dx,cl                                ; 4690A
@@ -11174,7 +11245,8 @@ sub_6906:
     or word [di+0xc],0x10                    ; 46927
     or word [di+0xc],0x2                     ; 4692C
     ret                                      ; 46931
-h_6932:
+
+obj05_update:
     or byte [di+0x1],0x2                     ; 46932
     inc byte [di+0x14]                       ; 46936
     inc word [di+0x1c]                       ; 46939
@@ -11250,7 +11322,8 @@ loc_69CD:
     mov [di+0x10],bx                         ; 469CD
     ret                                      ; 469D0
     db 0x90   ; 469D1
-h_69D2:
+
+obj06_update:
     or byte [di+0x1],0x2                     ; 469D2
     inc byte [di+0x14]                       ; 469D6
     test word [di+0xc],0x800                 ; 469D9
@@ -11294,7 +11367,8 @@ loc_6A34:
     ret                                      ; 46A34
     db 0x90   ; 46A35
 
-sub_6A36:
+; dispatch roles: coll_12_06, coll_13_06, coll_15_06, coll_27_06
+coll_12_06:
     mov ax,[si+0x2]                          ; 46A36
     sub ax,[di+0x2]                          ; 46A39
     rr mov, cx, ax                           ; 46A3C
@@ -11374,12 +11448,16 @@ loc_6AE6:
     or byte [si+0x11],0x10                   ; 46AEF
     or byte [di+0x11],0x20                   ; 46AF3
     ret                                      ; 46AF7
-h_6AF8:
+
+; dispatch roles: coll_06_12, coll_06_13, coll_06_15, coll_06_27
+coll_06_12:
     xchg di,si                               ; 46AF8
-    call sub_6A36                            ; 46AFA
+    call coll_12_06                          ; 46AFA
     xchg di,si                               ; 46AFD
     ret                                      ; 46AFF
-h_6B00:
+
+; dispatch roles: obj05_draw, obj06_draw
+obj05_draw:
     cmp word [0x1382],0x17d4                 ; 46B00
     jc short loc_6B09                        ; 46B06
     ret                                      ; 46B08
@@ -11550,7 +11628,8 @@ sub_6C72:
     mov es,ax                                ; 46C81
     rep movsw                                ; 46C83
     ret                                      ; 46C85
-h_6C86:
+
+lvl02_tick:
     cmp word [0x1400],byte +0x0              ; 46C86
     jnz short loc_6CB1                       ; 46C8B
     push ax                                  ; 46C8D
@@ -11573,7 +11652,8 @@ loc_6C9B:
     pop ax                                   ; 46CB0
 loc_6CB1:
     ret                                      ; 46CB1
-h_6CB2:
+
+lvl02_spawn:
     mov cl,0x4                               ; 46CB2
     shl ax,cl                                ; 46CB4
     shl dx,cl                                ; 46CB6
@@ -11602,7 +11682,8 @@ sub_6CE2:
     mov es,ax                                ; 46CF1
     rep movsw                                ; 46CF3
     ret                                      ; 46CF5
-h_6CF6:
+
+lvl1A_tick:
     cmp word [0x1408],byte +0x0              ; 46CF6
     jnz short loc_6D21                       ; 46CFB
     push ax                                  ; 46CFD
@@ -11625,7 +11706,8 @@ loc_6D0B:
     pop ax                                   ; 46D20
 loc_6D21:
     ret                                      ; 46D21
-h_6D22:
+
+lvl1A_spawn:
     mov cl,0x4                               ; 46D22
     shl ax,cl                                ; 46D24
     shl dx,cl                                ; 46D26
@@ -11650,7 +11732,8 @@ h_6D22:
     mov [di+0x1f],ch                         ; 46D5F
     ret                                      ; 46D62
     db 0x90   ; 46D63
-h_6D64:
+
+obj12_update:
     or byte [di+0x1],0x2                     ; 46D64
     inc byte [di+0x14]                       ; 46D68
     or word [di+0xc],0x10                    ; 46D6B
@@ -11673,7 +11756,8 @@ loc_6D93:
     jmp near sub_DD97                        ; 46D96
 loc_6D99:
     ret                                      ; 46D99
-h_6D9A:
+
+obj13_update:
     or byte [di+0x1],0x2                     ; 46D9A
     mov si,0x3c0                             ; 46D9E
     mov bl,[di+0x14]                         ; 46DA1
@@ -11844,7 +11928,8 @@ loc_6F24:
     popa                                     ; 46F27
     ret                                      ; 46F28
     db 0x90   ; 46F29
-h_6F2A:
+
+obj14_update:
     or byte [di+0x1],0x2                     ; 46F2A
     mov bp,[di+0xc]                          ; 46F2E
     mov word [di+0x6],0x0                    ; 46F31
@@ -11879,7 +11964,8 @@ loc_6F7C:
     mov word [di+0x8],0x0                    ; 46F7F
     ret                                      ; 46F84
     db 0x90   ; 46F85
-h_6F86:
+
+obj15_update:
     or byte [di+0x1],0x2                     ; 46F86
     inc byte [di+0x14]                       ; 46F8A
     call sub_622B                            ; 46F8D
@@ -11904,7 +11990,9 @@ loc_6FAA:
     mov ax,0x29                              ; 46FB9
     call sub_DD97                            ; 46FBC
     ret                                      ; 46FBF
-h_6FC0:
+
+; dispatch roles: obj12_draw, obj13_draw, obj14_draw, obj15_draw
+obj12_draw:
     cmp word [0x1382],0x17d4                 ; 46FC0
     jc short loc_6FC9                        ; 46FC6
     ret                                      ; 46FC8
@@ -11923,13 +12011,14 @@ loc_6FDB:
     rr add, bp, ax                           ; 46FE5
     or bp,0x2400                             ; 46FE7
     jmp near sub_D1A1                        ; 46FEB
-h_6FEE:
+
+coll_12_02:
     xchg di,si                               ; 46FEE
-    call sub_6FF6                            ; 46FF0
+    call coll_02_12                          ; 46FF0
     xchg di,si                               ; 46FF3
     ret                                      ; 46FF5
 
-sub_6FF6:
+coll_02_12:
     cmp byte [si+0x1e],0x0                   ; 46FF6
     jnz short loc_7013                       ; 46FFA
     mov dl,0x13                              ; 46FFC
@@ -11942,7 +12031,9 @@ sub_6FF6:
     jmp near loc_AC04                        ; 47010
 loc_7013:
     ret                                      ; 47013
-h_7014:
+
+; dispatch roles: coll_12_12, coll_12_13, coll_13_12
+coll_12_12:
     mov ax,[di+0x4]                          ; 47014
     mov dx,[si+0x4]                          ; 47017
     and ax,0xfff0                            ; 4701A
@@ -12023,7 +12114,8 @@ loc_70C2:
     ret                                      ; 470D2
     db 0x90   ; 470D3
 
-sub_70D4:
+; dispatch roles: coll_15_12, coll_15_27
+coll_15_12:
     mov ax,[di+0x2]                          ; 470D4
     mov dx,[si+0x2]                          ; 470D7
     and ax,0xfff0                            ; 470DA
@@ -12081,19 +12173,26 @@ loc_7149:
     db 0x80,0x4C,0x11,0x40,0xC3,0x8B,0x45,0x04,0x25,0xF0,0xFF,0x2D,0x80,0x01,0x89,0x44   ; 4715C
     db 0x04,0x80,0x4C,0x11,0x40,0x81,0x64,0x0C,0xDF,0xFF,0x33,0xC0,0xB4,0x01,0x89,0x44   ; 4716C
     db 0x08,0xC3   ; 4717C
-h_717E:
+
+; dispatch roles: coll_12_15, coll_27_15
+coll_12_15:
     xchg di,si                               ; 4717E
-    call sub_70D4                            ; 47180
+    call coll_15_12                          ; 47180
     xchg di,si                               ; 47183
     ret                                      ; 47185
-h_7186:
+
+; dispatch roles: coll_13_03, coll_13_04, coll_13_2D, coll_13_2E, coll_13_2F, coll_14_03, coll_14_04, coll_14_2D ...
+coll_13_03:
     jmp near sub_79D0                        ; 47186
     db 0x90   ; 47189
-h_718A:
+
+; dispatch roles: coll_03_13, coll_03_14, coll_03_15, coll_04_13, coll_04_14, coll_04_15, coll_2D_13, coll_2D_14 ...
+coll_03_13:
     jmp near sub_79A6                        ; 4718A
     db 0x90   ; 4718D
 
-sub_718E:
+; dispatch roles: coll_03_12, coll_03_27, coll_04_12, coll_04_27, coll_2D_12, coll_2D_27, coll_2E_12, coll_2E_27
+coll_03_12:
     test word [si+0xc],0x10                  ; 4718E
     jnz short loc_71E2                       ; 47193
     cmp byte [si],0x27                       ; 47195
@@ -12167,13 +12266,16 @@ loc_7222:
 loc_7225:
     mov byte [di+0x8],0xe0                   ; 47225
     ret                                      ; 47229
-h_722A:
+
+; dispatch roles: coll_12_03, coll_12_04, coll_12_2D, coll_12_2E, coll_27_03, coll_27_04, coll_27_2D, coll_27_2E
+coll_12_03:
     xchg di,si                               ; 4722A
-    call sub_718E                            ; 4722C
+    call coll_03_12                          ; 4722C
     xchg di,si                               ; 4722F
     ret                                      ; 47231
 
-sub_7232:
+; dispatch roles: coll_12_05, coll_13_05, coll_27_05
+coll_12_05:
     mov ax,[si+0x2]                          ; 47232
     mov dx,[di+0x2]                          ; 47235
     and ax,0xfff0                            ; 47238
@@ -12312,13 +12414,15 @@ loc_735C:
     or byte [di+0x11],0x20                   ; 47362
     ret                                      ; 47366
     db 0x90   ; 47367
-h_7368:
+
+; dispatch roles: coll_05_12, coll_05_13, coll_05_27
+coll_05_12:
     xchg di,si                               ; 47368
-    call sub_7232                            ; 4736A
+    call coll_12_05                          ; 4736A
     xchg di,si                               ; 4736D
     ret                                      ; 4736F
 
-sub_7370:
+coll_15_05:
     pusha                                    ; 47370
     mov ax,[si+0x2]                          ; 47371
     mov dx,[di+0x2]                          ; 47374
@@ -12437,9 +12541,10 @@ loc_745C:
     popa                                     ; 4746D
     ret                                      ; 4746E
     db 0xC3   ; 4746F
-h_7470:
+
+coll_05_15:
     xchg di,si                               ; 47470
-    call sub_7370                            ; 47472
+    call coll_15_05                          ; 47472
     xchg di,si                               ; 47475
     ret                                      ; 47477
 
@@ -12453,7 +12558,8 @@ sub_7478:
     mov es,ax                                ; 47487
     rep movsw                                ; 47489
     ret                                      ; 4748B
-h_748C:
+
+lvl03_tick:
     cmp word [0x1404],byte +0x0              ; 4748C
     jnz short loc_74B7                       ; 47491
     push ax                                  ; 47493
@@ -12476,7 +12582,8 @@ loc_74A1:
     pop ax                                   ; 474B6
 loc_74B7:
     ret                                      ; 474B7
-h_74B8:
+
+lvl03_spawn:
     mov cl,0x4                               ; 474B8
     shl ax,cl                                ; 474BA
     shl dx,cl                                ; 474BC
@@ -12492,7 +12599,8 @@ h_74B8:
     mov byte [di+0xa],0xa0                   ; 474D8
     or word [di+0xc],0x10                    ; 474DC
     ret                                      ; 474E1
-h_74E2:
+
+obj08_update:
     or byte [di+0x1],0x2                     ; 474E2
     inc byte [di+0x14]                       ; 474E6
     inc word [di+0x1c]                       ; 474E9
@@ -12563,7 +12671,8 @@ loc_757B:
     loop loc_757B                            ; 47586
     ret                                      ; 47588
     db 0x90   ; 47589
-h_758A:
+
+obj08_draw:
     cmp word [0x1382],0x17c8                 ; 4758A
     jc short loc_7593                        ; 47590
     ret                                      ; 47592
@@ -12595,7 +12704,8 @@ loc_75C6:
 loc_75D8:
     jmp near loc_7527                        ; 475D8
     db 0x90   ; 475DB
-h_75DC:
+
+coll_08_01:
     test word [di+0xc],0x3000                ; 475DC
     jnz short loc_75F2                       ; 475E1
     mov byte [di+0x14],0x0                   ; 475E3
@@ -12605,7 +12715,8 @@ h_75DC:
 loc_75F2:
     ret                                      ; 475F2
     db 0x90   ; 475F3
-h_75F4:
+
+coll_01_08:
     test word [si+0xc],0x3000                ; 475F4
     jnz short loc_760A                       ; 475F9
     mov byte [si+0x14],0x0                   ; 475FB
@@ -12615,13 +12726,14 @@ h_75F4:
 loc_760A:
     ret                                      ; 4760A
     db 0x90   ; 4760B
-h_760C:
+
+coll_08_02:
     xchg di,si                               ; 4760C
-    call sub_7614                            ; 4760E
+    call coll_02_08                          ; 4760E
     xchg di,si                               ; 47611
     ret                                      ; 47613
 
-sub_7614:
+coll_02_08:
     and word [0x3cc],0xdebf                  ; 47614
     or word [0x3cc],0x4680                   ; 4761A
     or word [si+0xc],0x1400                  ; 47620
@@ -12653,7 +12765,8 @@ sub_7646:
     popa                                     ; 4765F
     ret                                      ; 47660
     db 0x90   ; 47661
-h_7662:
+
+obj09_update:
     or byte [di+0x1],0x2                     ; 47662
     mov si,0x3c0                             ; 47666
     mov bl,[di+0x14]                         ; 47669
@@ -12848,7 +12961,8 @@ loc_7831:
     mov [di+0x10],bx                         ; 47831
     popa                                     ; 47834
     ret                                      ; 47835
-h_7836:
+
+obj0A_update:
     mov bp,[di+0xc]                          ; 47836
     or byte [di+0x1],0x2                     ; 47839
     rr xor, ax, ax                           ; 4783D
@@ -12909,7 +13023,8 @@ loc_78B1:
 loc_78CA:
     ret                                      ; 478CA
     db 0x90   ; 478CB
-h_78CC:
+
+obj0B_update:
     or byte [di+0x1],0x2                     ; 478CC
     inc byte [di+0x14]                       ; 478D0
     call sub_5F50                            ; 478D3
@@ -12920,7 +13035,8 @@ h_78CC:
     jmp near sub_622B                        ; 478E2
 loc_78E5:
     jmp near sub_79A6                        ; 478E5
-h_78E8:
+
+obj0C_update:
     or byte [di+0x1],0x2                     ; 478E8
     inc byte [di+0x14]                       ; 478EC
     cmp byte [di+0x8],0x18                   ; 478EF
@@ -12935,7 +13051,9 @@ loc_78F9:
 loc_7906:
     jmp near sub_79A6                        ; 47906
     db 0x90   ; 47909
-h_790A:
+
+; dispatch roles: obj09_draw, obj0A_draw, obj0B_draw, obj0C_draw
+obj09_draw:
     cmp word [0x1382],0x17b8                 ; 4790A
     jc short loc_7913                        ; 47910
     ret                                      ; 47912
@@ -12950,12 +13068,16 @@ loc_7926:
     mov bp,0x1aa                             ; 47926
     or bp,0x2800                             ; 47929
     jmp near sub_D1A1                        ; 4792D
-h_7930:
+
+; dispatch roles: coll_03_0A, coll_04_0A, coll_0A_03, coll_0A_04, coll_0A_2D, coll_0A_2E, coll_2D_0A, coll_2E_0A
+coll_03_0A:
     call sub_79A6                            ; 47930
     call sub_79D0                            ; 47933
     jmp near sub_5FB2                        ; 47936
     db 0x90   ; 47939
-h_793A:
+
+; dispatch roles: coll_03_0B, coll_03_0C, coll_04_0B, coll_04_0C, coll_0B_03, coll_0B_04, coll_0B_2D, coll_0B_2E ...
+coll_03_0B:
     mov ax,[di+0x2]                          ; 4793A
     sub ax,[si+0x2]                          ; 4793D
     add ax,0x120                             ; 47940
@@ -12966,16 +13088,24 @@ h_793A:
 loc_794E:
     ret                                      ; 4794E
     db 0x90   ; 4794F
-h_7950:
+
+; dispatch roles: coll_0A_05, coll_0A_06, coll_0A_29, coll_0A_2F
+coll_0A_05:
     call sub_79A6                            ; 47950
     jmp near sub_5FB2                        ; 47953
-h_7956:
+
+; dispatch roles: coll_05_0A, coll_06_0A, coll_29_09, coll_29_0A, coll_2F_0A
+coll_05_0A:
     call sub_79D0                            ; 47956
     jmp near sub_5FB2                        ; 47959
-h_795C:
+
+; dispatch roles: coll_0B_05, coll_0B_06, coll_0B_12, coll_0B_18, coll_0B_26, coll_0B_27, coll_0B_29, coll_0B_2F ...
+coll_0B_05:
     call sub_79A6                            ; 4795C
     ret                                      ; 4795F
-h_7960:
+
+; dispatch roles: coll_05_0B, coll_05_0C, coll_06_0B, coll_06_0C, coll_12_0B, coll_12_0C, coll_12_2F, coll_14_2F ...
+coll_05_0B:
     call sub_79D0                            ; 47960
     ret                                      ; 47963
     db 0xC3,0x90   ; 47964
@@ -13056,7 +13186,8 @@ sub_79D0:
 loc_79F8:
     popa                                     ; 479F8
     ret                                      ; 479F9
-h_79FA:
+
+obj16_update:
     or byte [di+0x1],0x2                     ; 479FA
     mov al,[di+0x14]                         ; 479FE
     inc al                                   ; 47A01
@@ -13073,7 +13204,8 @@ loc_7A15:
     mov byte [di],0x0                        ; 47A15
     ret                                      ; 47A18
     db 0x90   ; 47A19
-h_7A1A:
+
+obj16_draw:
     cmp word [0x1382],0x17d0                 ; 47A1A
     jc short loc_7A23                        ; 47A20
     ret                                      ; 47A22
@@ -13140,7 +13272,9 @@ sub_7A98:
     mov es,ax                                ; 47AA7
     rep movsw                                ; 47AA9
     ret                                      ; 47AAB
-h_7AAC:
+
+; dispatch roles: lvl05_tick, lvl1F_tick
+lvl05_tick:
     cmp word [0x1412],byte +0x0              ; 47AAC
     jnz short loc_7AD7                       ; 47AB1
     push ax                                  ; 47AB3
@@ -13185,7 +13319,9 @@ loc_7AEC:
 loc_7B02:
     ret                                      ; 47B02
     db 0x90   ; 47B03
-h_7B04:
+
+; dispatch roles: lvl06_tick, lvl20_tick
+lvl06_tick:
     cmp word [0x1414],byte +0x0              ; 47B04
     jnz short loc_7B2F                       ; 47B09
     push ax                                  ; 47B0B
@@ -13230,12 +13366,13 @@ loc_7B44:
 loc_7B5A:
     ret                                      ; 47B5A
     db 0x90   ; 47B5B
-h_7B5C:
-    call sub_7B64                            ; 47B5C
+
+lvl1F_spawn:
+    call lvl05_spawn                         ; 47B5C
     mov byte [di+0x1f],0xd                   ; 47B5F
     ret                                      ; 47B63
 
-sub_7B64:
+lvl05_spawn:
     mov cl,0x4                               ; 47B64
     shl ax,cl                                ; 47B66
     shl dx,cl                                ; 47B68
@@ -13253,12 +13390,13 @@ sub_7B64:
     or word [di+0xc],0x2                     ; 47B8D
     ret                                      ; 47B92
     db 0x90   ; 47B93
-h_7B94:
-    call sub_7B9C                            ; 47B94
+
+lvl20_spawn:
+    call lvl06_spawn                         ; 47B94
     mov byte [di+0x1f],0xd                   ; 47B97
     ret                                      ; 47B9B
 
-sub_7B9C:
+lvl06_spawn:
     mov cl,0x4                               ; 47B9C
     shl ax,cl                                ; 47B9E
     shl dx,cl                                ; 47BA0
@@ -13275,7 +13413,8 @@ sub_7B9C:
     or word [di+0xc],0x12                    ; 47BC1
     ret                                      ; 47BC6
     db 0x90   ; 47BC7
-h_7BC8:
+
+obj07_update:
     or byte [di+0x1],0x2                     ; 47BC8
     inc word [di+0x1c]                       ; 47BCC
     inc byte [di+0x14]                       ; 47BCF
@@ -13294,7 +13433,9 @@ loc_7BE9:
     ret                                      ; 47BEE
 loc_7BEF:
     jmp near sub_6146                        ; 47BEF
-h_7BF2:
+
+; dispatch roles: obj07_draw, obj17_draw
+obj07_draw:
     cmp word [0x1382],0x17d4                 ; 47BF2
     jc short loc_7BFB                        ; 47BF8
     ret                                      ; 47BFA
@@ -13310,20 +13451,24 @@ loc_7C08:
     shl bx,1                                 ; 47C14
     jmp [cs:bx+tbl_D31E]                     ; 47C16
     db 0x90   ; 47C1B
-h_7C1C:
+
+; dispatch roles: coll_07_02, coll_17_02
+coll_07_02:
     xchg di,si                               ; 47C1C
-    call sub_7C24                            ; 47C1E
+    call coll_02_07                          ; 47C1E
     xchg di,si                               ; 47C21
     ret                                      ; 47C23
 
-sub_7C24:
+; dispatch roles: coll_02_07, coll_02_17
+coll_02_07:
     mov dl,0xf                               ; 47C24
     call sub_60D4                            ; 47C26
     mov word [si+0x1c],0x0                   ; 47C29
     ret                                      ; 47C2E
     db 0x90   ; 47C2F
 
-sub_7C30:
+; dispatch roles: coll_07_12, coll_07_27, coll_17_12, coll_17_27
+coll_07_12:
     test word [si+0xc],0x10                  ; 47C30
     jnz short loc_7C82                       ; 47C35
     cmp byte [si],0x27                       ; 47C37
@@ -13369,33 +13514,43 @@ loc_7C82:
 loc_7C91:
     mov byte [di+0x8],0xe0                   ; 47C91
     ret                                      ; 47C95
-h_7C96:
+
+; dispatch roles: coll_12_07, coll_27_07, coll_27_17
+coll_12_07:
     xchg di,si                               ; 47C96
-    call sub_7C30                            ; 47C98
+    call coll_07_12                          ; 47C98
     xchg di,si                               ; 47C9B
     ret                                      ; 47C9D
-h_7C9E:
+
+; dispatch roles: coll_07_13, coll_07_14, coll_07_15, coll_0D_05, coll_0D_06, coll_0D_15, coll_0D_2F, coll_10_05 ...
+coll_07_13:
     mov byte [di],0x0                        ; 47C9E
     mov ax,[di+0x2]                          ; 47CA1
     mov dx,[di+0x4]                          ; 47CA4
     mov ch,[di+0x15]                         ; 47CA7
     jmp near sub_812F                        ; 47CAA
     db 0x90   ; 47CAD
-h_7CAE:
+
+; dispatch roles: coll_05_0D, coll_05_10, coll_06_0D, coll_06_10, coll_13_07, coll_14_07, coll_14_17, coll_15_07 ...
+coll_05_0D:
     mov byte [si],0x0                        ; 47CAE
     mov ax,[si+0x2]                          ; 47CB1
     mov dx,[si+0x4]                          ; 47CB4
     mov ch,[si+0x15]                         ; 47CB7
     jmp near sub_812F                        ; 47CBA
     db 0x90   ; 47CBD
-h_7CBE:
+
+; dispatch roles: coll_07_0A, coll_07_0B, coll_07_0C, coll_0D_03, coll_0D_04, coll_0D_0B, coll_0D_0C, coll_0D_2D ...
+coll_07_0A:
     mov byte [di],0x0                        ; 47CBE
     mov ax,[di+0x2]                          ; 47CC1
     mov dx,[di+0x4]                          ; 47CC4
     mov ch,[di+0x15]                         ; 47CC7
     call sub_812F                            ; 47CCA
     jmp near sub_79D0                        ; 47CCD
-h_7CD0:
+
+; dispatch roles: coll_03_0D, coll_03_10, coll_04_0D, coll_04_10, coll_0B_07, coll_0B_0D, coll_0B_17, coll_0C_07 ...
+coll_03_0D:
     call sub_79A6                            ; 47CD0
     mov byte [si],0x0                        ; 47CD3
     mov ax,[si+0x2]                          ; 47CD6
@@ -13416,7 +13571,8 @@ sub_7CE2:
 loc_7CFC:
     ret                                      ; 47CFC
     db 0x90   ; 47CFD
-h_7CFE:
+
+obj0D_update:
     or byte [di+0x1],0x2                     ; 47CFE
     inc word [di+0x1c]                       ; 47D02
     or word [di+0xc],0x10                    ; 47D05
@@ -13438,7 +13594,8 @@ loc_7D27:
     mov ch,[di+0x15]                         ; 47D2D
     mov byte [di],0x0                        ; 47D30
     jmp near sub_812F                        ; 47D33
-h_7D36:
+
+obj0F_update:
     or byte [di+0x1],0x2                     ; 47D36
     inc word [di+0x1c]                       ; 47D3A
     call sub_7CE2                            ; 47D3D
@@ -13517,7 +13674,8 @@ loc_7DE6:
     ret                                      ; 47DEE
     db 0x80,0x7D,0x1F,0x00,0x74,0x00,0xE8,0xBA,0xE1,0x8B,0x45,0x02,0x8B,0x55,0x04,0x8A   ; 47DEF
     db 0x6D,0x15,0xC6,0x05,0x00,0xE9,0x28,0x03,0x90   ; 47DFF
-h_7E08:
+
+obj0E_update:
     or byte [di+0x1],0x2                     ; 47E08
     mov bp,[di+0xc]                          ; 47E0C
     mov word [di+0x6],0x0                    ; 47E0F
@@ -13563,7 +13721,8 @@ loc_7E6A:
     mov ch,[di+0x15]                         ; 47E75
     jmp near sub_812F                        ; 47E78
     db 0x90   ; 47E7B
-h_7E7C:
+
+obj10_update:
     or byte [di+0x1],0x2                     ; 47E7C
     inc word [di+0x1c]                       ; 47E80
     call sub_7CE2                            ; 47E83
@@ -13589,18 +13748,20 @@ loc_7EA4:
     db 0xFE,0xE8,0x64,0xE3,0xE8,0x7C,0xE2,0xF6,0x45,0x11,0x04,0x75,0x07,0x80,0x7D,0x1F   ; 47EC3
     db 0x00,0x74,0x05,0xC3,0xE8,0xED,0xE0,0xC3,0x8B,0x45,0x02,0x8B,0x55,0x04,0x8A,0x6D   ; 47ED3
     db 0x15,0xC6,0x05,0x00,0xE9,0x45,0x02   ; 47EE3
-h_7EEA:
+
+coll_0D_02:
     xchg di,si                               ; 47EEA
-    call sub_7EF2                            ; 47EEC
+    call coll_02_0D                          ; 47EEC
     xchg di,si                               ; 47EEF
     ret                                      ; 47EF1
 
-sub_7EF2:
+coll_02_0D:
     mov dl,0xf                               ; 47EF2
     call sub_6074                            ; 47EF4
     ret                                      ; 47EF7
 
-sub_7EF8:
+; dispatch roles: coll_10_12, coll_10_27
+coll_10_12:
     pusha                                    ; 47EF8
     mov ax,[di+0x4]                          ; 47EF9
     mov dx,[si+0x4]                          ; 47EFC
@@ -13648,13 +13809,16 @@ loc_7F4C:
     popa                                     ; 47F5D
     ret                                      ; 47F5E
     db 0xC3   ; 47F5F
-h_7F60:
+
+; dispatch roles: coll_12_10, coll_27_10
+coll_12_10:
     xchg di,si                               ; 47F60
-    call sub_7EF8                            ; 47F62
+    call coll_10_12                          ; 47F62
     xchg di,si                               ; 47F65
     ret                                      ; 47F67
 
-sub_7F68:
+; dispatch roles: coll_0D_12, coll_0D_27
+coll_0D_12:
     mov ax,[di+0x4]                          ; 47F68
     mov dx,[si+0x4]                          ; 47F6B
     and ax,0xfff0                            ; 47F6E
@@ -13703,26 +13867,32 @@ loc_7FD3:
     mov dx,[di+0x4]                          ; 47FD9
     mov ch,[di+0x15]                         ; 47FDC
     jmp near sub_812F                        ; 47FDF
-h_7FE2:
+
+; dispatch roles: coll_12_0D, coll_27_0D
+coll_12_0D:
     xchg di,si                               ; 47FE2
-    call sub_7F68                            ; 47FE4
+    call coll_0D_12                          ; 47FE4
     xchg di,si                               ; 47FE7
     ret                                      ; 47FE9
 
-sub_7FEA:
+; dispatch roles: coll_0E_05, coll_0E_06, coll_0E_29, coll_0E_2F
+coll_0E_05:
     mov byte [di],0x0                        ; 47FEA
     mov ax,[di+0x2]                          ; 47FED
     mov dx,[di+0x4]                          ; 47FF0
     mov ch,[di+0x15]                         ; 47FF3
     call sub_812F                            ; 47FF6
     jmp near sub_5FB2                        ; 47FF9
-h_7FFC:
+
+; dispatch roles: coll_05_0E, coll_06_0E, coll_29_0E, coll_2F_0E
+coll_05_0E:
     xchg di,si                               ; 47FFC
-    call sub_7FEA                            ; 47FFE
+    call coll_0E_05                          ; 47FFE
     xchg di,si                               ; 48001
     ret                                      ; 48003
 
-sub_8004:
+; dispatch roles: coll_0D_0A, coll_0E_03, coll_0E_04, coll_0E_2D, coll_0E_2E
+coll_0D_0A:
     mov byte [di],0x0                        ; 48004
     mov ax,[di+0x2]                          ; 48007
     mov dx,[di+0x4]                          ; 4800A
@@ -13731,12 +13901,16 @@ sub_8004:
     call sub_79D0                            ; 48013
     jmp near sub_5FB2                        ; 48016
     db 0x90   ; 48019
-h_801A:
+
+; dispatch roles: coll_03_0E, coll_04_0E, coll_0A_07, coll_0A_0D, coll_0A_15, coll_0A_17, coll_2D_0E, coll_2E_0E
+coll_03_0E:
     xchg di,si                               ; 4801A
-    call sub_8004                            ; 4801C
+    call coll_0D_0A                          ; 4801C
     xchg di,si                               ; 4801F
     ret                                      ; 48021
-h_8022:
+
+; dispatch roles: coll_07_10, coll_0D_0D, coll_0D_0E, coll_0D_10, coll_0E_0D, coll_0E_0E, coll_0E_10, coll_10_07 ...
+coll_07_10:
     mov byte [di],0x0                        ; 48022
     mov ax,[di+0x2]                          ; 48025
     mov dx,[di+0x4]                          ; 48028
@@ -13749,7 +13923,9 @@ h_8022:
     call sub_812F                            ; 4803D
     ret                                      ; 48040
     db 0x90   ; 48041
-h_8042:
+
+; dispatch roles: coll_07_0E, coll_0E_07, coll_0E_17, coll_17_0E
+coll_07_0E:
     mov byte [di],0x0                        ; 48042
     mov ax,[di+0x2]                          ; 48045
     mov dx,[di+0x4]                          ; 48048
@@ -13762,7 +13938,9 @@ h_8042:
     call sub_812F                            ; 4805D
     jmp near sub_5FB2                        ; 48060
     db 0x90   ; 48063
-h_8064:
+
+; dispatch roles: coll_07_0D, coll_0D_07, coll_0D_17, coll_17_0D
+coll_07_0D:
     test word [di+0xc],0x20                  ; 48064
     jnz short loc_8073                       ; 48069
     test word [si+0xc],0x20                  ; 4806B
@@ -13781,7 +13959,9 @@ loc_8073:
     call sub_812F                            ; 4808E
     ret                                      ; 48091
     db 0xEA,0xFC,0xFC,0x0E,0x00,0xFC,0xFC,0x00,0x00,0x08,0x08,0x00   ; 48092
-h_809E:
+
+; dispatch roles: obj0D_draw, obj0E_draw, obj0F_draw, obj10_draw
+obj0D_draw:
     cmp word [0x1382],0x17b0                 ; 4809E
     jc short loc_80A7                        ; 480A4
     ret                                      ; 480A6
@@ -13860,7 +14040,8 @@ loc_814F:
     db 0x00,0x00,0x00,0x00,0x00,0xF0,0x00,0x10,0x10,0xF0,0xF0,0x10,0x10,0x00,0xF0,0x00   ; 48151
     db 0x10,0x10,0xF0,0xF0,0x00,0x10,0x00,0xF0,0xF0,0x10,0x10,0xF0,0xF0,0x00,0x10,0x00   ; 48161
     db 0x00,0x00,0x00,0x00   ; 48171
-h_8175:
+
+obj11_update:
     or byte [di+0x1],0xa                     ; 48175
     inc word [di+0x1c]                       ; 48179
     mov ax,[di+0x1c]                         ; 4817C
@@ -13904,7 +14085,8 @@ loc_819D:
     ret                                      ; 481D0
     db 0x90,0xC3,0x90   ; 481D1
 
-sub_81D4:
+; dispatch roles: coll_29_03, coll_29_04, coll_29_0B, coll_29_0C, coll_29_2D, coll_29_2E
+coll_29_03:
     mov bx,0x130                             ; 481D4
     mov cx,0x130                             ; 481D7
     call sub_6124                            ; 481DA
@@ -13913,12 +14095,16 @@ sub_81D4:
 loc_81E2:
     ret                                      ; 481E2
     db 0x90   ; 481E3
-h_81E4:
+
+; dispatch roles: coll_03_29, coll_04_29, coll_2D_29, coll_2E_29
+coll_03_29:
     xchg di,si                               ; 481E4
-    call sub_81D4                            ; 481E6
+    call coll_29_03                          ; 481E6
     xchg di,si                               ; 481E9
     ret                                      ; 481EB
-h_81EC:
+
+; dispatch roles: coll_29_12, coll_29_15
+coll_29_12:
     cmp byte [si+0x1f],0x0                   ; 481EC
     jz short loc_820F                        ; 481F0
     mov bx,0x170                             ; 481F2
@@ -13933,7 +14119,9 @@ h_81EC:
     call sub_A296                            ; 4820C
 loc_820F:
     ret                                      ; 4820F
-h_8210:
+
+; dispatch roles: coll_12_29, coll_15_29
+coll_12_29:
     cmp byte [di+0x1f],0x0                   ; 48210
     jz short loc_8233                        ; 48214
     mov bx,0x170                             ; 48216
@@ -13949,7 +14137,7 @@ h_8210:
 loc_8233:
     ret                                      ; 48233
 
-sub_8234:
+coll_29_14:
     cmp byte [si+0x1f],0x0                   ; 48234
     jz short loc_825A                        ; 48238
     mov bx,0x170                             ; 4823A
@@ -13965,13 +14153,16 @@ sub_8234:
     call sub_5FB2                            ; 48257
 loc_825A:
     ret                                      ; 4825A
-h_825B:
+
+coll_14_29:
     xchg di,si                               ; 4825B
-    call sub_8234                            ; 4825D
+    call coll_29_14                          ; 4825D
     xchg di,si                               ; 48260
     ret                                      ; 48262
     db 0x90   ; 48263
-h_8264:
+
+; dispatch roles: coll_29_07, coll_29_0D, coll_29_10, coll_29_17
+coll_29_07:
     cmp word [di+0x1c],byte +0x0             ; 48264
     jnz short loc_8284                       ; 48268
     mov bx,0x130                             ; 4826A
@@ -13986,7 +14177,9 @@ h_8264:
 loc_8284:
     ret                                      ; 48284
     db 0x90   ; 48285
-h_8286:
+
+; dispatch roles: coll_07_29, coll_0D_29, coll_10_29, coll_17_29
+coll_07_29:
     cmp word [si+0x1c],byte +0x0             ; 48286
     jnz short loc_82A6                       ; 4828A
     mov bx,0x130                             ; 4828C
@@ -14001,18 +14194,19 @@ h_8286:
 loc_82A6:
     ret                                      ; 482A6
     db 0x90   ; 482A7
-h_82A8:
+
+coll_29_01:
     xchg di,si                               ; 482A8
-    call sub_82B0                            ; 482AA
+    call coll_01_29                          ; 482AA
     xchg di,si                               ; 482AD
     ret                                      ; 482AF
 
-sub_82B0:
+coll_01_29:
     mov bx,0x170                             ; 482B0
     mov cx,0x170                             ; 482B3
     call sub_6124                            ; 482B6
     jnc short loc_82BE                       ; 482B9
-    call sub_55F6                            ; 482BB
+    call coll_01_03                          ; 482BB
 loc_82BE:
     ret                                      ; 482BE
     db 0x90   ; 482BF
@@ -14038,7 +14232,8 @@ sub_82D4:
     mov es,ax                                ; 482E3
     rep movsw                                ; 482E5
     ret                                      ; 482E7
-h_82E8:
+
+lvl07_tick:
     cmp word [0x1422],byte +0x0              ; 482E8
     jnz short loc_8313                       ; 482ED
     push ax                                  ; 482EF
@@ -14061,7 +14256,8 @@ loc_82FD:
     pop ax                                   ; 48312
 loc_8313:
     ret                                      ; 48313
-h_8314:
+
+lvl17_tick:
     cmp word [0x1424],byte +0x0              ; 48314
     jnz short loc_833F                       ; 48319
     push ax                                  ; 4831B
@@ -14084,7 +14280,8 @@ loc_8329:
     pop ax                                   ; 4833E
 loc_833F:
     ret                                      ; 4833F
-h_8340:
+
+lvl07_spawn:
     mov cl,0x4                               ; 48340
     shl ax,cl                                ; 48342
     shl dx,cl                                ; 48344
@@ -14100,7 +14297,8 @@ h_8340:
     or word [di+0xc],0x12                    ; 48361
     ret                                      ; 48366
     db 0x90   ; 48367
-h_8368:
+
+lvl17_spawn:
     mov cl,0x4                               ; 48368
     shl ax,cl                                ; 4836A
     shl dx,cl                                ; 4836C
@@ -14116,7 +14314,9 @@ h_8368:
     or word [di+0xc],0x12                    ; 48389
     ret                                      ; 4838E
     db 0x90   ; 4838F
-h_8390:
+
+; dispatch roles: obj18_update, obj26_update
+obj18_update:
     or byte [di+0x1],0x2                     ; 48390
     inc byte [di+0x14]                       ; 48394
     inc word [di+0x1c]                       ; 48397
@@ -14127,7 +14327,8 @@ h_8390:
 loc_83A6:
     ret                                      ; 483A6
     db 0x90   ; 483A7
-h_83A8:
+
+obj18_draw:
     cmp word [0x1382],0x17d8                 ; 483A8
     jc short loc_83B1                        ; 483AE
     ret                                      ; 483B0
@@ -14137,7 +14338,8 @@ loc_83B1:
     mov cx,0x2                               ; 483B9
     jmp near loc_D44C                        ; 483BC
     db 0x90   ; 483BF
-h_83C0:
+
+obj26_draw:
     cmp word [0x1382],0x17d8                 ; 483C0
     jc short loc_83C9                        ; 483C6
     ret                                      ; 483C8
@@ -14148,7 +14350,8 @@ loc_83C9:
     jmp near loc_D44C                        ; 483D4
     db 0x90   ; 483D7
 
-sub_83D8:
+; dispatch roles: coll_18_12, coll_18_13, coll_18_27, coll_26_12, coll_26_13, coll_26_27
+coll_18_12:
     mov ax,[di+0x2]                          ; 483D8
     mov dx,[si+0x2]                          ; 483DB
     and ax,0xfff0                            ; 483DE
@@ -14290,18 +14493,23 @@ loc_8516:
     or byte [di+0x11],0x80                   ; 48516
     ret                                      ; 4851A
     db 0x90   ; 4851B
-h_851C:
+
+; dispatch roles: coll_12_18, coll_12_26, coll_13_18, coll_13_26, coll_27_18, coll_27_26
+coll_12_18:
     xchg di,si                               ; 4851C
-    call sub_83D8                            ; 4851E
+    call coll_18_12                          ; 4851E
     xchg di,si                               ; 48521
     ret                                      ; 48523
-h_8524:
+
+; dispatch roles: coll_18_15, coll_26_15
+coll_18_15:
     xchg di,si                               ; 48524
-    call sub_852C                            ; 48526
+    call coll_15_18                          ; 48526
     xchg di,si                               ; 48529
     ret                                      ; 4852B
 
-sub_852C:
+; dispatch roles: coll_15_18, coll_15_26
+coll_15_18:
     mov ax,[si+0x2]                          ; 4852C
     mov dx,[di+0x2]                          ; 4852F
     and ax,0xfff0                            ; 48532
@@ -14400,7 +14608,8 @@ loc_85EA:
     ret                                      ; 48608
     db 0x90   ; 48609
 
-sub_860A:
+; dispatch roles: coll_18_0A, coll_18_0E, coll_18_14, coll_26_0A, coll_26_0E, coll_26_14
+coll_18_0A:
     mov ax,[di+0x2]                          ; 4860A
     mov dx,[si+0x2]                          ; 4860D
     and ax,0xfff0                            ; 48610
@@ -14494,13 +14703,16 @@ loc_86C8:
     ret                                      ; 486DC
 loc_86DD:
     ret                                      ; 486DD
-h_86DE:
+
+; dispatch roles: coll_0A_18, coll_0A_26, coll_0E_18, coll_0E_26, coll_14_18, coll_14_26
+coll_0A_18:
     xchg di,si                               ; 486DE
-    call sub_860A                            ; 486E0
+    call coll_18_0A                          ; 486E0
     xchg di,si                               ; 486E3
     ret                                      ; 486E5
 
-sub_86E6:
+; dispatch roles: coll_12_0A, coll_12_0E, coll_12_14, coll_27_14
+coll_12_0A:
     mov ax,[di+0x2]                          ; 486E6
     mov dx,[si+0x2]                          ; 486E9
     and ax,0xfff0                            ; 486EC
@@ -14637,13 +14849,16 @@ loc_8811:
     ret                                      ; 48815
     db 0x8B,0x45,0x04,0x25,0xF0,0xFF,0x2D,0x80,0x01,0x89,0x44,0x04,0x80,0x4C,0x11,0x40   ; 48816
     db 0x80,0x4D,0x11,0x80,0xC3,0x90   ; 48826
-h_882C:
+
+; dispatch roles: coll_0A_12, coll_0A_27, coll_0E_12, coll_0E_27, coll_14_12, coll_14_27
+coll_0A_12:
     xchg di,si                               ; 4882C
-    call sub_86E6                            ; 4882E
+    call coll_12_0A                          ; 4882E
     xchg di,si                               ; 48831
     ret                                      ; 48833
 
-sub_8834:
+; dispatch roles: coll_05_14, coll_06_14
+coll_05_14:
     test word [0x3cc],0x1000                 ; 48834
     jz short loc_8841                        ; 4883A
     mov byte [si+0x12],0x3                   ; 4883C
@@ -14770,9 +14985,11 @@ loc_894C:
 loc_894D:
     mov byte [si+0x12],0x3                   ; 4894D
     ret                                      ; 48951
-h_8952:
+
+; dispatch roles: coll_14_05, coll_14_06
+coll_14_05:
     xchg di,si                               ; 48952
-    call sub_8834                            ; 48954
+    call coll_05_14                          ; 48954
     xchg di,si                               ; 48957
     ret                                      ; 48959
 
@@ -14791,7 +15008,8 @@ sub_895A:
     popa                                     ; 48973
     ret                                      ; 48974
     db 0x90   ; 48975
-h_8976:
+
+lvl08_spawn:
     mov cl,0x4                               ; 48976
     shl ax,cl                                ; 48978
     shl dx,cl                                ; 4897A
@@ -14811,7 +15029,8 @@ h_8976:
     mov [di+0x8],ax                          ; 4899F
     ret                                      ; 489A2
     db 0x90   ; 489A3
-h_89A4:
+
+obj19_update:
     or byte [di+0x1],0x2                     ; 489A4
     inc byte [di+0x14]                       ; 489A8
     mov dx,[di+0x18]                         ; 489AB
@@ -14916,7 +15135,8 @@ loc_8A88:
     mov [di+0x1c],ax                         ; 48A9A
 loc_8A9D:
     ret                                      ; 48A9D
-h_8A9E:
+
+obj19_draw:
     cmp word [0x1382],0x17ec                 ; 48A9E
     jc short loc_8AA7                        ; 48AA4
     ret                                      ; 48AA6
@@ -15014,7 +15234,8 @@ loc_8B5E:
     ret                                      ; 48B7C
     db 0x90   ; 48B7D
 
-sub_8B7E:
+; dispatch roles: coll_19_12, coll_19_27
+coll_19_12:
     pusha                                    ; 48B7E
     mov ax,[di+0x18]                         ; 48B7F
     mov dx,[si+0x4]                          ; 48B82
@@ -15060,13 +15281,15 @@ loc_8BD0:
     popa                                     ; 48BD5
     ret                                      ; 48BD6
     db 0x90   ; 48BD7
-h_8BD8:
+
+; dispatch roles: coll_12_19, coll_27_19
+coll_12_19:
     xchg di,si                               ; 48BD8
-    call sub_8B7E                            ; 48BDA
+    call coll_19_12                          ; 48BDA
     xchg di,si                               ; 48BDD
     ret                                      ; 48BDF
 
-sub_8BE0:
+coll_19_26:
     pusha                                    ; 48BE0
     mov ax,[di+0x18]                         ; 48BE1
     mov dx,[si+0x4]                          ; 48BE4
@@ -15112,9 +15335,10 @@ loc_8C32:
     popa                                     ; 48C37
     ret                                      ; 48C38
     db 0x90   ; 48C39
-h_8C3A:
+
+coll_26_19:
     xchg di,si                               ; 48C3A
-    call sub_8BE0                            ; 48C3C
+    call coll_19_26                          ; 48C3C
     xchg di,si                               ; 48C3F
     ret                                      ; 48C41
 
@@ -15141,7 +15365,8 @@ sub_8C42:
     popa                                     ; 48C6F
     ret                                      ; 48C70
     db 0x90   ; 48C71
-h_8C72:
+
+lvl09_spawn:
     mov cl,0x4                               ; 48C72
     shl ax,cl                                ; 48C74
     shl dx,cl                                ; 48C76
@@ -15163,12 +15388,14 @@ h_8C72:
 loc_8CA0:
     ret                                      ; 48CA0
     db 0x90   ; 48CA1
-h_8CA2:
+
+obj1A_update:
     or byte [di+0x1],0x2                     ; 48CA2
     inc word [di+0x1c]                       ; 48CA6
     ret                                      ; 48CA9
     db 0x00,0x01,0x02,0x01,0x00,0xFF,0xFE,0xFF   ; 48CAA
-h_8CB2:
+
+obj1A_draw:
     cmp word [0x1382],0x17f0                 ; 48CB2
     jc short loc_8CBB                        ; 48CB8
     ret                                      ; 48CBA
@@ -15192,7 +15419,8 @@ loc_8CD8:
     rr mov, bp, ax                           ; 48CE3
     or bp,0x2800                             ; 48CE5
     jmp near loc_D092                        ; 48CE9
-h_8CEC:
+
+coll_01_1A:
     mov al,0x1                               ; 48CEC
     mov cl,[si+0x14]                         ; 48CEE
     shl al,cl                                ; 48CF1
@@ -15219,7 +15447,9 @@ sub_8D12:
     mov es,ax                                ; 48D21
     rep movsw                                ; 48D23
     ret                                      ; 48D25
-h_8D26:
+
+; dispatch roles: lvl0A_tick, lvl0B_tick, lvl0C_tick, lvl0D_tick, lvl0F_tick
+lvl0A_tick:
     cmp word [0x1428],byte +0x0              ; 48D26
     jnz short loc_8D51                       ; 48D2B
     push ax                                  ; 48D2D
@@ -15242,7 +15472,9 @@ loc_8D3B:
     pop ax                                   ; 48D50
 loc_8D51:
     ret                                      ; 48D51
-h_8D52:
+
+; dispatch roles: lvl0A_spawn, lvl0B_spawn, lvl0C_spawn, lvl0D_spawn
+lvl0A_spawn:
     mov cl,0x4                               ; 48D52
     shl ax,cl                                ; 48D54
     shl dx,cl                                ; 48D56
@@ -15276,7 +15508,8 @@ h_8D52:
 loc_8DA0:
     ret                                      ; 48DA0
     db 0x90   ; 48DA1
-h_8DA2:
+
+obj1C_update:
     or byte [di+0x1],0x2                     ; 48DA2
     ret                                      ; 48DA6
     db 0x90   ; 48DA7
@@ -15373,7 +15606,8 @@ loc_8E62:
     add al,0x8                               ; 48E6B
     loop loc_8E62                            ; 48E6D
     ret                                      ; 48E6F
-h_8E70:
+
+obj1C_draw:
     cmp byte [di+0x1f],0x0                   ; 48E70
     jz short loc_8E82                        ; 48E74
     cmp word [0x1382],0x17e8                 ; 48E76
@@ -15403,7 +15637,8 @@ loc_8EA1:
     rr mov, bp, ax                           ; 48EB0
     jmp near loc_D092                        ; 48EB2
     db 0x90   ; 48EB5
-h_8EB6:
+
+coll_01_1C:
     cmp byte [si+0x1f],0x0                   ; 48EB6
     jnz short loc_8F00                       ; 48EBA
     mov cl,[si+0x1e]                         ; 48EBC
@@ -15433,7 +15668,8 @@ h_8EB6:
 loc_8F00:
     ret                                      ; 48F00
     db 0x90   ; 48F01
-h_8F02:
+
+lvl0E_spawn:
     mov cl,0x4                               ; 48F02
     shl ax,cl                                ; 48F04
     shl dx,cl                                ; 48F06
@@ -15455,11 +15691,13 @@ h_8F02:
 loc_8F30:
     ret                                      ; 48F30
     db 0x90   ; 48F31
-h_8F32:
+
+obj1D_update:
     or byte [di+0x1],0x2                     ; 48F32
     inc word [di+0x1c]                       ; 48F36
     ret                                      ; 48F39
-h_8F3A:
+
+obj1D_draw:
     cmp word [0x1382],0x17e8                 ; 48F3A
     jc short loc_8F43                        ; 48F40
     ret                                      ; 48F42
@@ -15467,7 +15705,8 @@ loc_8F43:
     mov bp,0x2db7                            ; 48F43
     jmp near loc_D092                        ; 48F46
     db 0x90   ; 48F49
-h_8F4A:
+
+coll_01_1D:
     mov al,0x1                               ; 48F4A
     mov cl,[si+0x14]                         ; 48F4C
     shl al,cl                                ; 48F4F
@@ -15500,7 +15739,8 @@ loc_8F7F:
     call sub_D6AE                            ; 48F90
 loc_8F93:
     ret                                      ; 48F93
-h_8F94:
+
+lvl0F_spawn:
     mov cl,0x4                               ; 48F94
     shl ax,cl                                ; 48F96
     shl dx,cl                                ; 48F98
@@ -15524,11 +15764,13 @@ loc_8FB8:
     mov bx,0x404                             ; 48FC5
     call sub_4436                            ; 48FC8
     ret                                      ; 48FCB
-h_8FCC:
+
+obj1E_update:
     or byte [di+0x1],0x2                     ; 48FCC
     inc word [di+0x1c]                       ; 48FD0
     ret                                      ; 48FD3
-h_8FD4:
+
+obj1E_draw:
     cmp word [0x1382],0x17b8                 ; 48FD4
     jc short loc_8FDD                        ; 48FDA
     ret                                      ; 48FDC
@@ -15544,7 +15786,8 @@ loc_8FDD:
     add ax,0x261c                            ; 48FF6
     rr mov, bp, ax                           ; 48FF9
     jmp near loc_D092                        ; 48FFB
-h_8FFE:
+
+coll_01_1E:
     mov bx,0x280                             ; 48FFE
     mov cx,0x280                             ; 49001
     call sub_6124                            ; 49004
@@ -15584,7 +15827,8 @@ sub_903A:
     popa                                     ; 49053
     ret                                      ; 49054
     db 0x90   ; 49055
-h_9056:
+
+lvl10_spawn:
     mov cl,0x4                               ; 49056
     shl ax,cl                                ; 49058
     shl dx,cl                                ; 4905A
@@ -15603,7 +15847,8 @@ h_9056:
     mov byte [di+0x14],0x2                   ; 4907B
 loc_907F:
     ret                                      ; 4907F
-h_9080:
+
+obj1F_update:
     or byte [di+0x1],0x2                     ; 49080
     mov al,[di+0x14]                         ; 49084
     shr al,1                                 ; 49087
@@ -15619,7 +15864,9 @@ loc_9095:
     and al,0x3                               ; 4909A
     mov [di+0x14],al                         ; 4909C
     ret                                      ; 4909F
-h_90A0:
+
+; dispatch roles: obj20_draw_case0, obj22_draw_case0
+obj20_draw_case0:
     push dx                                  ; 490A0
     mov bx,[0x1382]                          ; 490A1
     add word [0x1382],byte +0x8              ; 490A5
@@ -15651,7 +15898,8 @@ loc_90E4:
     pop dx                                   ; 490E4
     mov bp,0x29da                            ; 490E5
     jmp near loc_D092                        ; 490E8
-h_90EB:
+
+obj1F_draw_case1:
     push dx                                  ; 490EB
     mov bx,[0x1382]                          ; 490EC
     add word [0x1382],byte +0x8              ; 490F0
@@ -15698,7 +15946,8 @@ loc_913E:
     rr add, dh, al                           ; 4914F
     mov bp,0x29da                            ; 49151
     jmp near loc_D092                        ; 49154
-loc_9157:
+
+obj1F_draw_case2:
     push dx                                  ; 49157
     mov bx,[0x1382]                          ; 49158
     add word [0x1382],byte +0x4              ; 4915C
@@ -15712,17 +15961,19 @@ loc_9157:
     pop dx                                   ; 49173
     mov bp,0x29da                            ; 49174
     jmp near loc_D092                        ; 49177
-h_917A:
+
+obj1F_draw_case3:
     ret                                      ; 4917A
 
 ; jump table tbl_917B: 4 words, bound: adjacent (first use at 49194)
 tbl_917B:
-    dw h_92F5
-    dw h_90EB
-    dw loc_9157
-    dw h_917A
+    dw obj1F_draw_case0
+    dw obj1F_draw_case1
+    dw obj1F_draw_case2
+    dw obj1F_draw_case3
     db 0x90   ; 49183
-h_9184:
+
+obj1F_draw:
     cmp word [0x1382],0x17e0                 ; 49184
     jc short loc_918D                        ; 4918A
     ret                                      ; 4918C
@@ -15733,46 +15984,59 @@ loc_918D:
     jmp [cs:bx+tbl_917B]                     ; 49194
     db 0x90   ; 49199
 
-sub_919A:
+; dispatch roles: coll_02_1F, coll_02_20
+coll_02_1F:
     call sub_6000                            ; 4919A
     ret                                      ; 4919D
-h_919E:
+
+; dispatch roles: coll_1F_02, coll_20_02
+coll_1F_02:
     xchg di,si                               ; 4919E
-    call sub_919A                            ; 491A0
+    call coll_02_1F                          ; 491A0
     xchg di,si                               ; 491A3
     ret                                      ; 491A5
 
-sub_91A6:
+; dispatch roles: coll_0B_1F, coll_0B_20, coll_0C_1F, coll_0C_20, coll_0D_1F, coll_10_1F
+coll_0B_1F:
     call sub_6000                            ; 491A6
     jmp near sub_79A6                        ; 491A9
-h_91AC:
+
+; dispatch roles: coll_1F_0B, coll_1F_0C, coll_20_0B, coll_20_0C
+coll_1F_0B:
     xchg di,si                               ; 491AC
-    call sub_91A6                            ; 491AE
+    call coll_0B_1F                          ; 491AE
     xchg di,si                               ; 491B1
     ret                                      ; 491B3
 
-sub_91B4:
+; dispatch roles: coll_0D_20, coll_10_20
+coll_0D_20:
     call sub_6000                            ; 491B4
     mov byte [di],0x0                        ; 491B7
     mov ax,[di+0x2]                          ; 491BA
     mov dx,[di+0x4]                          ; 491BD
     mov ch,[di+0x15]                         ; 491C0
     jmp near sub_812F                        ; 491C3
-h_91C6:
+
+; dispatch roles: coll_1F_0D, coll_1F_10, coll_20_0D, coll_20_10
+coll_1F_0D:
     xchg di,si                               ; 491C6
-    call sub_91B4                            ; 491C8
+    call coll_0D_20                          ; 491C8
     xchg di,si                               ; 491CB
     ret                                      ; 491CD
 
-sub_91CE:
+; dispatch roles: coll_12_1F, coll_12_20, coll_15_1F, coll_15_20, coll_27_1F, coll_27_20, coll_29_1F, coll_29_20
+coll_12_1F:
     jmp near sub_6000                        ; 491CE
     db 0x90   ; 491D1
-h_91D2:
+
+; dispatch roles: coll_1F_12, coll_1F_15, coll_1F_27, coll_1F_29, coll_20_12, coll_20_15, coll_20_27, coll_20_29
+coll_1F_12:
     xchg di,si                               ; 491D2
-    call sub_91CE                            ; 491D4
+    call coll_12_1F                          ; 491D4
     xchg di,si                               ; 491D7
     ret                                      ; 491D9
-h_91DA:
+
+lvl11_spawn:
     mov cl,0x4                               ; 491DA
     shl ax,cl                                ; 491DC
     shl dx,cl                                ; 491DE
@@ -15790,12 +16054,14 @@ h_91DA:
     not ax                                   ; 491FC
     and [0x13d4],ax                          ; 491FE
     ret                                      ; 49202
-h_9203:
+
+obj20_update_case0:
     mov ax,[di+0x1c]                         ; 49203
     inc ax                                   ; 49206
     mov [di+0x1c],ax                         ; 49207
     ret                                      ; 4920A
-h_920B:
+
+obj20_update_case1:
     mov ax,[di+0x1c]                         ; 4920B
     inc ax                                   ; 4920E
     mov [di+0x1c],ax                         ; 4920F
@@ -15805,7 +16071,8 @@ h_920B:
     mov word [di+0x1c],0x0                   ; 4921B
 loc_9220:
     ret                                      ; 49220
-h_9221:
+
+obj20_update_case2:
     mov ax,[di+0x1c]                         ; 49221
     inc ax                                   ; 49224
     mov [di+0x1c],ax                         ; 49225
@@ -15815,7 +16082,8 @@ h_9221:
     mov word [di+0x1c],0x0                   ; 49231
 loc_9236:
     ret                                      ; 49236
-h_9237:
+
+obj20_update_case3:
     mov ax,[di+0x1c]                         ; 49237
     inc ax                                   ; 4923A
     mov [di+0x1c],ax                         ; 4923B
@@ -15833,18 +16101,20 @@ loc_925A:
 
 ; jump table tbl_925B: 4 words, bound: adjacent (first use at 4926F)
 tbl_925B:
-    dw h_9203
-    dw h_920B
-    dw h_9221
-    dw h_9237
+    dw obj20_update_case0
+    dw obj20_update_case1
+    dw obj20_update_case2
+    dw obj20_update_case3
     db 0x90   ; 49263
-h_9264:
+
+obj20_update:
     or byte [di+0x1],0x2                     ; 49264
     rr xor, bx, bx                           ; 49268
     mov bl,[di+0x14]                         ; 4926A
     shl bx,1                                 ; 4926D
     jmp [cs:bx+tbl_925B]                     ; 4926F
-h_9274:
+
+obj20_draw_case1:
     push dx                                  ; 49274
     sub dh,0x3                               ; 49275
     sub dl,0x4                               ; 49278
@@ -15896,7 +16166,9 @@ loc_92DC:
     rr add, dh, al                           ; 492ED
     mov bp,0x29da                            ; 492EF
     jmp near loc_D092                        ; 492F2
-h_92F5:
+
+; dispatch roles: obj1F_draw_case0, obj20_draw_case2
+obj1F_draw_case0:
     push dx                                  ; 492F5
     mov bx,[0x1382]                          ; 492F6
     add word [0x1382],byte +0x8              ; 492FA
@@ -15926,7 +16198,8 @@ loc_9337:
     pop dx                                   ; 49337
     mov bp,0x29da                            ; 49338
     jmp near loc_D092                        ; 4933B
-h_933E:
+
+obj20_draw_case3:
     push dx                                  ; 4933E
     sub dh,0x3                               ; 4933F
     sub dl,0x4                               ; 49342
@@ -15981,12 +16254,13 @@ loc_93A6:
 
 ; jump table tbl_93BF: 4 words, bound: adjacent (first use at 4941B)
 tbl_93BF:
-    dw h_90A0
-    dw h_9274
-    dw h_92F5
-    dw h_933E
+    dw obj20_draw_case0
+    dw obj20_draw_case1
+    dw obj1F_draw_case0
+    dw obj20_draw_case3
     db 0x90   ; 493C7
-h_93C8:
+
+obj20_draw:
     cmp word [0x1382],0x17d8                 ; 493C8
     jc short loc_93D1                        ; 493CE
     ret                                      ; 493D0
@@ -16022,7 +16296,8 @@ loc_9413:
     mov bl,[di+0x14]                         ; 49416
     shl bx,1                                 ; 49419
     jmp [cs:bx+tbl_93BF]                     ; 4941B
-h_9420:
+
+lvl12_spawn:
     mov cl,0x4                               ; 49420
     shl ax,cl                                ; 49422
     shl dx,cl                                ; 49424
@@ -16062,12 +16337,14 @@ loc_9475:
     jmp near loc_9452                        ; 49478
 loc_947B:
     ret                                      ; 4947B
-h_947C:
+
+obj21_update_case0:
     mov ax,[di+0x1c]                         ; 4947C
     inc ax                                   ; 4947F
     mov [di+0x1c],ax                         ; 49480
     ret                                      ; 49483
-h_9484:
+
+obj21_update_case1:
     mov ax,[di+0x1c]                         ; 49484
     inc ax                                   ; 49487
     mov [di+0x1c],ax                         ; 49488
@@ -16077,7 +16354,8 @@ h_9484:
     mov word [di+0x1c],0x0                   ; 49494
 loc_9499:
     ret                                      ; 49499
-h_949A:
+
+obj21_update_case2:
     mov cl,[di+0x1e]                         ; 4949A
     mov ax,0x1                               ; 4949D
     shl ax,cl                                ; 494A0
@@ -16107,7 +16385,8 @@ loc_94CE:
     mov word [di+0x1c],0x0                   ; 494DE
 loc_94E3:
     ret                                      ; 494E3
-h_94E4:
+
+obj21_update_case3:
     mov ax,[di+0x1c]                         ; 494E4
     inc ax                                   ; 494E7
     mov [di+0x1c],ax                         ; 494E8
@@ -16125,17 +16404,19 @@ loc_9507:
 
 ; jump table tbl_9508: 4 words, bound: adjacent (first use at 4951B)
 tbl_9508:
-    dw h_947C
-    dw h_9484
-    dw h_949A
-    dw h_94E4
-h_9510:
+    dw obj21_update_case0
+    dw obj21_update_case1
+    dw obj21_update_case2
+    dw obj21_update_case3
+
+obj21_update:
     or byte [di+0x1],0x2                     ; 49510
     rr xor, bx, bx                           ; 49514
     mov bl,[di+0x14]                         ; 49516
     shl bx,1                                 ; 49519
     jmp [cs:bx+tbl_9508]                     ; 4951B
-h_9520:
+
+obj21_draw_case0:
     push dx                                  ; 49520
     mov bx,[0x1382]                          ; 49521
     add word [0x1382],byte +0x4              ; 49525
@@ -16156,7 +16437,8 @@ loc_954D:
     pop dx                                   ; 4954D
     mov bp,0x29da                            ; 4954E
     jmp near loc_D092                        ; 49551
-h_9554:
+
+obj21_draw_case1:
     push dx                                  ; 49554
     sub dh,0x3                               ; 49555
     sub dl,0x4                               ; 49558
@@ -16196,7 +16478,8 @@ loc_959D:
     rr add, dh, al                           ; 495B6
     mov bp,0x29da                            ; 495B8
     jmp near loc_D092                        ; 495BB
-h_95BE:
+
+obj21_draw_case2:
     push dx                                  ; 495BE
     mov bx,[0x1382]                          ; 495BF
     add word [0x1382],byte +0x4              ; 495C3
@@ -16217,7 +16500,8 @@ loc_95EB:
     pop dx                                   ; 495EB
     mov bp,0x29da                            ; 495EC
     jmp near loc_D092                        ; 495EF
-h_95F2:
+
+obj21_draw_case3:
     push dx                                  ; 495F2
     sub dh,0x3                               ; 495F3
     sub dl,0x4                               ; 495F6
@@ -16260,11 +16544,12 @@ loc_963B:
 
 ; jump table tbl_965C: 4 words, bound: adjacent (first use at 49682)
 tbl_965C:
-    dw h_9520
-    dw h_9554
-    dw h_95BE
-    dw h_95F2
-h_9664:
+    dw obj21_draw_case0
+    dw obj21_draw_case1
+    dw obj21_draw_case2
+    dw obj21_draw_case3
+
+obj21_draw:
     cmp word [0x1382],0x17e0                 ; 49664
     jc short loc_966D                        ; 4966A
     ret                                      ; 4966C
@@ -16279,48 +16564,61 @@ loc_966D:
     shl bx,1                                 ; 49680
     jmp [cs:bx+tbl_965C]                     ; 49682
 loc_9687:
-    jmp near loc_9157                        ; 49687
+    jmp near obj1F_draw_case2                ; 49687
 
-sub_968A:
+; dispatch roles: coll_02_21, coll_02_22
+coll_02_21:
     jmp near sub_5FDB                        ; 4968A
     db 0x90   ; 4968D
-h_968E:
+
+; dispatch roles: coll_21_02, coll_22_02
+coll_21_02:
     xchg di,si                               ; 4968E
-    call sub_968A                            ; 49690
+    call coll_02_21                          ; 49690
     xchg di,si                               ; 49693
     ret                                      ; 49695
 
-sub_9696:
+; dispatch roles: coll_0B_21, coll_0B_22, coll_0C_21, coll_0C_22
+coll_0B_21:
     call sub_5FDB                            ; 49696
     jmp near sub_79A6                        ; 49699
-h_969C:
+
+; dispatch roles: coll_21_0B, coll_21_0C, coll_22_0B, coll_22_0C
+coll_21_0B:
     xchg di,si                               ; 4969C
-    call sub_9696                            ; 4969E
+    call coll_0B_21                          ; 4969E
     xchg di,si                               ; 496A1
     ret                                      ; 496A3
 
-sub_96A4:
+; dispatch roles: coll_0D_21, coll_0D_22, coll_10_21, coll_10_22
+coll_0D_21:
     call sub_5FDB                            ; 496A4
     mov byte [di],0x0                        ; 496A7
     mov ax,[di+0x2]                          ; 496AA
     mov dx,[di+0x4]                          ; 496AD
     mov ch,[di+0x15]                         ; 496B0
     jmp near sub_812F                        ; 496B3
-h_96B6:
+
+; dispatch roles: coll_21_0D, coll_21_10, coll_22_0D, coll_22_10
+coll_21_0D:
     xchg di,si                               ; 496B6
-    call sub_96A4                            ; 496B8
+    call coll_0D_21                          ; 496B8
     xchg di,si                               ; 496BB
     ret                                      ; 496BD
 
-sub_96BE:
+; dispatch roles: coll_12_21, coll_12_22, coll_15_21, coll_15_22, coll_27_21, coll_27_22, coll_29_21, coll_29_22
+coll_12_21:
     jmp near sub_5FDB                        ; 496BE
     db 0x90   ; 496C1
-h_96C2:
+
+; dispatch roles: coll_21_12, coll_21_15, coll_21_27, coll_21_29, coll_22_12, coll_22_15, coll_22_27, coll_22_29
+coll_21_12:
     xchg di,si                               ; 496C2
-    call sub_96BE                            ; 496C4
+    call coll_12_21                          ; 496C4
     xchg di,si                               ; 496C7
     ret                                      ; 496C9
-h_96CA:
+
+lvl13_spawn:
     mov cl,0x4                               ; 496CA
     shl ax,cl                                ; 496CC
     shl dx,cl                                ; 496CE
@@ -16331,10 +16629,12 @@ h_96CA:
     mov [di],ax                              ; 496DA
     mov word [di+0x1c],0x64                  ; 496DC
     ret                                      ; 496E1
-h_96E2:
+
+obj22_update_case0:
     inc word [di+0x1c]                       ; 496E2
     ret                                      ; 496E5
-h_96E6:
+
+obj22_update_case1:
     mov ax,[di+0x1c]                         ; 496E6
     inc ax                                   ; 496E9
     mov [di+0x1c],ax                         ; 496EA
@@ -16354,16 +16654,18 @@ loc_9701:
 
 ; jump table tbl_970C: 2 words, bound: mask (first use at 4971F)
 tbl_970C:
-    dw h_96E2
-    dw h_96E6
-h_9710:
+    dw obj22_update_case0
+    dw obj22_update_case1
+
+obj22_update:
     or byte [di+0x1],0x2                     ; 49710
     rr xor, bx, bx                           ; 49714
     mov bl,[di+0x14]                         ; 49716
     and bx,0x1                               ; 49719
     shl bx,1                                 ; 4971D
     jmp [cs:bx+tbl_970C]                     ; 4971F
-h_9724:
+
+obj22_draw_case1:
     push dx                                  ; 49724
     sub dh,0x3                               ; 49725
     sub dl,0x4                               ; 49728
@@ -16423,9 +16725,10 @@ loc_9797:
 
 ; jump table tbl_97B0: 2 words, bound: mask (first use at 497C8)
 tbl_97B0:
-    dw h_90A0
-    dw h_9724
-h_97B4:
+    dw obj20_draw_case0
+    dw obj22_draw_case1
+
+obj22_draw:
     cmp word [0x1382],0x17e0                 ; 497B4
     jc short loc_97BD                        ; 497BA
     ret                                      ; 497BC
@@ -16436,7 +16739,8 @@ loc_97BD:
     shl bx,1                                 ; 497C6
     jmp [cs:bx+tbl_97B0]                     ; 497C8
     db 0x90   ; 497CD
-h_97CE:
+
+lvl14_spawn:
     mov cl,0x4                               ; 497CE
     shl ax,cl                                ; 497D0
     shl dx,cl                                ; 497D2
@@ -16456,7 +16760,8 @@ h_97CE:
     not ax                                   ; 497F7
     and [0x13d4],ax                          ; 497F9
     ret                                      ; 497FD
-h_97FE:
+
+obj23_update:
     or byte [di+0x1],0x2                     ; 497FE
     mov al,[di+0x1f]                         ; 49802
     mov cl,[di+0x1e]                         ; 49805
@@ -16484,7 +16789,8 @@ loc_9822:
 loc_9840:
     ret                                      ; 49840
     db 0x90   ; 49841
-h_9842:
+
+obj23_draw:
     cmp word [0x1382],0x17e8                 ; 49842
     jc short loc_984B                        ; 49848
     ret                                      ; 4984A
@@ -16493,7 +16799,8 @@ loc_984B:
     mov cx,0x1                               ; 4984E
     jmp near loc_D44C                        ; 49851
 
-sub_9854:
+; dispatch roles: coll_23_0D, coll_23_12, coll_23_27
+coll_23_0D:
     mov ax,[si+0x2]                          ; 49854
     sub ax,[di+0x2]                          ; 49857
     cwd                                      ; 4985A
@@ -16511,9 +16818,11 @@ sub_9854:
     mov byte [di+0x1f],0x8                   ; 49874
 loc_9878:
     ret                                      ; 49878
-h_9879:
+
+; dispatch roles: coll_01_23, coll_0D_23, coll_12_23, coll_27_23
+coll_01_23:
     xchg di,si                               ; 49879
-    call sub_9854                            ; 4987B
+    call coll_23_0D                          ; 4987B
     xchg di,si                               ; 4987E
     ret                                      ; 49880
     db 0x90   ; 49881
@@ -16533,7 +16842,8 @@ sub_9882:
     popa                                     ; 4989B
     ret                                      ; 4989C
     db 0x90   ; 4989D
-h_989E:
+
+lvl15_spawn:
     mov cl,0x4                               ; 4989E
     shl ax,cl                                ; 498A0
     shl dx,cl                                ; 498A2
@@ -16566,7 +16876,8 @@ loc_98E0:
     call sub_4436                            ; 498E9
     mov byte [di+0x14],0x0                   ; 498EC
     ret                                      ; 498F0
-h_98F1:
+
+obj24_update_case0:
     mov cl,[di+0x1e]                         ; 498F1
     mov ax,[0x13d4]                          ; 498F4
     inc cl                                   ; 498F7
@@ -16583,14 +16894,16 @@ loc_98FE:
     mov ax,0x11                              ; 49913
     call sub_DD97                            ; 49916
     ret                                      ; 49919
-h_991A:
+
+obj24_update_case1:
     cmp word [di+0x1c],byte +0x20            ; 4991A
     jc short loc_9929                        ; 4991E
     mov byte [di+0x14],0x2                   ; 49920
     mov word [di+0x1c],0x0                   ; 49924
 loc_9929:
     ret                                      ; 49929
-h_992A:
+
+obj24_update_case2:
     mov cl,[di+0x1e]                         ; 4992A
     mov ax,[0x13d4]                          ; 4992D
     inc cl                                   ; 49930
@@ -16602,7 +16915,8 @@ h_992A:
     call sub_DD97                            ; 49942
 loc_9945:
     ret                                      ; 49945
-h_9946:
+
+obj24_update_case3:
     cmp word [di+0x1c],byte +0x20            ; 49946
     jc short loc_9961                        ; 4994A
     mov byte [di+0x14],0x0                   ; 4994C
@@ -16616,11 +16930,12 @@ loc_9961:
 
 ; jump table tbl_9962: 4 words, bound: adjacent (first use at 49978)
 tbl_9962:
-    dw h_98F1
-    dw h_991A
-    dw h_992A
-    dw h_9946
-h_996A:
+    dw obj24_update_case0
+    dw obj24_update_case1
+    dw obj24_update_case2
+    dw obj24_update_case3
+
+obj24_update:
     or byte [di+0x1],0x2                     ; 4996A
     inc word [di+0x1c]                       ; 4996E
     rr xor, bx, bx                           ; 49971
@@ -16628,7 +16943,8 @@ h_996A:
     shl bx,1                                 ; 49976
     jmp [cs:bx+tbl_9962]                     ; 49978
     db 0x08,0x00,0x00,0xF8   ; 4997D
-h_9981:
+
+obj24_draw_case0:
     mov bx,[0x1382]                          ; 49981
     add word [0x1382],byte +0x20             ; 49985
     mov bp,0x25d6                            ; 4998A
@@ -16666,7 +16982,8 @@ loc_99C1:
     sub ah,0x8                               ; 499D5
     loop loc_99C1                            ; 499D8
     ret                                      ; 499DA
-h_99DB:
+
+obj24_draw_case1:
     mov bx,[0x1382]                          ; 499DB
     add word [0x1382],byte +0x20             ; 499DF
     mov cx,[di+0x1c]                         ; 499E4
@@ -16716,7 +17033,8 @@ loc_9A2B:
     dec si                                   ; 49A48
     jnz short loc_9A2B                       ; 49A49
     ret                                      ; 49A4B
-h_9A4C:
+
+obj24_draw_case2:
     mov bx,[0x1382]                          ; 49A4C
     add word [0x1382],byte +0x8              ; 49A50
     mov bp,0x25d6                            ; 49A55
@@ -16742,7 +17060,8 @@ loc_9A78:
     mov [bx],bp                              ; 49A88
     mov [bx+0x2],dx                          ; 49A8A
     ret                                      ; 49A8D
-h_9A8E:
+
+obj24_draw_case3:
     mov bx,[0x1382]                          ; 49A8E
     add word [0x1382],byte +0x20             ; 49A92
     mov cx,[di+0x1c]                         ; 49A97
@@ -16789,12 +17108,13 @@ loc_9AD7:
 
 ; jump table tbl_9AF1: 4 words, bound: adjacent (first use at 49B0A)
 tbl_9AF1:
-    dw h_9981
-    dw h_99DB
-    dw h_9A4C
-    dw h_9A8E
+    dw obj24_draw_case0
+    dw obj24_draw_case1
+    dw obj24_draw_case2
+    dw obj24_draw_case3
     db 0x90   ; 49AF9
-h_9AFA:
+
+obj24_draw:
     cmp word [0x1382],0x17e8                 ; 49AFA
     jc short loc_9B03                        ; 49B00
     ret                                      ; 49B02
@@ -16815,7 +17135,8 @@ sub_9B10:
     mov es,ax                                ; 49B1F
     rep movsw                                ; 49B21
     ret                                      ; 49B23
-h_9B24:
+
+lvl16_tick:
     cmp word [0x1420],byte +0x0              ; 49B24
     jnz short loc_9B4F                       ; 49B29
     push ax                                  ; 49B2B
@@ -16838,7 +17159,8 @@ loc_9B39:
     pop ax                                   ; 49B4E
 loc_9B4F:
     ret                                      ; 49B4F
-h_9B50:
+
+lvl16_spawn:
     mov cl,0x4                               ; 49B50
     shl ax,cl                                ; 49B52
     shl dx,cl                                ; 49B54
@@ -16860,7 +17182,8 @@ h_9B50:
     mov bx,0x204                             ; 49B86
     call sub_4436                            ; 49B89
     ret                                      ; 49B8C
-h_9B8D:
+
+obj25_update_case0:
     cmp byte [di+0x1e],0x0                   ; 49B8D
     jnz short loc_9B94                       ; 49B91
     ret                                      ; 49B93
@@ -16872,7 +17195,8 @@ loc_9B94:
     mov word [di+0x1c],0x0                   ; 49BA0
 loc_9BA5:
     ret                                      ; 49BA5
-h_9BA6:
+
+obj25_update_case1:
     mov ax,[di+0x1c]                         ; 49BA6
     cmp ax,0x4b                              ; 49BA9
     jc short loc_9BCA                        ; 49BAC
@@ -16886,7 +17210,8 @@ h_9BA6:
     call sub_445B                            ; 49BC7
 loc_9BCA:
     ret                                      ; 49BCA
-h_9BCB:
+
+obj25_update_case2:
     mov ax,[di+0x1c]                         ; 49BCB
     cmp ax,[di+0x18]                         ; 49BCE
     jc short loc_9BDC                        ; 49BD1
@@ -16894,7 +17219,8 @@ h_9BCB:
     mov word [di+0x1c],0x0                   ; 49BD7
 loc_9BDC:
     ret                                      ; 49BDC
-h_9BDD:
+
+obj25_update_case3:
     mov ax,[di+0x1c]                         ; 49BDD
     cmp ax,0x4b                              ; 49BE0
     jc short loc_9C04                        ; 49BE3
@@ -16913,12 +17239,13 @@ loc_9C04:
 
 ; jump table tbl_9C05: 4 words, bound: adjacent (first use at 49C1C)
 tbl_9C05:
-    dw h_9B8D
-    dw h_9BA6
-    dw h_9BCB
-    dw h_9BDD
+    dw obj25_update_case0
+    dw obj25_update_case1
+    dw obj25_update_case2
+    dw obj25_update_case3
     db 0x90   ; 49C0D
-h_9C0E:
+
+obj25_update:
     or byte [di+0x1],0x2                     ; 49C0E
     inc word [di+0x1c]                       ; 49C12
     rr xor, bx, bx                           ; 49C15
@@ -16926,7 +17253,8 @@ h_9C0E:
     shl bx,1                                 ; 49C1A
     jmp [cs:bx+tbl_9C05]                     ; 49C1C
     db 0x00,0x00,0x00,0x00,0x00,0xFF,0xFF,0xFF   ; 49C21
-h_9C29:
+
+obj25_draw_case0:
     mov bp,[0x1420]                          ; 49C29
     or bp,0x2c00                             ; 49C2D
     mov bx,[di+0x1c]                         ; 49C31
@@ -16942,14 +17270,17 @@ loc_9C4C:
 loc_9C4E:
     mov ch,0x1                               ; 49C4E
     jmp near loc_CE33                        ; 49C50
-h_9C53:
+
+obj25_draw_case1:
     mov bp,[0x1420]                          ; 49C53
     or bp,0x2c00                             ; 49C57
     mov ch,0x4                               ; 49C5B
     jmp near loc_CE33                        ; 49C5D
-h_9C60:
+
+obj25_draw_case2:
     ret                                      ; 49C60
-h_9C61:
+
+obj25_draw_case3:
     mov bp,[0x1420]                          ; 49C61
     or bp,0x2c00                             ; 49C65
     mov ch,0x4                               ; 49C69
@@ -16957,11 +17288,12 @@ h_9C61:
 
 ; jump table tbl_9C6E: 4 words, bound: adjacent (first use at 49C86)
 tbl_9C6E:
-    dw h_9C29
-    dw h_9C53
-    dw h_9C60
-    dw h_9C61
-h_9C76:
+    dw obj25_draw_case0
+    dw obj25_draw_case1
+    dw obj25_draw_case2
+    dw obj25_draw_case3
+
+obj25_draw:
     cmp word [0x1382],0x17e0                 ; 49C76
     jc short loc_9C7F                        ; 49C7C
     ret                                      ; 49C7E
@@ -16971,7 +17303,8 @@ loc_9C7F:
     shl bx,1                                 ; 49C84
     jmp [cs:bx+tbl_9C6E]                     ; 49C86
     db 0x90   ; 49C8B
-h_9C8C:
+
+coll_01_25:
     mov ax,[di+0x2]                          ; 49C8C
     mov dx,[si+0x2]                          ; 49C8F
     and ax,0xfff0                            ; 49C92
@@ -17027,7 +17360,8 @@ loc_9D06:
     ret                                      ; 49D06
 loc_9D07:
     ret                                      ; 49D07
-h_9D08:
+
+obj3E_update:
     or byte [di+0x1],0x2                     ; 49D08
     inc word [di+0x1c]                       ; 49D0C
     cmp word [di+0x1c],byte +0x14            ; 49D0F
@@ -17047,7 +17381,8 @@ sub_9D1A:
     mov es,ax                                ; 49D29
     rep movsw                                ; 49D2B
     ret                                      ; 49D2D
-h_9D2E:
+
+lvl18_tick:
     cmp word [0x1402],byte +0x0              ; 49D2E
     jnz short loc_9D59                       ; 49D33
     push ax                                  ; 49D35
@@ -17070,7 +17405,8 @@ loc_9D43:
     pop ax                                   ; 49D58
 loc_9D59:
     ret                                      ; 49D59
-h_9D5A:
+
+lvl18_spawn:
     mov cl,0x4                               ; 49D5A
     shl ax,cl                                ; 49D5C
     shl dx,cl                                ; 49D5E
@@ -17089,7 +17425,8 @@ h_9D5A:
     mov [di+0x10],al                         ; 49D87
     ret                                      ; 49D8A
     db 0x90   ; 49D8B
-h_9D8C:
+
+obj27_update:
     or byte [di+0x1],0x2                     ; 49D8C
     inc byte [di+0x14]                       ; 49D90
     or word [di+0xc],0x10                    ; 49D93
@@ -17122,7 +17459,8 @@ loc_9DBC:
     call sub_DD97                            ; 49DD6
 loc_9DD9:
     ret                                      ; 49DD9
-h_9DDA:
+
+obj27_draw:
     cmp word [0x1382],0x17d4                 ; 49DDA
     jc short loc_9DE3                        ; 49DE0
     ret                                      ; 49DE2
@@ -17130,16 +17468,19 @@ loc_9DE3:
     mov bp,[0x1402]                          ; 49DE3
     or bp,0x2400                             ; 49DE7
     jmp near sub_D1A1                        ; 49DEB
-h_9DEE:
+
+coll_02_27:
     and word [0x3cc],0xdebf                  ; 49DEE
     mov byte [di],0x0                        ; 49DF4
     ret                                      ; 49DF7
-h_9DF8:
+
+coll_27_02:
     and word [0x3cc],0xdebf                  ; 49DF8
     mov byte [si],0x0                        ; 49DFE
     ret                                      ; 49E01
 
-sub_9E02:
+; dispatch roles: coll_27_12, coll_27_13, coll_27_27
+coll_27_12:
     pusha                                    ; 49E02
     mov ax,[di+0x2]                          ; 49E03
     mov dx,[si+0x2]                          ; 49E06
@@ -17231,9 +17572,11 @@ loc_9EB4:
     popa                                     ; 49ED0
     ret                                      ; 49ED1
     db 0xC3,0x90   ; 49ED2
-h_9ED4:
+
+; dispatch roles: coll_12_27, coll_13_27
+coll_12_27:
     xchg di,si                               ; 49ED4
-    call sub_9E02                            ; 49ED6
+    call coll_27_12                          ; 49ED6
     xchg di,si                               ; 49ED9
     ret                                      ; 49EDB
 
@@ -17247,7 +17590,8 @@ sub_9EDC:
     mov es,ax                                ; 49EEB
     rep movsw                                ; 49EED
     ret                                      ; 49EEF
-h_9EF0:
+
+lvl19_tick:
     cmp word [0x142a],byte +0x0              ; 49EF0
     jnz short loc_9F1B                       ; 49EF5
     push ax                                  ; 49EF7
@@ -17270,7 +17614,8 @@ loc_9F05:
     pop ax                                   ; 49F1A
 loc_9F1B:
     ret                                      ; 49F1B
-h_9F1C:
+
+lvl19_spawn:
     mov cl,0x4                               ; 49F1C
     shl ax,cl                                ; 49F1E
     shl dx,cl                                ; 49F20
@@ -17306,7 +17651,8 @@ loc_9F61:
     mov bx,0x404                             ; 49F72
     call sub_445B                            ; 49F75
     ret                                      ; 49F78
-h_9F79:
+
+obj28_update_case0:
     mov cl,[di+0x1e]                         ; 49F79
     mov ax,[0x13d6]                          ; 49F7C
     inc cl                                   ; 49F7F
@@ -17322,7 +17668,8 @@ h_9F79:
     call sub_445B                            ; 49F9E
 loc_9FA1:
     ret                                      ; 49FA1
-h_9FA2:
+
+obj28_update_case1:
     mov ax,[di+0x1c]                         ; 49FA2
     cmp ax,0x10                              ; 49FA5
     jc short loc_9FB3                        ; 49FA8
@@ -17330,7 +17677,8 @@ h_9FA2:
     mov word [di+0x1c],0x0                   ; 49FAE
 loc_9FB3:
     ret                                      ; 49FB3
-h_9FB4:
+
+obj28_update_case2:
     mov cl,[di+0x1e]                         ; 49FB4
     mov ax,[0x13d6]                          ; 49FB7
     inc cl                                   ; 49FBA
@@ -17340,7 +17688,8 @@ h_9FB4:
     mov word [di+0x1c],0x0                   ; 49FC4
 loc_9FC9:
     ret                                      ; 49FC9
-h_9FCA:
+
+obj28_update_case3:
     mov ax,[di+0x1c]                         ; 49FCA
     cmp ax,0x10                              ; 49FCD
     jc short loc_9FEE                        ; 49FD0
@@ -17357,19 +17706,21 @@ loc_9FEE:
 
 ; jump table tbl_9FEF: 4 words, bound: adjacent (first use at 4A006)
 tbl_9FEF:
-    dw h_9F79
-    dw h_9FA2
-    dw h_9FB4
-    dw h_9FCA
+    dw obj28_update_case0
+    dw obj28_update_case1
+    dw obj28_update_case2
+    dw obj28_update_case3
     db 0x90   ; 49FF7
-h_9FF8:
+
+obj28_update:
     or byte [di+0x1],0x2                     ; 49FF8
     inc word [di+0x1c]                       ; 49FFC
     rr xor, bx, bx                           ; 49FFF
     mov bl,[di+0x14]                         ; 4A001
     shl bx,1                                 ; 4A004
     jmp [cs:bx+tbl_9FEF]                     ; 4A006
-h_A00B:
+
+obj28_draw_case0:
     cmp word [0x1382],0x17c8                 ; 4A00B
     jc short loc_A014                        ; 4A011
     ret                                      ; 4A013
@@ -17422,7 +17773,8 @@ loc_A07A:
     inc bp                                   ; 4A085
     loop loc_A07A                            ; 4A086
     ret                                      ; 4A088
-h_A089:
+
+obj28_draw_case1:
     cmp word [0x1382],0x17c8                 ; 4A089
     jc short loc_A092                        ; 4A08F
     ret                                      ; 4A091
@@ -17529,9 +17881,11 @@ loc_A092:
     mov [bx+0x2],ax                          ; 4A186
     add bx,byte +0x4                         ; 4A189
     ret                                      ; 4A18C
-h_A18D:
+
+obj28_draw_case2:
     ret                                      ; 4A18D
-h_A18E:
+
+obj28_draw_case3:
     cmp word [0x1382],0x17c8                 ; 4A18E
     jc short loc_A197                        ; 4A194
     ret                                      ; 4A196
@@ -17635,11 +17989,12 @@ loc_A197:
 
 ; jump table tbl_A282: 4 words, bound: adjacent (first use at 4A291)
 tbl_A282:
-    dw h_A00B
-    dw h_A089
-    dw h_A18D
-    dw h_A18E
-h_A28A:
+    dw obj28_draw_case0
+    dw obj28_draw_case1
+    dw obj28_draw_case2
+    dw obj28_draw_case3
+
+obj28_draw:
     rr xor, bx, bx                           ; 4A28A
     mov bl,[di+0x14]                         ; 4A28C
     shl bx,1                                 ; 4A28F
@@ -17661,7 +18016,8 @@ sub_A296:
 loc_A2B3:
     popa                                     ; 4A2B3
     ret                                      ; 4A2B4
-h_A2B5:
+
+obj3C_update:
     or byte [di+0x1],0xa                     ; 4A2B5
     inc word [di+0x1c]                       ; 4A2B9
     mov ax,[di+0x1c]                         ; 4A2BC
@@ -17711,7 +18067,7 @@ loc_A321:
 
 sub_A326:
     pusha                                    ; 4A326
-    call sub_B56D                            ; 4A327
+    call lvl03_check                         ; 4A327
     cmp di,byte +0x0                         ; 4A32A
     jz short loc_A341                        ; 4A32D
     call sub_B4F0                            ; 4A32F
@@ -17727,7 +18083,8 @@ loc_A341:
     db 0x50,0x88,0x44,0x1E,0xC6,0x04,0x29,0x33,0xC0,0x89,0x44,0x06,0x89,0x44,0x08,0x89   ; 4A343
     db 0x44,0x1C,0x88,0x44,0x14,0x58,0xC3,0x50,0x88,0x45,0x1E,0xC6,0x05,0x29,0x33,0xC0   ; 4A353
     db 0x89,0x45,0x06,0x89,0x45,0x08,0x89,0x45,0x1C,0x88,0x45,0x14,0x58,0xC3,0x90   ; 4A363
-h_A372:
+
+obj29_update:
     or byte [di+0x1],0x2                     ; 4A372
     mov al,[di+0x14]                         ; 4A376
     inc al                                   ; 4A379
@@ -17739,7 +18096,8 @@ loc_A383:
     mov byte [di],0x0                        ; 4A383
     ret                                      ; 4A386
     db 0x90   ; 4A387
-h_A388:
+
+obj29_draw:
     cmp word [0x1382],0x17d8                 ; 4A388
     jc short loc_A391                        ; 4A38E
     ret                                      ; 4A390
@@ -17767,7 +18125,8 @@ sub_A3B0:
     mov es,ax                                ; 4A3BF
     rep movsw                                ; 4A3C1
     ret                                      ; 4A3C3
-h_A3C4:
+
+lvl1B_tick:
     cmp word [0x142c],byte +0x0              ; 4A3C4
     jnz short loc_A3EF                       ; 4A3C9
     push ax                                  ; 4A3CB
@@ -17790,7 +18149,8 @@ loc_A3D9:
     pop ax                                   ; 4A3EE
 loc_A3EF:
     ret                                      ; 4A3EF
-h_A3F0:
+
+lvl1B_spawn:
     mov cl,0x4                               ; 4A3F0
     shl ax,cl                                ; 4A3F2
     shl dx,cl                                ; 4A3F4
@@ -17825,7 +18185,8 @@ loc_A432:
     mov bx,0x404                             ; 4A443
     call sub_445B                            ; 4A446
     ret                                      ; 4A449
-h_A44A:
+
+obj2A_update:
     or byte [di+0x1],0x2                     ; 4A44A
     test word [di+0xc],0x1000                ; 4A44E
     jz short loc_A486                        ; 4A453
@@ -17847,7 +18208,8 @@ h_A44A:
     mov byte [di],0x0                        ; 4A483
 loc_A486:
     ret                                      ; 4A486
-h_A487:
+
+obj2A_draw:
     test word [di+0xc],0x1000                ; 4A487
     jz short loc_A496                        ; 4A48C
     mov ax,[di+0x1c]                         ; 4A48E
@@ -17860,7 +18222,7 @@ loc_A496:
 loc_A4A1:
     ret                                      ; 4A4A1
 
-sub_A4A2:
+coll_2A_29:
     mov bx,0x1b0                             ; 4A4A2
     mov cx,0x1b0                             ; 4A4A5
     call sub_6124                            ; 4A4A8
@@ -17873,13 +18235,15 @@ sub_A4A2:
     or word [di+0xc],0x1000                  ; 4A4BB
 loc_A4C0:
     ret                                      ; 4A4C0
-h_A4C1:
+
+coll_29_2A:
     xchg di,si                               ; 4A4C1
-    call sub_A4A2                            ; 4A4C3
+    call coll_2A_29                          ; 4A4C3
     xchg di,si                               ; 4A4C6
     ret                                      ; 4A4C8
     db 0x90   ; 4A4C9
-h_A4CA:
+
+lvl1C_spawn:
     mov cl,0x4                               ; 4A4CA
     shl ax,cl                                ; 4A4CC
     shl dx,cl                                ; 4A4CE
@@ -17895,7 +18259,8 @@ h_A4CA:
     rr mov, al, ch                           ; 4A4E5
     mov [di+0x1a],ax                         ; 4A4E7
     ret                                      ; 4A4EA
-h_A4EB:
+
+obj2B_update_case1:
     test word [0x1390],0x10                  ; 4A4EB
     jnz short loc_A50C                       ; 4A4F1
     mov ax,[0x3d0]                           ; 4A4F3
@@ -17932,7 +18297,8 @@ loc_A50C:
     mov word [0x3c6],0x0                     ; 4A551
 loc_A557:
     ret                                      ; 4A557
-h_A558:
+
+obj2B_update_case0:
     mov ax,[0x3c2]                           ; 4A558
     mov dx,[di+0x2]                          ; 4A55B
     and ax,0xfff0                            ; 4A55E
@@ -17973,9 +18339,10 @@ loc_A5C4:
 
 ; jump table tbl_A5C5: 2 words, bound: adjacent (first use at 4A5E6)
 tbl_A5C5:
-    dw h_A558
-    dw h_A4EB
-h_A5C9:
+    dw obj2B_update_case0
+    dw obj2B_update_case1
+
+obj2B_update:
     or byte [di+0x1],0x2                     ; 4A5C9
     mov ax,[0x3cc]                           ; 4A5CD
     test ax,0x400                            ; 4A5D0
@@ -18001,7 +18368,8 @@ sub_A5EC:
     mov es,ax                                ; 4A5FB
     rep movsw                                ; 4A5FD
     ret                                      ; 4A5FF
-h_A600:
+
+lvl1D_tick:
     cmp word [0x142e],byte +0x0              ; 4A600
     jnz short loc_A62B                       ; 4A605
     push ax                                  ; 4A607
@@ -18024,7 +18392,8 @@ loc_A615:
     pop ax                                   ; 4A62A
 loc_A62B:
     ret                                      ; 4A62B
-h_A62C:
+
+lvl1D_spawn:
     mov cl,0x4                               ; 4A62C
     shl ax,cl                                ; 4A62E
     shl dx,cl                                ; 4A630
@@ -18050,7 +18419,8 @@ loc_A65B:
     call sub_4436                            ; 4A667
     ret                                      ; 4A66A
     db 0x90   ; 4A66B
-h_A66C:
+
+obj2C_update:
     or byte [di+0x1],0x2                     ; 4A66C
     mov dx,[di+0x18]                         ; 4A670
     mov ax,[di+0x1a]                         ; 4A673
@@ -18077,7 +18447,8 @@ loc_A6A3:
     neg cl                                   ; 4A6A8
     mov [di+0x14],cl                         ; 4A6AA
     ret                                      ; 4A6AD
-h_A6AE:
+
+obj2C_draw:
     cmp word [0x1382],0x17d8                 ; 4A6AE
     jc short loc_A6B7                        ; 4A6B4
     ret                                      ; 4A6B6
@@ -18094,7 +18465,9 @@ loc_A6CB:
     jmp near loc_CEB8                        ; 4A6D1
 loc_A6D4:
     jmp near loc_CF16                        ; 4A6D4
-h_A6D7:
+
+; dispatch roles: coll_2C_01, coll_2C_0B, coll_2C_0D, coll_2C_10, coll_2C_12, coll_2C_15, coll_2C_27
+coll_2C_01:
     mov ax,[di+0x2]                          ; 4A6D7
     mov dx,[si+0x2]                          ; 4A6DA
     cmp byte [di+0x1e],0x0                   ; 4A6DD
@@ -18109,7 +18482,9 @@ loc_A6EC:
     jl short loc_A6EB                        ; 4A6EE
     mov byte [di+0x14],0x8                   ; 4A6F0
     ret                                      ; 4A6F4
-h_A6F5:
+
+; dispatch roles: coll_01_2C, coll_0B_2C, coll_0D_2C, coll_10_2C, coll_12_2C, coll_15_2C, coll_27_2C
+coll_01_2C:
     mov ax,[si+0x2]                          ; 4A6F5
     mov dx,[di+0x2]                          ; 4A6F8
     cmp byte [si+0x1e],0x0                   ; 4A6FB
@@ -18136,7 +18511,8 @@ sub_A714:
     mov es,ax                                ; 4A723
     rep movsw                                ; 4A725
     ret                                      ; 4A727
-h_A728:
+
+lvl1E_tick:
     cmp word [0x1418],byte +0x0              ; 4A728
     jnz short loc_A753                       ; 4A72D
     push ax                                  ; 4A72F
@@ -18159,7 +18535,8 @@ loc_A73D:
     pop ax                                   ; 4A752
 loc_A753:
     ret                                      ; 4A753
-h_A754:
+
+lvl1E_spawn:
     mov cl,0x4                               ; 4A754
     shl ax,cl                                ; 4A756
     shl dx,cl                                ; 4A758
@@ -18175,7 +18552,8 @@ h_A754:
     or word [di+0xc],0x2                     ; 4A775
     ret                                      ; 4A77A
     db 0x90   ; 4A77B
-h_A77C:
+
+obj2D_update:
     or byte [di+0x1],0x2                     ; 4A77C
     inc byte [di+0x14]                       ; 4A780
     inc word [di+0x1c]                       ; 4A783
@@ -18190,7 +18568,8 @@ loc_A791:
     jmp near sub_622B                        ; 4A79A
 loc_A79D:
     ret                                      ; 4A79D
-h_A79E:
+
+obj2D_draw:
     cmp word [0x1382],0x17d4                 ; 4A79E
     jc short loc_A7A7                        ; 4A7A4
     ret                                      ; 4A7A6
@@ -18201,13 +18580,14 @@ loc_A7A7:
     and bx,0x1                               ; 4A7B3
     shl bx,1                                 ; 4A7B7
     jmp [cs:bx+tbl_D31E]                     ; 4A7B9
-h_A7BE:
+
+coll_2D_02:
     xchg di,si                               ; 4A7BE
-    call sub_A7C6                            ; 4A7C0
+    call coll_02_2D                          ; 4A7C0
     xchg di,si                               ; 4A7C3
     ret                                      ; 4A7C5
 
-sub_A7C6:
+coll_02_2D:
     or word [0x3d2],0x1                      ; 4A7C6
     mov byte [0x3c9],0xff                    ; 4A7CC
     mov dl,0x9                               ; 4A7D1
@@ -18215,13 +18595,14 @@ sub_A7C6:
     mov ax,0xd                               ; 4A7D6
     call sub_DDDD                            ; 4A7D9
     ret                                      ; 4A7DC
-h_A7DD:
-    call sub_A7E6                            ; 4A7DD
+
+lvl22_spawn:
+    call lvl21_spawn                         ; 4A7DD
     mov byte [di+0x1e],0x1                   ; 4A7E0
     ret                                      ; 4A7E4
     db 0x90   ; 4A7E5
 
-sub_A7E6:
+lvl21_spawn:
     mov cl,0x4                               ; 4A7E6
     shl ax,cl                                ; 4A7E8
     shl dx,cl                                ; 4A7EA
@@ -18251,11 +18632,13 @@ loc_A814:
     mov byte [di+0xa],0x4                    ; 4A81E
     ret                                      ; 4A822
     db 0x90   ; 4A823
-h_A824:
+
+obj32_update:
     or byte [di+0x1],0x2                     ; 4A824
     ret                                      ; 4A828
     db 0x90   ; 4A829
-h_A82A:
+
+obj32_draw:
     cmp byte [di+0x1e],0x0                   ; 4A82A
     jnz short loc_A851                       ; 4A82E
     cmp word [0x1382],0x17f4                 ; 4A830
@@ -18302,7 +18685,8 @@ loc_A885:
     mov [bx+0x2],dx                          ; 4A899
     ret                                      ; 4A89C
     db 0x90   ; 4A89D
-h_A89E:
+
+coll_01_32:
     mov ax,[di+0x2]                          ; 4A89E
     sub ax,[si+0x2]                          ; 4A8A1
     add ax,0xc0                              ; 4A8A4
@@ -18339,15 +18723,16 @@ loc_A8C9:
 loc_A8F0:
     ret                                      ; 4A8F0
     db 0x90   ; 4A8F1
-h_A8F2:
+
+lvl27_spawn:
     cmp byte [lives],0x3                     ; 4A8F2
     jnc short loc_A8FC                       ; 4A8F7
-    call sub_A8FE                            ; 4A8F9
+    call lvl26_spawn                         ; 4A8F9
 loc_A8FC:
     ret                                      ; 4A8FC
     db 0x90   ; 4A8FD
 
-sub_A8FE:
+lvl26_spawn:
     pusha                                    ; 4A8FE
     mov cl,0x4                               ; 4A8FF
     shl ax,cl                                ; 4A901
@@ -18369,11 +18754,13 @@ sub_A8FE:
 loc_A92A:
     popa                                     ; 4A92A
     ret                                      ; 4A92B
-h_A92C:
+
+obj33_update:
     or byte [di+0x1],0x2                     ; 4A92C
     ret                                      ; 4A930
     db 0x90   ; 4A931
-h_A932:
+
+obj33_draw:
     cmp word [0x1382],0x17e8                 ; 4A932
     jc short loc_A93B                        ; 4A938
     ret                                      ; 4A93A
@@ -18381,7 +18768,8 @@ loc_A93B:
     mov bp,0x29bf                            ; 4A93B
     jmp near loc_D092                        ; 4A93E
     db 0x90   ; 4A941
-h_A942:
+
+coll_01_33:
     mov al,0x1                               ; 4A942
     mov cl,[si+0x14]                         ; 4A944
     shl al,cl                                ; 4A947
@@ -18399,7 +18787,8 @@ h_A942:
     call sub_D4A0                            ; 4A96D
     pop ax                                   ; 4A970
     jmp near sub_C718                        ; 4A971
-h_A974:
+
+lvl28_spawn:
     mov cl,0x4                               ; 4A974
     shl ax,cl                                ; 4A976
     shl dx,cl                                ; 4A978
@@ -18419,11 +18808,13 @@ h_A974:
     mov byte [di+0xa],0x4                    ; 4A99B
 loc_A99F:
     ret                                      ; 4A99F
-h_A9A0:
+
+obj34_update:
     or byte [di+0x1],0x2                     ; 4A9A0
     ret                                      ; 4A9A4
     db 0x90   ; 4A9A5
-h_A9A6:
+
+obj34_draw:
     cmp word [0x1382],0x17e8                 ; 4A9A6
     jc short loc_A9AF                        ; 4A9AC
     ret                                      ; 4A9AE
@@ -18431,7 +18822,8 @@ loc_A9AF:
     mov bp,0x2db3                            ; 4A9AF
     jmp near loc_D092                        ; 4A9B2
     db 0x90   ; 4A9B5
-h_A9B6:
+
+coll_01_34:
     mov al,0x1                               ; 4A9B6
     mov cl,[si+0x14]                         ; 4A9B8
     shl al,cl                                ; 4A9BB
@@ -18462,7 +18854,8 @@ sub_A9E6:
     mov es,ax                                ; 4A9F5
     rep movsw                                ; 4A9F7
     ret                                      ; 4A9F9
-h_A9FA:
+
+lvl25_tick:
     cmp word [0x141c],byte +0x0              ; 4A9FA
     jnz short loc_AA25                       ; 4A9FF
     push ax                                  ; 4AA01
@@ -18507,7 +18900,8 @@ loc_AA3A:
 loc_AA50:
     ret                                      ; 4AA50
     db 0x90   ; 4AA51
-h_AA52:
+
+lvl25_spawn:
     mov cl,0x4                               ; 4AA52
     shl ax,cl                                ; 4AA54
     shl dx,cl                                ; 4AA56
@@ -18524,7 +18918,8 @@ h_AA52:
     or word [di+0xc],0x2                     ; 4AA77
     ret                                      ; 4AA7C
     db 0x90   ; 4AA7D
-h_AA7E:
+
+obj2E_update_case0:
     inc word [di+0x1c]                       ; 4AA7E
     mov ax,[0x3c2]                           ; 4AA81
     sub ax,[di+0x2]                          ; 4AA84
@@ -18556,7 +18951,9 @@ loc_AAB4:
 loc_AAC0:
     jmp near sub_6146                        ; 4AAC0
     db 0x90   ; 4AAC3
-h_AAC4:
+
+; dispatch roles: obj2E_update_case1, obj2E_update_case3
+obj2E_update_case1:
     inc byte [di+0x1f]                       ; 4AAC4
     cmp byte [di+0x1f],0x32                  ; 4AAC7
     ja short loc_AAD8                        ; 4AACB
@@ -18587,7 +18984,8 @@ loc_AB04:
     mov [di+0x1a],ax                         ; 4AB10
 loc_AB13:
     ret                                      ; 4AB13
-h_AB14:
+
+obj2E_update_case2:
     mov al,[di+0x14]                         ; 4AB14
     cmp al,0x40                              ; 4AB17
     adc al,0x0                               ; 4AB19
@@ -18599,11 +18997,12 @@ h_AB14:
 
 ; jump table tbl_AB2C: 4 words, bound: mask (first use at 4AB49)
 tbl_AB2C:
-    dw h_AA7E
-    dw h_AAC4
-    dw h_AB14
-    dw h_AAC4
-h_AB34:
+    dw obj2E_update_case0
+    dw obj2E_update_case1
+    dw obj2E_update_case2
+    dw obj2E_update_case1
+
+obj2E_update:
     or byte [di+0x1],0x2                     ; 4AB34
     cmp al,0x18                              ; 4AB38
     jl short loc_AB3E                        ; 4AB3A
@@ -18614,7 +19013,8 @@ loc_AB3E:
     and bx,0x3                               ; 4AB43
     shl bx,1                                 ; 4AB47
     jmp [cs:bx+tbl_AB2C]                     ; 4AB49
-h_AB4E:
+
+obj2E_draw:
     cmp word [0x1382],0x17d4                 ; 4AB4E
     jc short loc_AB57                        ; 4AB54
     ret                                      ; 4AB56
@@ -18639,7 +19039,7 @@ sub_AB6E:
 
 sub_AB82:
     pusha                                    ; 4AB82
-    call sub_B555                            ; 4AB83
+    call lvl00_check                         ; 4AB83
     test di,di                               ; 4AB86
     jz short loc_ABB3                        ; 4AB88
     call sub_B4F0                            ; 4AB8A
@@ -18662,7 +19062,8 @@ loc_ABB3:
     popa                                     ; 4ABB3
     ret                                      ; 4ABB4
     db 0x90   ; 4ABB5
-h_ABB6:
+
+obj2F_update:
     or byte [di+0x1],0x2                     ; 4ABB6
     inc byte [di+0x14]                       ; 4ABBA
     inc word [di+0x1c]                       ; 4ABBD
@@ -18680,7 +19081,8 @@ h_ABB6:
     ret                                      ; 4ABE0
 loc_ABE1:
     jmp near sub_79A6                        ; 4ABE1
-h_ABE4:
+
+obj2F_draw:
     cmp word [0x1382],0x17e8                 ; 4ABE4
     jc short loc_ABED                        ; 4ABEA
     ret                                      ; 4ABEC
@@ -18695,7 +19097,7 @@ loc_ABED:
     jmp near loc_D092                        ; 4AC01
 loc_AC04:
     pusha                                    ; 4AC04
-    call sub_B56D                            ; 4AC05
+    call lvl03_check                         ; 4AC05
     test di,di                               ; 4AC08
     jz short loc_AC1D                        ; 4AC0A
     call sub_B4F0                            ; 4AC0C
@@ -18707,7 +19109,8 @@ loc_AC04:
 loc_AC1D:
     popa                                     ; 4AC1D
     ret                                      ; 4AC1E
-h_AC1F:
+
+obj30_update:
     or byte [di+0x1],0x2                     ; 4AC1F
     inc byte [di+0x14]                       ; 4AC23
     cmp byte [di+0x14],0xc                   ; 4AC26
@@ -18718,7 +19121,7 @@ loc_AC2F:
 
 sub_AC30:
     pusha                                    ; 4AC30
-    call sub_B555                            ; 4AC31
+    call lvl00_check                         ; 4AC31
     test di,di                               ; 4AC34
     jz short loc_AC45                        ; 4AC36
     call sub_B4F0                            ; 4AC38
@@ -18728,7 +19131,8 @@ sub_AC30:
 loc_AC45:
     popa                                     ; 4AC45
     ret                                      ; 4AC46
-h_AC47:
+
+obj36_update:
     or byte [di+0x1],0x2                     ; 4AC47
     or word [0x3d2],0x4                      ; 4AC4B
     mov ax,[di+0x1c]                         ; 4AC51
@@ -19266,7 +19670,8 @@ sub_B11A:
     mov [lives],al                           ; 4B169
     pop ax                                   ; 4B16C
     ret                                      ; 4B16D
-h_B16E:
+
+sub_B332_case4:
     rr xor, ax, ax                           ; 4B16E
     test word [0x1392],0x10                  ; 4B170
     jnz short loc_B179                       ; 4B176
@@ -19275,7 +19680,8 @@ loc_B179:
     mov al,0x20                              ; 4B179
     or [play_flags],al                       ; 4B17B
     ret                                      ; 4B17F
-h_B180:
+
+sub_B332_case3:
     rr xor, ax, ax                           ; 4B180
     test word [0x1390],0x20                  ; 4B182
     jnz short loc_B18B                       ; 4B188
@@ -19306,7 +19712,8 @@ loc_B1CB:
     or [play_flags],al                       ; 4B1CD
     ret                                      ; 4B1D1
     db 0xC3   ; 4B1D2
-h_B1D3:
+
+sub_B332_case2:
     rr xor, ax, ax                           ; 4B1D3
     test word [0x1390],0x80                  ; 4B1D5
     jnz short loc_B1DE                       ; 4B1DB
@@ -19336,7 +19743,8 @@ loc_B21E:
     mov al,0x10                              ; 4B21E
     or [play_flags],al                       ; 4B220
     ret                                      ; 4B224
-h_B225:
+
+sub_B332_case1:
     rr xor, ax, ax                           ; 4B225
     test word [0x1390],0x40                  ; 4B227
     jnz short loc_B230                       ; 4B22D
@@ -19367,7 +19775,8 @@ loc_B270:
     or [play_flags],al                       ; 4B272
     or byte [0x13e3],0x40                    ; 4B276
     ret                                      ; 4B27B
-h_B27C:
+
+sub_B332_case0:
     rr xor, ax, ax                           ; 4B27C
     test word [0x1390],0x10                  ; 4B27E
     jnz short loc_B287                       ; 4B284
@@ -19397,7 +19806,8 @@ loc_B2C7:
     mov al,0x10                              ; 4B2C7
     or [play_flags],al                       ; 4B2C9
     ret                                      ; 4B2CD
-h_B2CE:
+
+sub_B332_case5:
     rr xor, ax, ax                           ; 4B2CE
     test word [0x1392],0x10                  ; 4B2D0
     jnz short loc_B2D9                       ; 4B2D6
@@ -19432,12 +19842,12 @@ loc_B31F:
 
 ; jump table tbl_B326: 6 words, bound: adjacent (first use at 4B392)
 tbl_B326:
-    dw h_B27C
-    dw h_B225
-    dw h_B1D3
-    dw h_B180
-    dw h_B16E
-    dw h_B2CE
+    dw sub_B332_case0
+    dw sub_B332_case1
+    dw sub_B332_case2
+    dw sub_B332_case3
+    dw sub_B332_case4
+    dw sub_B332_case5
 
 sub_B332:
     pusha                                    ; 4B332
@@ -19699,7 +20109,8 @@ loc_B552:
     pop ax                                   ; 4B553
     ret                                      ; 4B554
 
-sub_B555:
+; dispatch roles: lvl00_check, lvl01_check, lvl02_check, lvl04_check, lvl05_check, lvl06_check, lvl07_check, lvl17_check ...
+lvl00_check:
     push ax                                  ; 4B555
     push cx                                  ; 4B556
     mov di,0x400                             ; 4B557
@@ -19716,7 +20127,8 @@ loc_B56A:
     pop ax                                   ; 4B56B
     ret                                      ; 4B56C
 
-sub_B56D:
+; dispatch roles: lvl03_check, lvl08_check, lvl09_check, lvl0A_check, lvl0B_check, lvl0C_check, lvl0D_check, lvl0E_check ...
+lvl03_check:
     push ax                                  ; 4B56D
     push cx                                  ; 4B56E
     mov di,0x7e0                             ; 4B56F
@@ -20150,10 +20562,12 @@ sub_BBD4:
 loc_BC30:
     popa                                     ; 4BC30
     ret                                      ; 4BC31
-h_BC32:
+
+obj3D_update_case15:
     or byte [0x1399],0x2                     ; 4BC32
     ret                                      ; 4BC37
-h_BC38:
+
+obj3D_update_case14:
     mov dx,[di+0x16]                         ; 4BC38
     mov [di+0x1e],dh                         ; 4BC3B
     mov [di+0x1f],dl                         ; 4BC3E
@@ -20170,7 +20584,8 @@ h_BC38:
     mov ax,0x3                               ; 4BC62
     call sub_BBB4                            ; 4BC65
     ret                                      ; 4BC68
-h_BC69:
+
+obj3D_update_case6:
     rr mov, al, ah                           ; 4BC69
     rr xor, ah, ah                           ; 4BC6B
     test ax,ax                               ; 4BC6D
@@ -20183,7 +20598,8 @@ loc_BC79:
     add word [di+0x1a],byte +0x2             ; 4BC7C
     ret                                      ; 4BC80
     db 0x90   ; 4BC81
-h_BC82:
+
+obj3D_update_case5:
     cmp ah,0x4                               ; 4BC82
     jnc short loc_BC9D                       ; 4BC85
     rr xor, dx, dx                           ; 4BC87
@@ -20222,7 +20638,8 @@ loc_BCBF:
     pop ax                                   ; 4BCCE
     add word [di+0x1a],byte +0x2             ; 4BCCF
     ret                                      ; 4BCD3
-h_BCD4:
+
+obj3D_update_case4:
     rr xor, dx, dx                           ; 4BCD4
     rr mov, dl, ah                           ; 4BCD6
     pusha                                    ; 4BCD8
@@ -20234,7 +20651,8 @@ h_BCD4:
     popa                                     ; 4BCE0
     add word [di+0x1a],byte +0x2             ; 4BCE1
     ret                                      ; 4BCE5
-h_BCE6:
+
+obj3D_update_case3:
     rr xor, bx, bx                           ; 4BCE6
     rr mov, bl, ah                           ; 4BCE8
     shl bx,1                                 ; 4BCEA
@@ -20254,7 +20672,8 @@ h_BCE6:
     add word [di+0x1a],byte +0x2             ; 4BD14
     ret                                      ; 4BD18
     db 0x90   ; 4BD19
-h_BD1A:
+
+obj3D_update_case2:
     test byte [0x1385],0x3                   ; 4BD1A
     jnz short loc_BD2B                       ; 4BD1F
     test bp,0xe00                            ; 4BD21
@@ -20262,7 +20681,8 @@ h_BD1A:
     add word [di+0x1a],byte +0x1             ; 4BD27
 loc_BD2B:
     ret                                      ; 4BD2B
-h_BD2C:
+
+obj3D_update_case1:
     test byte [0x1385],0x3                   ; 4BD2C
     jnz short loc_BD39                       ; 4BD31
     test si,0x800                            ; 4BD33
@@ -20279,7 +20699,9 @@ loc_BD45:
 loc_BD4E:
     ret                                      ; 4BD4E
     db 0x90   ; 4BD4F
-h_BD50:
+
+; dispatch roles: obj3D_update_case0, obj3D_update_case10, obj3D_update_case11, obj3D_update_case12, obj3D_update_case13, obj3D_update_case7, obj3D_update_case8, obj3D_update_case9
+obj3D_update_case0:
     inc word [di+0x1a]                       ; 4BD50
     mov al,[di+0x12]                         ; 4BD53
     inc al                                   ; 4BD56
@@ -20293,23 +20715,24 @@ h_BD50:
 
 ; jump table tbl_BD6C: 16 words, bound: mask (first use at 4BE27)
 tbl_BD6C:
-    dw h_BD50
-    dw h_BD2C
-    dw h_BD1A
-    dw h_BCE6
-    dw h_BCD4
-    dw h_BC82
-    dw h_BC69
-    dw h_BD50
-    dw h_BD50
-    dw h_BD50
-    dw h_BD50
-    dw h_BD50
-    dw h_BD50
-    dw h_BD50
-    dw h_BC38
-    dw h_BC32
-h_BD8C:
+    dw obj3D_update_case0
+    dw obj3D_update_case1
+    dw obj3D_update_case2
+    dw obj3D_update_case3
+    dw obj3D_update_case4
+    dw obj3D_update_case5
+    dw obj3D_update_case6
+    dw obj3D_update_case0
+    dw obj3D_update_case0
+    dw obj3D_update_case0
+    dw obj3D_update_case0
+    dw obj3D_update_case0
+    dw obj3D_update_case0
+    dw obj3D_update_case0
+    dw obj3D_update_case14
+    dw obj3D_update_case15
+
+obj3D_update:
     pusha                                    ; 4BD8C
     mov si,[0x1388]                          ; 4BD8D
     mov bp,[0x138c]                          ; 4BD91
@@ -20378,7 +20801,8 @@ loc_BE1C:
     popa                                     ; 4BE2C
     ret                                      ; 4BE2D
     db 0x00,0x00,0x00,0x00,0x00,0xFF,0xFE,0xFF   ; 4BE2E
-h_BE36:
+
+obj3D_draw:
     pusha                                    ; 4BE36
     mov al,[di+0x14]                         ; 4BE37
     cmp al,0xf2                              ; 4BE3A
@@ -20481,9 +20905,13 @@ sub_BEEE:
     popa                                     ; 4BF23
     ret                                      ; 4BF24
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 4BF25
-h_BF30:
+
+; dispatch roles: sub_BFD6_case0, sub_BFD6_case4
+sub_BFD6_case0:
     ret                                      ; 4BF30
-h_BF31:
+
+; dispatch roles: sub_BFD6_case1, sub_BFD6_case3
+sub_BFD6_case1:
     rr mov, ax, dx                           ; 4BF31
     rr mov, bx, ax                           ; 4BF33
     and dx,0x200                             ; 4BF35
@@ -20512,7 +20940,9 @@ loc_BF66:
     or dx,0x800                              ; 4BF6B
 loc_BF6F:
     ret                                      ; 4BF6F
-h_BF70:
+
+; dispatch roles: sub_BFD6_case2, sub_BFD6_case6
+sub_BFD6_case2:
     rr mov, ax, dx                           ; 4BF70
     and dx,0x2f0                             ; 4BF72
     test ax,0x800                            ; 4BF76
@@ -20524,7 +20954,9 @@ loc_BF7F:
     or dx,0x800                              ; 4BF84
 loc_BF88:
     ret                                      ; 4BF88
-h_BF89:
+
+; dispatch roles: sub_BFD6_case5, sub_BFD6_case7
+sub_BFD6_case5:
     rr mov, ax, dx                           ; 4BF89
     and dx,0x200                             ; 4BF8B
     test ax,0x1                              ; 4BF8F
@@ -20555,14 +20987,14 @@ loc_BFC5:
 
 ; jump table tbl_BFC6: 8 words, bound: mask (first use at 4BFE3)
 tbl_BFC6:
-    dw h_BF30
-    dw h_BF31
-    dw h_BF70
-    dw h_BF31
-    dw h_BF30
-    dw h_BF89
-    dw h_BF70
-    dw h_BF89
+    dw sub_BFD6_case0
+    dw sub_BFD6_case1
+    dw sub_BFD6_case2
+    dw sub_BFD6_case1
+    dw sub_BFD6_case0
+    dw sub_BFD6_case5
+    dw sub_BFD6_case2
+    dw sub_BFD6_case5
 
 sub_BFD6:
     push ax                                  ; 4BFD6
@@ -20591,7 +21023,7 @@ sub_C009:
     mov ax,[es:si]                           ; 4C019
     cmp [di+0x1c],ax                         ; 4C01C
     jnz short loc_C042                       ; 4C01F
-    call sub_B555                            ; 4C021
+    call lvl00_check                         ; 4C021
     test di,di                               ; 4C024
     jz short loc_C042                        ; 4C026
     mov ax,[es:si+0x2]                       ; 4C028
@@ -20780,7 +21212,8 @@ loc_C1CB:
     mov byte [di],0x0                        ; 4C1CB
     ret                                      ; 4C1CE
     db 0x90   ; 4C1CF
-h_C1D0:
+
+obj38_update:
     or byte [di+0x1],0x2                     ; 4C1D0
     mov ax,[di+0x1c]                         ; 4C1D4
     inc ax                                   ; 4C1D7
@@ -20792,7 +21225,8 @@ h_C1D0:
 loc_C1E5:
     jmp near loc_C0CF                        ; 4C1E5
     db 0xC3,0x90   ; 4C1E8
-h_C1EA:
+
+obj38_draw:
     mov bx,[di+0x1a]                         ; 4C1EA
     shl bx,1                                 ; 4C1ED
     mov ax,0x3000                            ; 4C1EF
@@ -20816,7 +21250,8 @@ sub_C20E:
     pop ax                                   ; 4C219
     ret                                      ; 4C21A
     db 0x90   ; 4C21B
-h_C21C:
+
+obj39_update_case0:
     mov bx,0x0                               ; 4C21C
     call sub_C009                            ; 4C21F
     mov bx,0x1                               ; 4C222
@@ -20831,7 +21266,8 @@ h_C21C:
     call sub_C009                            ; 4C23D
     ret                                      ; 4C240
     db 0x90   ; 4C241
-h_C242:
+
+obj39_update_case1:
     mov bx,0x6                               ; 4C242
 loc_C245:
     call sub_C009                            ; 4C245
@@ -20842,10 +21278,11 @@ loc_C245:
 
 ; jump table tbl_C24F: 2 words, bound: adjacent (first use at 4C262)
 tbl_C24F:
-    dw h_C21C
-    dw h_C242
+    dw obj39_update_case0
+    dw obj39_update_case1
     db 0x90   ; 4C253
-h_C254:
+
+obj39_update:
     or byte [di+0x1],0x2                     ; 4C254
     mov ax,[di+0x1c]                         ; 4C258
     inc ax                                   ; 4C25B
@@ -20939,7 +21376,7 @@ loc_C315:
     mov ds,ax                                ; 4C317
     mov [vblank_line],al                     ; 4C319
     call objects_update                      ; 4C31C
-    call sub_05AE                            ; 4C31F
+    call state19_world_record_case0          ; 4C31F
     mov ax,[0x1382]                          ; 4C322
     sub ax,0x1600                            ; 4C325
     shr ax,1                                 ; 4C328
@@ -21549,7 +21986,7 @@ loc_C809:
     ret                                      ; 4C80A
     db 0xFF,0xFF,0xFF,0xFF,0xFF   ; 4C80B
 
-sub_C810:
+obj3B_update_case3_C810:
     pusha                                    ; 4C810
     mov cl,0x4                               ; 4C811
     in ax,0x30                               ; 4C813
@@ -21858,7 +22295,7 @@ sub_C810:
     popa                                     ; 4CAE1
     ret                                      ; 4CAE2
 
-sub_CAE3:
+obj3B_update_case2_CAE3:
     pusha                                    ; 4CAE3
     mov cl,0x4                               ; 4CAE4
     in ax,0x20                               ; 4CAE6
@@ -22380,7 +22817,9 @@ loc_CF63:
     db 0xB9,0x02,0x00,0x8A,0xE6,0x89,0x2F,0x89,0x47,0x02,0x45,0x83,0xC3,0x04,0x80,0xC4   ; 4CFDF
     db 0x08,0x89,0x2F,0x89,0x47,0x02,0x45,0x83,0xC3,0x04,0x80,0xC4,0x08,0x89,0x2F,0x89   ; 4CFEF
     db 0x47,0x02,0x45,0x83,0xC3,0x04,0x04,0x08,0xE2,0xD9,0xC3   ; 4CFFF
-h_D00A:
+
+; dispatch roles: b3disp_00, b3disp_01, b3disp_02, b3disp_03, b3disp_04
+b3disp_00:
     sub dh,0x10                              ; 4D00A
     sub dl,0xc                               ; 4D00D
     mov bx,[0x1382]                          ; 4D010
@@ -22401,7 +22840,8 @@ loc_D023:
     add al,0x8                               ; 4D032
     loop loc_D01E                            ; 4D034
     ret                                      ; 4D036
-h_D037:
+
+b3disp_05:
     sub dh,0x4                               ; 4D037
     sub dh,0x4                               ; 4D03A
     sub dl,0x4                               ; 4D03D
@@ -22422,7 +22862,9 @@ loc_D053:
     add ah,0x8                               ; 4D05C
     loop loc_D053                            ; 4D05F
     ret                                      ; 4D061
-h_D062:
+
+; dispatch roles: b3disp_06, b3disp_07, b3disp_08, b3disp_09, b3disp_0A, b3disp_0B, b3disp_0C, b3disp_0D ...
+b3disp_06:
     sub dh,0x30                              ; 4D062
     sub dl,0x8                               ; 4D065
     mov bx,[0x1382]                          ; 4D068
@@ -22432,7 +22874,9 @@ h_D062:
     rr mov, ah, dh                           ; 4D076
     add al,0x8                               ; 4D078
     jmp near sub_D050                        ; 4D07A
-h_D07D:
+
+; dispatch roles: b3disp_0F, b3disp_10, b3disp_11, b3disp_12, b3disp_13, b3disp_14, b3disp_15, b3disp_16 ...
+b3disp_0F:
     sub dh,0x30                              ; 4D07D
     sub dl,0x4                               ; 4D080
     mov bx,[0x1382]                          ; 4D083
@@ -22732,10 +23176,11 @@ loc_D2F7:
 
 ; jump table tbl_D31E: 2 words, bound: mask (first use at 4AB69)
 tbl_D31E:
-    dw h_D326
-    dw h_D3B7
+    dw obj2E_draw_case0
+    dw obj2E_draw_case1
     db 0x00,0x09,0x12,0x1B   ; 4D322
-h_D326:
+
+obj2E_draw_case0:
     sub dh,0xc                               ; 4D326
     sub dl,0xc                               ; 4D329
     mov bx,[0x1382]                          ; 4D32C
@@ -22798,7 +23243,8 @@ loc_D38F:
     add al,0x8                               ; 4D3B2
     loop loc_D38F                            ; 4D3B4
     ret                                      ; 4D3B6
-h_D3B7:
+
+obj2E_draw_case1:
     sub dh,0xc                               ; 4D3B7
     sub dl,0xc                               ; 4D3BA
     mov bx,[0x1382]                          ; 4D3BD
@@ -22921,7 +23367,8 @@ sub_D4A0:
 loc_D4C0:
     popa                                     ; 4D4C0
     ret                                      ; 4D4C1
-h_D4C2:
+
+obj3F_update_case0:
     mov ax,[di+0x1c]                         ; 4D4C2
     inc ax                                   ; 4D4C5
     mov [di+0x1c],ax                         ; 4D4C6
@@ -22930,7 +23377,8 @@ h_D4C2:
     and [di],al                              ; 4D4CE
     ret                                      ; 4D4D0
     db 0x90   ; 4D4D1
-h_D4D2:
+
+obj3F_update_case1:
     mov ax,[di+0x1c]                         ; 4D4D2
     dec ax                                   ; 4D4D5
     mov [di+0x1c],ax                         ; 4D4D6
@@ -22940,7 +23388,9 @@ h_D4D2:
     and [di],al                              ; 4D4E0
     ret                                      ; 4D4E2
     db 0x90   ; 4D4E3
-h_D4E4:
+
+; dispatch roles: obj3F_update_case2, obj3F_update_case3
+obj3F_update_case2:
     mov ax,[di+0x1c]                         ; 4D4E4
     inc ax                                   ; 4D4E7
     mov [di+0x1c],ax                         ; 4D4E8
@@ -22951,17 +23401,19 @@ h_D4E4:
 
 ; jump table tbl_D4F3: 4 words, bound: adjacent (first use at 4D503)
 tbl_D4F3:
-    dw h_D4C2
-    dw h_D4D2
-    dw h_D4E4
-    dw h_D4E4
+    dw obj3F_update_case0
+    dw obj3F_update_case1
+    dw obj3F_update_case2
+    dw obj3F_update_case2
     db 0x90   ; 4D4FB
-h_D4FC:
+
+obj3F_update:
     or byte [di+0x1],0x2                     ; 4D4FC
     mov bx,[di+0xc]                          ; 4D500
     jmp [cs:bx+tbl_D4F3]                     ; 4D503
 
-sub_D508:
+; dispatch roles: obj3F_draw_case0, obj3F_draw_case1
+obj3F_draw_case0:
     cmp word [0x1382],0x17e8                 ; 4D508
     jc short loc_D511                        ; 4D50E
     ret                                      ; 4D510
@@ -22993,10 +23445,12 @@ loc_D511:
     rr sub, al, cl                           ; 4D550
     mov [bx+0xe],ax                          ; 4D552
     ret                                      ; 4D555
-h_D556:
-    call sub_D508                            ; 4D556
-    jmp near loc_D55C                        ; 4D559
-loc_D55C:
+
+obj3F_draw_case3:
+    call obj3F_draw_case0                    ; 4D556
+    jmp near obj3F_draw_case2                ; 4D559
+
+obj3F_draw_case2:
     cmp word [0x1382],0x17e8                 ; 4D55C
     jc short loc_D565                        ; 4D562
     ret                                      ; 4D564
@@ -23036,14 +23490,16 @@ loc_D565:
 
 ; jump table tbl_D5BA: 4 words, bound: adjacent (first use at 4D5C5)
 tbl_D5BA:
-    dw sub_D508
-    dw sub_D508
-    dw loc_D55C
-    dw h_D556
-h_D5C2:
+    dw obj3F_draw_case0
+    dw obj3F_draw_case0
+    dw obj3F_draw_case2
+    dw obj3F_draw_case3
+
+obj3F_draw:
     mov bx,[di+0xc]                          ; 4D5C2
     jmp [cs:bx+tbl_D5BA]                     ; 4D5C5
-h_D5CA:
+
+sub_D6AE_case3:
     in ax,0x30                               ; 4D5CA
     mov [di+0x2],ax                          ; 4D5CC
     in ax,0x32                               ; 4D5CF
@@ -23062,7 +23518,8 @@ h_D5CA:
     mov [di+0x12],ax                         ; 4D5EF
     or byte [0x1385],0x2                     ; 4D5F2
     ret                                      ; 4D5F7
-h_D5F8:
+
+sub_D6AE_case2:
     in ax,0x20                               ; 4D5F8
     mov [di+0x2],ax                          ; 4D5FA
     in ax,0x22                               ; 4D5FD
@@ -23081,7 +23538,8 @@ h_D5F8:
     mov [di+0x12],ax                         ; 4D61D
     or byte [0x1385],0x1                     ; 4D620
     ret                                      ; 4D625
-h_D626:
+
+sub_D6AE_case1:
     in ax,0x30                               ; 4D626
     mov [di+0x2],ax                          ; 4D628
     in ax,0x32                               ; 4D62B
@@ -23109,7 +23567,8 @@ h_D626:
     out 0x3e,ax                              ; 4D65E
     or byte [0x1385],0x2                     ; 4D660
     ret                                      ; 4D665
-h_D666:
+
+sub_D6AE_case0:
     in ax,0x20                               ; 4D666
     mov [di+0x2],ax                          ; 4D668
     in ax,0x22                               ; 4D66B
@@ -23140,10 +23599,10 @@ h_D666:
 
 ; jump table tbl_D6A6: 4 words, bound: hint (first use at 4D6D6)
 tbl_D6A6:
-    dw h_D666
-    dw h_D626
-    dw h_D5F8
-    dw h_D5CA
+    dw sub_D6AE_case0
+    dw sub_D6AE_case1
+    dw sub_D6AE_case2
+    dw sub_D6AE_case3
 
 sub_D6AE:
     test byte [0x1385],0x3                   ; 4D6AE
@@ -23224,7 +23683,8 @@ sub_D6DD:
     out dx,ax                                ; 4D757
     popa                                     ; 4D758
     ret                                      ; 4D759
-h_D75A:
+
+obj3B_update_case0_D75A:
     mov bp,[di+0x2]                          ; 4D75A
     mov dx,0x20                              ; 4D75D
     call sub_D6DD                            ; 4D760
@@ -23250,7 +23710,8 @@ h_D75A:
     mov dx,0x2e                              ; 4D79C
     call sub_D6DD                            ; 4D79F
     ret                                      ; 4D7A2
-h_D7A3:
+
+obj3B_update_case1:
     mov bp,[di+0x2]                          ; 4D7A3
     mov dx,0x30                              ; 4D7A6
     call sub_D6DD                            ; 4D7A9
@@ -23276,7 +23737,8 @@ h_D7A3:
     mov dx,0x3e                              ; 4D7E5
     call sub_D6DD                            ; 4D7E8
     ret                                      ; 4D7EB
-h_D7EC:
+
+obj3B_update_case2_D7EC:
     mov ax,[di+0x2]                          ; 4D7EC
     out 0x20,ax                              ; 4D7EF
     mov ax,[di+0x4]                          ; 4D7F1
@@ -23294,7 +23756,8 @@ h_D7EC:
     mov ax,[di+0x12]                         ; 4D80F
     out 0x2e,ax                              ; 4D812
     ret                                      ; 4D814
-h_D815:
+
+obj3B_update_case3_D815:
     mov ax,[di+0x2]                          ; 4D815
     out 0x30,ax                              ; 4D818
     mov ax,[di+0x4]                          ; 4D81A
@@ -23312,23 +23775,26 @@ h_D815:
     mov ax,[di+0x12]                         ; 4D838
     out 0x3e,ax                              ; 4D83B
     ret                                      ; 4D83D
-h_D83E:
+
+; dispatch roles: obj3B_update_case0, obj3B_update_case1
+obj3B_update_case0_D83E:
     ret                                      ; 4D83E
 
 ; jump table tbl_D83F: 4 words, bound: mask (first use at 4D86A)
 tbl_D83F:
-    dw h_D75A
-    dw h_D7A3
-    dw sub_CAE3
-    dw sub_C810
+    dw obj3B_update_case0_D75A
+    dw obj3B_update_case1
+    dw obj3B_update_case2_CAE3
+    dw obj3B_update_case3_C810
 
 ; jump table tbl_D847: 4 words, bound: mask (first use at 4D889)
 tbl_D847:
-    dw h_D83E
-    dw h_D83E
-    dw h_D7EC
-    dw h_D815
-h_D84F:
+    dw obj3B_update_case0_D83E
+    dw obj3B_update_case0_D83E
+    dw obj3B_update_case2_D7EC
+    dw obj3B_update_case3_D815
+
+obj3B_update:
     or byte [di+0x1],0x2                     ; 4D84F
     inc word [di+0x1c]                       ; 4D853
     mov ax,[di+0x1c]                         ; 4D856
@@ -23377,7 +23843,8 @@ loc_D8B7:
     popa                                     ; 4D8B7
     ret                                      ; 4D8B8
 
-irq_D8B9:
+; dispatch roles: irq_hblank_raster_0, irq_hblank_raster_3
+irq_hblank_raster_0:
     pusha                                    ; 4D8B9
     push ds                                  ; 4D8BA
     push es                                  ; 4D8BB
@@ -23437,7 +23904,8 @@ loc_D919:
     popa                                     ; 4D923
     iret                                     ; 4D924
 
-irq_D925:
+; dispatch roles: irq_hblank_raster_1, irq_hblank_raster_2
+irq_hblank_raster_1:
     pusha                                    ; 4D925
     push ds                                  ; 4D926
     push es                                  ; 4D927
@@ -23525,11 +23993,12 @@ loc_D9C2:
 
 ; jump table tbl_D9D0: 4 words, bound: irq-hint (first use at 4D9D0)
 tbl_D9D0:
-    dw irq_D8B9
-    dw irq_D925
-    dw irq_D925
-    dw irq_D8B9
-h_D9D8:
+    dw irq_hblank_raster_0
+    dw irq_hblank_raster_1
+    dw irq_hblank_raster_1
+    dw irq_hblank_raster_0
+
+obj3A_update:
     or byte [di+0x1],0x2                     ; 4D9D8
     inc word [di+0x1c]                       ; 4D9DC
     mov al,[play_flags]                      ; 4D9DF
@@ -23575,7 +24044,8 @@ loc_DA2A:
 loc_DA3E:
     ret                                      ; 4DA3E
     db 0x90   ; 4DA3F
-h_DA40:
+
+lvl23_spawn:
     pusha                                    ; 4DA40
     mov cl,0x4                               ; 4DA41
     shl ax,cl                                ; 4DA43
@@ -23590,7 +24060,8 @@ h_DA40:
     mov [di+0x1e],ch                         ; 4DA59
     popa                                     ; 4DA5C
     ret                                      ; 4DA5D
-h_DA5E:
+
+obj31_update:
     or byte [di+0x1],0x2                     ; 4DA5E
     inc byte [di+0x14]                       ; 4DA62
     mov ax,[0x3c2]                           ; 4DA65
@@ -23616,7 +24087,8 @@ h_DA5E:
 loc_DA97:
     ret                                      ; 4DA97
     db 0x00,0x00,0x00,0x00,0x00,0xFF,0xFE,0xFF   ; 4DA98
-h_DAA0:
+
+obj31_draw:
     cmp word [0x1382],0x17f4                 ; 4DAA0
     jc short loc_DAA9                        ; 4DAA6
     ret                                      ; 4DAA8
@@ -23641,18 +24113,21 @@ loc_DACE:
     mov [bx+0x2],dx                          ; 4DADB
     ret                                      ; 4DADE
     db 0x90   ; 4DADF
-h_DAE0:
+
+; dispatch roles: lvl29_spawn, lvl2A_spawn
+lvl29_spawn:
     ret                                      ; 4DAE0
     db 0x90   ; 4DAE1
-h_DAE2:
-    call sub_DAEE                            ; 4DAE2
+
+lvl2A_tick:
+    call lvl29_tick                          ; 4DAE2
     test di,di                               ; 4DAE5
     jz short loc_DAED                        ; 4DAE7
     mov byte [di+0x1e],0x1                   ; 4DAE9
 loc_DAED:
     ret                                      ; 4DAED
 
-sub_DAEE:
+lvl29_tick:
     call sub_B585                            ; 4DAEE
     test di,di                               ; 4DAF1
     jz short loc_DAFB                        ; 4DAF3
@@ -23661,7 +24136,8 @@ sub_DAEE:
     mov [di],ax                              ; 4DAF9
 loc_DAFB:
     ret                                      ; 4DAFB
-h_DAFC:
+
+obj35_update:
     or byte [di+0x1],0x2                     ; 4DAFC
     test byte [play_flags],0x1               ; 4DB00
     jnz short loc_DB10                       ; 4DB05
@@ -23743,7 +24219,8 @@ loc_DBA9:
     rr mov, al, ah                           ; 4DBAA
     call sub_B8F4                            ; 4DBAC
     ret                                      ; 4DBAF
-h_DBB0:
+
+obj35_draw:
     mov ax,[0x1442]                          ; 4DBB0
     mov dx,[0x1440]                          ; 4DBB3
     test byte [play_flags],0x1               ; 4DBB7
@@ -24139,7 +24616,7 @@ loc_DF4A:
     rr mov, dl, al                           ; 4DF4D
     rr xor, dh, dh                           ; 4DF4F
     and ax,0xf                               ; 4DF51
-    jz short loc_DF7D                        ; 4DF54
+    jz short sound_tick_case13               ; 4DF54
     shl al,1                                 ; 4DF56
     rr mov, bp, ax                           ; 4DF58
     jmp [cs:bp+tbl_DF5F]                     ; 4DF5A
@@ -24147,21 +24624,22 @@ loc_DF4A:
 ; jump table tbl_DF5F: 15 words, bound: hint (first use at 4DF5A)
 tbl_DF5F:
     dw 0xDFAA
-    dw h_E09A
-    dw h_E0F5
-    dw h_E118
-    dw h_E132
-    dw h_E14C
-    dw h_E166
-    dw h_E180
-    dw h_E1D7
-    dw h_E19A
-    dw h_E1B4
-    dw h_E1B4
-    dw h_E1B4
-    dw loc_DF7D
-    dw h_E1F1
-loc_DF7D:
+    dw sound_tick_case1_E09A
+    dw sound_tick_case2_E0F5
+    dw sound_tick_case3_E118
+    dw sound_tick_case4_E132
+    dw sound_tick_case5_E14C
+    dw sound_tick_case6_E166
+    dw sound_tick_case7
+    dw sound_tick_case8
+    dw sound_tick_case9
+    dw sound_tick_case10
+    dw sound_tick_case10
+    dw sound_tick_case10
+    dw sound_tick_case13
+    dw sound_tick_case14
+
+sound_tick_case13:
     shr dl,1                                 ; 4DF7D
     shr dl,1                                 ; 4DF7F
     shr dl,1                                 ; 4DF81
@@ -24170,38 +24648,46 @@ loc_DF7D:
 
 ; jump table tbl_DF8A: 16 words, bound: hint (first use at 4DF85)
 tbl_DF8A:
-    dw h_DFAA
-    dw h_DFB4
-    dw h_DFBE
-    dw h_DFC8
-    dw h_DFD8
-    dw h_E012
-    dw h_E0CB
-    dw h_E040
-    dw h_E09A
-    dw h_E0B3
-    dw h_DFF5
-    dw h_E029
-    dw h_DFAA
-    dw h_DFAA
-    dw h_DFAA
-    dw h_DFAA
-h_DFAA:
+    dw sound_tick_case13_case0
+    dw sound_tick_case13_case1
+    dw sound_tick_case13_case2
+    dw sound_tick_case13_case3
+    dw sound_tick_case13_case4
+    dw sound_tick_case13_case5
+    dw sound_tick_case13_case6
+    dw sound_tick_case13_case7
+    dw sound_tick_case1_E09A
+    dw sound_tick_case13_case9
+    dw sound_tick_case13_case10
+    dw sound_tick_case13_case11
+    dw sound_tick_case13_case0
+    dw sound_tick_case13_case0
+    dw sound_tick_case13_case0
+    dw sound_tick_case13_case0
+
+; dispatch roles: sound_tick_case13_case0, sound_tick_case13_case12, sound_tick_case13_case13, sound_tick_case13_case14, sound_tick_case13_case15, sub_DF7D_case0, sub_DF7D_case12, sub_DF7D_case13 ...
+sound_tick_case13_case0:
     mov al,[di]                              ; 4DFAA
     mov [es:bx+0x4],al                       ; 4DFAC
     inc di                                   ; 4DFB0
     jmp near loc_DF4A                        ; 4DFB1
-h_DFB4:
+
+; dispatch roles: sound_tick_case13_case1, sub_DF7D_case1
+sound_tick_case13_case1:
     mov al,[di]                              ; 4DFB4
     mov [es:bx+0x5],al                       ; 4DFB6
     inc di                                   ; 4DFBA
     jmp near loc_DF4A                        ; 4DFBB
-h_DFBE:
+
+; dispatch roles: sound_tick_case13_case2, sub_DF7D_case2
+sound_tick_case13_case2:
     mov ax,[di]                              ; 4DFBE
     mov [es:bx],ax                           ; 4DFC0
     rr mov, di, ax                           ; 4DFC3
     jmp near loc_DF4A                        ; 4DFC5
-h_DFC8:
+
+; dispatch roles: sound_tick_case13_case3, sub_DF7D_case3
+sound_tick_case13_case3:
     mov ax,[di]                              ; 4DFC8
     mov cx,[es:bx]                           ; 4DFCA
     inc di                                   ; 4DFCD
@@ -24209,7 +24695,9 @@ h_DFC8:
     mov [es:bx+0xa],di                       ; 4DFCF
     rr mov, di, ax                           ; 4DFD3
     jmp near loc_DF4A                        ; 4DFD5
-h_DFD8:
+
+; dispatch roles: sound_tick_case13_case4, sub_DF7D_case4
+sound_tick_case13_case4:
     inc byte [es:bx+0x8]                     ; 4DFD8
     mov al,[di]                              ; 4DFDC
     cmp al,[es:bx+0x8]                       ; 4DFDE
@@ -24221,7 +24709,9 @@ loc_DFEA:
     mov byte [es:bx+0x8],0x0                 ; 4DFEA
     add di,byte +0x3                         ; 4DFEF
     jmp near loc_DF4A                        ; 4DFF2
-h_DFF5:
+
+; dispatch roles: sound_tick_case13_case10, sub_DF7D_case10
+sound_tick_case13_case10:
     inc byte [es:bx+0x9]                     ; 4DFF5
     mov al,[di]                              ; 4DFF9
     cmp al,[es:bx+0x9]                       ; 4DFFB
@@ -24234,7 +24724,9 @@ loc_E007:
     mov byte [es:bx+0x9],0x0                 ; 4E007
     add di,byte +0x3                         ; 4E00C
     jmp near loc_DF4A                        ; 4E00F
-h_E012:
+
+; dispatch roles: sound_tick_case13_case5, sub_DF7D_case5
+sound_tick_case13_case5:
     inc byte [es:bx+0x8]                     ; 4E012
     mov al,[di]                              ; 4E016
     cmp al,[es:bx+0x8]                       ; 4E018
@@ -24242,7 +24734,9 @@ h_E012:
     mov byte [es:bx+0x8],0x0                 ; 4E01E
     add di,byte +0x3                         ; 4E023
     jmp near loc_DF4A                        ; 4E026
-h_E029:
+
+; dispatch roles: sound_tick_case13_case11, sub_DF7D_case11
+sound_tick_case13_case11:
     inc byte [es:bx+0x9]                     ; 4E029
     mov al,[di]                              ; 4E02D
     cmp al,[es:bx+0x9]                       ; 4E02F
@@ -24250,7 +24744,9 @@ h_E029:
     mov byte [es:bx+0x9],0x0                 ; 4E035
     add di,byte +0x3                         ; 4E03A
     jmp near loc_DF4A                        ; 4E03D
-h_E040:
+
+; dispatch roles: sound_tick_case13_case7, sub_DF7D_case7
+sound_tick_case13_case7:
     mov ax,[es:bx+0xa]                       ; 4E040
     rr or, ax, ax                            ; 4E044
     jnz short loc_E08F                       ; 4E046
@@ -24288,7 +24784,9 @@ loc_E08F:
     rr mov, di, ax                           ; 4E08F
     mov word [es:bx+0xa],0x0                 ; 4E091
     jmp near loc_DF4A                        ; 4E097
-h_E09A:
+
+; dispatch roles: sound_tick_case1, sound_tick_case13_case8, sub_DF7D_case8
+sound_tick_case1_E09A:
     mov al,[di]                              ; 4E09A
     mov [es:bx+0x3],al                       ; 4E09C
     inc di                                   ; 4E0A0
@@ -24301,7 +24799,9 @@ h_E09A:
     rep stosw                                ; 4E0AD
     pop di                                   ; 4E0AF
     jmp near loc_DF4A                        ; 4E0B0
-h_E0B3:
+
+; dispatch roles: sound_tick_case13_case9, sub_DF7D_case9
+sound_tick_case13_case9:
     rr xor, al, al                           ; 4E0B3
     test byte [di],0x40                      ; 4E0B5
     jz short loc_E0BC                        ; 4E0B8
@@ -24314,7 +24814,9 @@ loc_E0C3:
     mov [es:bx+0x2],al                       ; 4E0C3
     inc di                                   ; 4E0C7
     jmp near loc_DF4A                        ; 4E0C8
-h_E0CB:
+
+; dispatch roles: sound_tick_case13_case6, sub_DF7D_case6
+sound_tick_case13_case6:
     mov al,[di]                              ; 4E0CB
     inc di                                   ; 4E0CD
     call sub_DD97                            ; 4E0CE
@@ -24322,7 +24824,8 @@ h_E0CB:
     db 0x26,0x88,0x47,0x04,0xE9,0x6F,0xFE,0x26,0x88,0x47,0x05,0xE9,0x68,0xFE,0x26,0x89   ; 4E0D4
     db 0x07,0xE9,0x62,0xFE,0x26,0x8B,0x0F,0x26,0x8C,0x4F,0x0A,0x26,0x89,0x07,0xE9,0x55   ; 4E0E4
     db 0xFE   ; 4E0F4
-h_E0F5:
+
+sound_tick_case2_E0F5:
     and dl,0xf0                              ; 4E0F5
 loc_E0F8:
     shl dl,1                                 ; 4E0F8
@@ -24340,7 +24843,8 @@ loc_E10F:
     mov si,0x260                             ; 4E10F
     mov bx,[es:si]                           ; 4E112
     jmp near loc_DF4A                        ; 4E115
-h_E118:
+
+sound_tick_case3_E118:
     and dl,0xf0                              ; 4E118
 loc_E11B:
     shl dl,1                                 ; 4E11B
@@ -24354,7 +24858,8 @@ loc_E126:
     inc di                                   ; 4E12C
     inc bl                                   ; 4E12D
     jmp near loc_E11B                        ; 4E12F
-h_E132:
+
+sound_tick_case4_E132:
     and dl,0xf0                              ; 4E132
 loc_E135:
     shl dl,1                                 ; 4E135
@@ -24368,7 +24873,8 @@ loc_E140:
     inc di                                   ; 4E146
     inc bl                                   ; 4E147
     jmp near loc_E135                        ; 4E149
-h_E14C:
+
+sound_tick_case5_E14C:
     and dl,0xf0                              ; 4E14C
 loc_E14F:
     shl dl,1                                 ; 4E14F
@@ -24382,7 +24888,8 @@ loc_E15A:
     inc di                                   ; 4E160
     inc bl                                   ; 4E161
     jmp near loc_E14F                        ; 4E163
-h_E166:
+
+sound_tick_case6_E166:
     and dl,0xf0                              ; 4E166
 loc_E169:
     shl dl,1                                 ; 4E169
@@ -24396,7 +24903,8 @@ loc_E174:
     inc di                                   ; 4E17A
     inc bl                                   ; 4E17B
     jmp near loc_E169                        ; 4E17D
-h_E180:
+
+sound_tick_case7:
     and dl,0xf0                              ; 4E180
 loc_E183:
     shl dl,1                                 ; 4E183
@@ -24410,7 +24918,8 @@ loc_E18E:
     inc di                                   ; 4E194
     inc bl                                   ; 4E195
     jmp near loc_E183                        ; 4E197
-h_E19A:
+
+sound_tick_case9:
     and dl,0xf0                              ; 4E19A
 loc_E19D:
     shl dl,1                                 ; 4E19D
@@ -24424,7 +24933,9 @@ loc_E1A8:
     inc di                                   ; 4E1AE
     inc bl                                   ; 4E1AF
     jmp near loc_E19D                        ; 4E1B1
-h_E1B4:
+
+; dispatch roles: sound_tick_case10, sound_tick_case11, sound_tick_case12
+sound_tick_case10:
     and dl,0xf0                              ; 4E1B4
 loc_E1B7:
     shl dl,1                                 ; 4E1B7
@@ -24442,7 +24953,8 @@ loc_E1CB:
     inc di                                   ; 4E1D1
     inc bl                                   ; 4E1D2
     jmp near loc_E1B7                        ; 4E1D4
-h_E1D7:
+
+sound_tick_case8:
     and dl,0xf0                              ; 4E1D7
 loc_E1DA:
     shl dl,1                                 ; 4E1DA
@@ -24456,7 +24968,8 @@ loc_E1E5:
     inc di                                   ; 4E1EB
     inc bl                                   ; 4E1EC
     jmp near loc_E1DA                        ; 4E1EE
-h_E1F1:
+
+sound_tick_case14:
     mov cx,0x3                               ; 4E1F1
     and dl,0xf0                              ; 4E1F4
 loc_E1F7:
@@ -24932,16 +25445,18 @@ loc_E68E:
 ; jump table tbl_E698: 7 words, bound: hint (first use at 4DF23)
 tbl_E698:
     dw 0x0000
-    dw h_E6A6
-    dw h_E6D6
-    dw h_E6F1
-    dw h_E6B0
-    dw h_E6E0
-    dw h_E73B
-h_E6A6:
+    dw sound_tick_case1_E6A6
+    dw sound_tick_case2_E6D6
+    dw sound_tick_case3_E6F1
+    dw sound_tick_case4_E6B0
+    dw sound_tick_case5_E6E0
+    dw sound_tick_case6_E73B
+
+sound_tick_case1_E6A6:
     mov byte [es:si+0x16],0x0                ; 4E6A6
     mov byte [es:si+0x14],0x4                ; 4E6AB
-h_E6B0:
+
+sound_tick_case4_E6B0:
     mov al,[es:si+0x15]                      ; 4E6B0
     add [es:si+0x16],al                      ; 4E6B4
     jc short loc_E6BD                        ; 4E6B8
@@ -24957,16 +25472,19 @@ loc_E6CF:
     mov byte [es:si+0x14],0x0                ; 4E6CF
     pop ds                                   ; 4E6D4
     ret                                      ; 4E6D5
-h_E6D6:
+
+sound_tick_case2_E6D6:
     mov byte [es:si+0x16],0x0                ; 4E6D6
     mov byte [es:si+0x14],0x5                ; 4E6DB
-h_E6E0:
+
+sound_tick_case5_E6E0:
     mov al,[es:si+0x15]                      ; 4E6E0
     add al,[es:si+0x16]                      ; 4E6E4
     jc short loc_E6C5                        ; 4E6E8
     mov [es:si+0x16],al                      ; 4E6EA
     jmp near loc_DF28                        ; 4E6EE
-h_E6F1:
+
+sound_tick_case3_E6F1:
     rr xor, ax, ax                           ; 4E6F1
     mov bx,0x100                             ; 4E6F3
     mov [es:0x100],ax                        ; 4E6F6
@@ -24989,7 +25507,8 @@ loc_E72E:
     mov byte [es:si+0x16],0x0                ; 4E72E
     mov byte [es:si+0x14],0x0                ; 4E733
     jmp near sound_tick                      ; 4E738
-h_E73B:
+
+sound_tick_case6_E73B:
     mov al,[es:si+0x16]                      ; 4E73B
     sub al,[es:si+0x15]                      ; 4E73F
     jc short loc_E74C                        ; 4E743
@@ -26518,14 +27037,15 @@ sub_F627:
 
 ; jump table tbl_F63A: 7 words, bound: hint (first use at 4F638)
 tbl_F63A:
-    dw h_F7AA
-    dw h_F648
-    dw h_F80D
-    dw h_F6FB
-    dw h_F7B2
-    dw loc_F7A9
-    dw loc_F7A9
-h_F648:
+    dw sub_F627_case0
+    dw sub_F627_case1
+    dw sub_F627_case2
+    dw sub_F627_case3
+    dw sub_F627_case4
+    dw sub_F627_case5
+    dw sub_F627_case5
+
+sub_F627_case1:
     mov ax,0x7                               ; 4F648
     out 0x0,ax                               ; 4F64B
     mov byte [0x139f],0x0                    ; 4F64D
@@ -26587,7 +27107,8 @@ loc_F6DD:
     mov di,0x300c                            ; 4F6F2
     call sub_F56A                            ; 4F6F5
     jmp near loc_F9AA                        ; 4F6F8
-h_F6FB:
+
+sub_F627_case3:
     mov ax,0x27                              ; 4F6FB
     out 0x0,ax                               ; 4F6FE
     rr xor, bp, bp                           ; 4F700
@@ -26648,18 +27169,22 @@ loc_F77F:
     ret                                      ; 4F798
 loc_F799:
     test di,0x800                            ; 4F799
-    jz short loc_F7A9                        ; 4F79D
+    jz short sub_F627_case5                  ; 4F79D
 loc_F79F:
     inc byte [0x131e]                        ; 4F79F
     mov ax,0x30                              ; 4F7A3
     call sub_DD97                            ; 4F7A6
-loc_F7A9:
+
+; dispatch roles: sub_F627_case5, sub_F627_case6
+sub_F627_case5:
     ret                                      ; 4F7A9
-h_F7AA:
+
+sub_F627_case0:
     call sub_F360                            ; 4F7AA
     inc byte [0x131e]                        ; 4F7AD
     ret                                      ; 4F7B1
-h_F7B2:
+
+sub_F627_case4:
     mov byte [0x12de],0x0                    ; 4F7B2
     mov ax,0x2f                              ; 4F7B7
     out 0x0,ax                               ; 4F7BA
@@ -26691,7 +27216,9 @@ loc_F7F5:
     mov byte [0x131f],0x0                    ; 4F805
 loc_F80A:
     jmp near loc_F9AA                        ; 4F80A
-h_F80D:
+
+; dispatch roles: sub_F627_case2, sub_F88E_case2
+sub_F627_case2:
     mov ax,0x2f                              ; 4F80D
     out 0x0,ax                               ; 4F810
     mov al,0x18                              ; 4F812
@@ -26754,14 +27281,15 @@ sub_F88E:
 
 ; jump table tbl_F8A1: 7 words, bound: hint (first use at 4F89F)
 tbl_F8A1:
-    dw h_F9A2
-    dw h_F8AF
-    dw h_F80D
-    dw h_F8F4
-    dw h_F982
-    dw h_F9A1
-    dw h_F9A1
-h_F8AF:
+    dw sub_F88E_case0
+    dw sub_F88E_case1
+    dw sub_F627_case2
+    dw sub_F88E_case3
+    dw sub_F88E_case4
+    dw sub_F88E_case5
+    dw sub_F88E_case5
+
+sub_F88E_case1:
     mov ax,0x5                               ; 4F8AF
     out 0x0,ax                               ; 4F8B2
     mov byte [0x12de],0x0                    ; 4F8B4
@@ -26786,7 +27314,8 @@ loc_F8ED:
     mov ax,0x785a                            ; 4F8ED
     call sub_F5A6                            ; 4F8F0
     ret                                      ; 4F8F3
-h_F8F4:
+
+sub_F88E_case3:
     mov ax,0x27                              ; 4F8F4
     out 0x0,ax                               ; 4F8F7
     rr xor, bp, bp                           ; 4F8F9
@@ -26837,7 +27366,8 @@ loc_F966:
     call sub_DD97                            ; 4F97E
 loc_F981:
     ret                                      ; 4F981
-h_F982:
+
+sub_F88E_case4:
     test di,0x400                            ; 4F982
     jz short loc_F98C                        ; 4F986
     inc byte [0x131e]                        ; 4F988
@@ -26850,9 +27380,12 @@ loc_F996:
     mov di,0x3024                            ; 4F999
     rr xor, bp, bp                           ; 4F99C
     call sub_F56A                            ; 4F99E
-h_F9A1:
+
+; dispatch roles: sub_F88E_case5, sub_F88E_case6
+sub_F88E_case5:
     ret                                      ; 4F9A1
-h_F9A2:
+
+sub_F88E_case0:
     call sub_F360                            ; 4F9A2
     inc byte [0x131e]                        ; 4F9A5
     ret                                      ; 4F9A9

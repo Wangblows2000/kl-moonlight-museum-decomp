@@ -1,0 +1,35 @@
+# T15 save overwrite: continue from the save, reach the save screen and confirm "Save data? -> Yes".
+# FORCED: progress_code=1600h + clear flag to reach the save screen quickly (state 7 -> 9 -> 10 -> 11).
+loadsram build/runtime/make_save/sram_end.bin
+reset
+wait 700
+tap start
+wait 30
+tap a
+wait 400
+sram sram_before
+poke 13FE 00
+poke 13FF 16
+orpoke 1398 20
+wait 300
+tap a
+wait 300
+tap a
+wait 300
+tap a
+wait 300
+tap a
+wait 300
+tap a
+wait 300
+tap a
+wait 300
+tap a
+wait 300
+tap a
+wait 300
+tap a
+wait 300
+tap a
+wait 400
+sram sram_after
