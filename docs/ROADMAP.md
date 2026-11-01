@@ -7,21 +7,22 @@ rebuild is a requirement, not the definition of done.
 Live numbers: `docs/completion.json` (`python3 tools/completion.py`), per-byte detail:
 `docs/address_map.json` (`python3 tools/address_map.py`).
 
-## Headline metrics (2026-11-01, commit after 47f9f83)
+## Headline metrics (live values in docs/completion.json)
 
 | metric | value | definition |
 |---|---:|---|
-| **Overall decompiled bytes** | **43.49 %** | classified AND source / editable / explained-generated |
+| **Overall decompiled bytes** | **89.92 %** | classified AND source / editable / explained-generated |
 | Executable code classification | 94.42 % | code-bank bytes with evidence-backed class (3,657 unreached bytes left) |
 | Routine documentation | 97.99 % | 731 / 746 entry points described (hand or reviewed high/medium) |
-| Data classification | 40.70 % | data bytes with established class (553,092 unknown + 29,881 zero-run left) |
-| Data decoding / editable representation | 40.10 % | data bytes rebuilt from editable formats or FFh padding |
-| Runtime coverage | 65.98 % | static instructions executed in the emulator (446 / 746 entry points) |
-| Reproducible ROM-free build | 100 % | of which source 6.25 %, editable 18.53 %, generated 21.93 %, opaque 53.31 % |
+| Data classification | 89.69 % | data bytes with established class |
+| Data decoding / editable representation | 89.62 % | data bytes rebuilt from editable formats or FFh padding |
+| Runtime coverage | 79.11 % | static instructions executed (562 / 746 entry points); all 36 Visions loaded |
+| Reproducible ROM-free build | 100 % | of which source 6.25 %, editable 66.23 %, generated 18.22 %, opaque 9.30 % |
 
-Statuses: build fidelity, compression, CI (Linux + Windows), ROM-free build - **VERIFIED**;
-code discovery, code understanding, runtime validation, save system - **PARTIALLY VERIFIED**;
-data classification, asset understanding, documentation - **IN PROGRESS**.
+Decoded so far: BPE pictures/tilesets (with attribute grids), PCM voices (WAV), sound
+tables + sequences (text scripts), level data banks 9-E (CSV/JSON), graphics banks 2/7 (PNG,
+dialogue as Japanese text), collision matrices (JSON).  In progress: banks 3 and 8 (object
+records/sprite definitions) and the code bank's unreached bytes.
 
 ## Where the unknown data is
 
