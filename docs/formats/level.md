@@ -148,8 +148,8 @@ before the menu sprite data.  Not read; generated.
 
 | bounds | size | why |
 |---|---|---|
-| AE680-AE6C0 | 64 | between the W2-V5 area-4 camera grid and the W2-V6 grid; no camera table or other pointer references it, no runtime reads; byte values look like camera hints (a leftover block?) but nothing establishes that |
-| D1BF4-D1C18 | 36 | after screen 7102h's palette: 16 palette-like bytes + `10 64 A8 FD 59 01` + 14 zero bytes; not read |
+| AE680-AE6C0 | 64 | RESOLVED (session 5): decoded as `unused_camera_block_AE680` (lvl_camera, medium) - exactly one 8x8 hint block, every byte in the hint alphabet of the referenced grids (88h/A8h/B8h), contiguous region; still unreferenced and never read |
+| D1BF4-D1C18 | 36 | after screen 7102h's palette: 16 palette-format bytes + `10 64 A8 FD` + word 0159h (= the tile count of screen 7102h) + 14 zero bytes; not read; exception |
 | D1E30-D1E54 | 36 | same pattern after screen 7103h (`... A8 FD 12 00`); 0159h/0012h equal the two screens' tile counts, suggesting build-tool residue; not read |
 
 The bank-end FFh fill (9FAF2-A0000, AF880-B0000, BED26-C0000, CF494-D0000, DF71E-E0000,

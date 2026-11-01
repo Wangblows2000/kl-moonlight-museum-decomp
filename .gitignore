@@ -11,3 +11,4 @@ __pycache__/
 *.ups
 emu/ktrun
 gamedata/
+emu/libkt.so

@@ -1303,6 +1303,18 @@
    "confidence": "high"
   },
   {
+   "offset": "AE680",
+   "size": 64,
+   "type": "lvl_camera",
+   "family": "level_camera",
+   "name": "unused_camera_block_AE680",
+   "params": {
+    "width_blocks": 1
+   },
+   "evidence": "UNUSED: no camera table or other pointer references it and it is never read in any run. Classified as one camera-hint block because its size is exactly one 8x8 block (64 bytes, the unit of every camera grid, docs/formats/level.md), every byte belongs to the hint alphabet of the 155 referenced grids (only 88h centred and A8h/B8h y-look values) and the cells form one contiguous region; it lies between the W2-V5 area-4 grid and the W2-V6 grid.",
+   "confidence": "medium"
+  },
+  {
    "offset": "AE6C0",
    "size": 384,
    "type": "lvl_camera",

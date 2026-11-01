@@ -2047,11 +2047,12 @@
   {
    "start": "4E7DE",
    "end": "4E7EE",
-   "kind": "unknown",
-   "format": "16 bytes F0h,E1h,...,0Fh (descending by 0Fh)",
+   "kind": "data",
+   "format": "unused stereo pan sweep: 16 bytes F0h,E1h,...,0Fh = (left, right) attenuation nibbles 15-i, i",
    "readers": [],
-   "evidence": "directly before the note pitch table 4000:E7EE; no instruction reads it and it is never read at runtime",
-   "confidence": "low"
+   "evidence": "same 0xLR attenuation-nibble format as the per-channel pan byte set by snd_cmd_set_ch_pan (4000:E180) and written to the channel volume ports; located in the sound-driver data directly before the pitch table (E7EE). Never read: no instruction displacement or immediate addresses E79E-E7ED and 0 runtime reads in 63 runs. Purpose inferred from the format (medium).",
+   "confidence": "medium",
+   "resolved": "2026-11-01 session 5 (was documented exception)"
   },
   {
    "start": "4E7EE",
@@ -2067,11 +2068,12 @@
   {
    "start": "4E8A2",
    "end": "4E8A4",
-   "kind": "unknown",
-   "format": "word 0000 after the pitch table",
+   "kind": "data",
+   "format": "pitch table entry 90 (word 0000h)",
    "readers": [],
-   "evidence": "not read (would be note 90)",
-   "confidence": "low"
+   "evidence": "snd_channel_pitch_volume 4000:E49A indexes the pitch table with (note AND 7Fh)*2 (mov al,[es:bx+38h] / and al,7Fh / shl al,1 / mov dx,[cs:bp-1812h]), so this word is entry 90 of the same table (E7EE + 90*2); no shipped sequence plays note 5Ah (0 runtime reads).",
+   "confidence": "high",
+   "resolved": "2026-11-01 session 5 (was documented exception)"
   },
   {
    "start": "4E8A4",

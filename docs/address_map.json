@@ -3544,7 +3544,7 @@
 "size": 4,
 "class": "exception",
 "representation": "source",
-"evidence": "documented exception 4997D-49981: bank 4: unread bytes after the jump table used by jmp [cs:bx+tbl_9962]; no instruction reads 4000:997D and it is never read at runtime"
+"evidence": "documented exception 4997D-49981: follows the 19-byte obj24_update_switch_gate dispatcher (ends with jmp [cs:bx+tbl_9962]) and precedes the next routine at 4000:9981; does not decode as a routine (no return, implausible instruction stream); resembles the signed offset tables used by object drawers but has no reader"
 },
 {
 "start": "49981",
@@ -4288,7 +4288,7 @@
 "size": 4,
 "class": "exception",
 "representation": "source",
-"evidence": "documented exception 4B710-4B714: bank 4: four non-FFh bytes inside the FFh fill after the sine table (4B5CA-4B70A); no reader found statically or at runtime"
+"evidence": "documented exception 4B710-4B714: six bytes after the end of the 160-word sine table (4B5CA-4B709), surrounded by FFh fill; the sine readers index at most 160 entries"
 },
 {
 "start": "4B714",
@@ -5166,9 +5166,9 @@
 "start": "4E7DE",
 "end": "4E7EE",
 "size": 16,
-"class": "exception",
+"class": "code_data",
 "representation": "source",
-"evidence": "documented exception 4E7DE-4E7EE: bank 4: 16 bytes descending by 0Fh directly before the note pitch table 4000:E7EE; no instruction reads them and they are never read at runtime"
+"evidence": "unused stereo pan sweep: 16 bytes F0h,E1h,...,0Fh = (left, right) attenuation ni; same 0xLR attenuation-nibble format as the per-channel pan byte set by snd_cmd_set_ch_pan (4000:E180) and written to the"
 },
 {
 "start": "4E7EE",
@@ -5182,9 +5182,9 @@
 "start": "4E8A2",
 "end": "4E8A4",
 "size": 2,
-"class": "exception",
+"class": "code_data",
 "representation": "source",
-"evidence": "documented exception 4E8A2-4E8A4: bank 4: one word after the 90-entry pitch table (would be note 90); never read"
+"evidence": "pitch table entry 90 (word 0000h); snd_channel_pitch_volume 4000:E49A indexes the pitch table with (note AND 7Fh)*2 (mov al,[es:bx+38h] / and al,7Fh / shl "
 },
 {
 "start": "4E8A4",
@@ -5336,7 +5336,7 @@
 "size": 1,
 "class": "exception",
 "representation": "opaque",
-"evidence": "documented exception 500C8-500C9: bank 5: between the last sound entry (63) and the wave table; never read"
+"evidence": "documented exception 500C8-500C9: between the 64 three-byte sound entries (header pointer 0008h, sound_play indexes 0-63) and the wave table (header pointer 00C9h); would be the first byte of a 65th entry whose other bytes overlap the waves"
 },
 {
 "start": "500C9",
@@ -5368,7 +5368,7 @@
 "size": 1,
 "class": "exception",
 "representation": "opaque",
-"evidence": "documented exception 503DC-503DD: bank 5: target of volume-envelope pointer 55, only used as the end of envelope 54; the byte itself is never read"
+"evidence": "documented exception 503DC-503DD: target of the end pointer (entry 55) of the volume-envelope table; release of envelope 54 reads 503DB (the byte before), the pitch-envelope table starts at 503DD (header pointer 03DDh)"
 },
 {
 "start": "503DD",
@@ -5456,7 +5456,7 @@
 "size": 2,
 "class": "exception",
 "representation": "opaque",
-"evidence": "documented exception 5F6CD-5F6CF: bank 5: after the end of voice_08 (PCM entry 9), before the FFh padding; never read"
+"evidence": "documented exception 5F6CD-5F6CF: after the played length of voice_08 (PCM table entry 9 = 5F6CD), whose samples ramp down to 00h; followed by FFh padding. Consistent with trailing silence, but nothing establishes it"
 },
 {
 "start": "5F6CF",
@@ -5728,7 +5728,7 @@
 "size": 2,
 "class": "exception",
 "representation": "opaque",
-"evidence": "documented exception 79380-79382: bank 7: between lvl1b_tiles_copy (ends 9380h) and lvl1d_tiles_copy (unaligned 9382h); too short for a tile; no reader"
+"evidence": "documented exception 79380-79382: between lvl1b_tiles_copy (source ends 7000:9380) and lvl1d_tiles_copy (source starts at the unaligned 7000:9382); too short for a tile"
 },
 {
 "start": "79382",
@@ -8334,9 +8334,9 @@
 "start": "AE680",
 "end": "AE6C0",
 "size": 64,
-"class": "exception",
-"representation": "opaque",
-"evidence": "documented exception AE680-AE6C0: bank A: between the W2-V5 area-4 camera grid and the W2-V6 grid; no camera table or pointer references it; no runtime reads"
+"class": "level_camera",
+"representation": "editable",
+"evidence": "UNUSED: no camera table or other pointer references it and it is never read in any run. Classified as one camera-hint block because its size is exactly one 8x8 block (64 bytes, the unit of every camera grid, docs/formats/level.md), every byte belongs to the hint alphabet of the 155 referenced grids (only 88h centred and A8h/B8h y-look values) and the cells form one contiguous region; it lies between the W2-V5 area-4 grid and the W2-V6 grid."
 },
 {
 "start": "AE6C0",
@@ -9880,7 +9880,7 @@
 "size": 36,
 "class": "exception",
 "representation": "opaque",
-"evidence": "documented exception D1BF4-D1C18: bank D: after screen 7102h palette - 16 palette-like bytes, 6 bytes, 14 zero bytes; not read; probably build-tool residue"
+"evidence": "documented exception D1BF4-D1C18: same 36-byte layout as D1E30; the word 0159h equals the tile count in the header of the preceding screen 7102h (D018C); the 16 bytes are in BG-palette word format but differ from every palette in the ROM; 10 64 A8 FD occurs only in these two trailers. Partly structured, meaning not established"
 },
 {
 "start": "D1C18",
@@ -9896,7 +9896,7 @@
 "size": 36,
 "class": "exception",
 "representation": "opaque",
-"evidence": "documented exception D1E30-D1E54: bank D: same pattern after screen 7103h; not read; probably build-tool residue"
+"evidence": "documented exception D1E30-D1E54: as D1BF4; the word 0012h equals the tile count of the preceding screen 7103h (D1C18)"
 },
 {
 "start": "D1E54",

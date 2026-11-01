@@ -273,14 +273,15 @@ list only so that tools globbing `assets/structures/*.json` (validate_fragment.p
 Integration (main build): the dead routines are now disassembled as instructions after the
 live trace (`tools/trace.py`, labels `dead_XXXX` with these descriptions as header comments in
 asm/bank4.asm); filler NOP/RET bytes are decoded but unlabelled; FFh fill is classed as padding.
-The four unread groups are registered in `assets/exceptions.json` with exact bounds:
+Unread groups (exact bounds).  4E7DE and 4E8A2 were resolved in session 5 and are now
+annotated code data; the other two remain registered in `assets/exceptions.json`:
 
 | file range | bytes | contents | reason not interpreted |
 |---|---:|---|---|
 | 4997D-49980 | 4 | 08 00 00 F8 | follows `jmp [cs:bx+tbl_9962]`; no instruction reads it; never read at runtime |
 | 4B710-4B713 | 4 | 00 00 80 00 | inside the FFh fill after the sine table (4B5CA-4B709); no reader |
-| 4E7DE-4E7ED | 16 | F0 E1 ... 0F (descending by 0Fh) | directly before the pitch table 4E7EE; no reader |
-| 4E8A2-4E8A3 | 2 | 00 00 | after the 90-entry pitch table (would be note 90); never read |
+| 4E7DE-4E7ED | 16 | F0 E1 ... 0F (descending by 0Fh) | RESOLVED: unused stereo pan sweep in the driver's 0xLR attenuation-nibble format (snd_cmd_set_ch_pan 4000:E180); never read; medium |
+| 4E8A2-4E8A3 | 2 | 00 00 | RESOLVED: pitch-table entry 90 - the reader indexes with (note AND 7Fh)*2, so the word belongs to the table; no sequence plays note 5Ah; high |
 
 "Dead" (as classified by the domain pass) means: emitted as `db` by the earlier tools/gen_bank4.py (no decoded instruction, call, jump or jump
 table targets it), never executed in the trace or the 36-Vision runs, and it decodes as complete

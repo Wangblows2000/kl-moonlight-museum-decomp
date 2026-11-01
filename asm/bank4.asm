@@ -30043,8 +30043,8 @@ snd_voice_install_irq:
     pop ds                                   ; 4E7DC
     ret                                      ; 4E7DD
 
-; unread bytes 4E7DE-4E7EE: 16 bytes F0h,E1h,...,0Fh (descending by 0Fh)
-; evidence: directly before the note pitch table 4000:E7EE; no instruction reads it and it is never read at runtime
+; data 4E7DE-4E7EE: unused stereo pan sweep: 16 bytes F0h,E1h,...,0Fh = (left, right) attenuation nibbles 15-i, i
+; evidence: same 0xLR attenuation-nibble format as the per-channel pan byte set by snd_cmd_set_ch_pan (4000:E180) and written to the channel volume ports; located in the sound-driver data directly before the pitch table (E7EE). Never read: no instruction displacement or immediate addresses E79E-E7ED and 0 runtime reads in 63 runs. Purpose inferred from the format (medium).
     db 0xF0,0xE1,0xD2,0xC3,0xB4,0xA5,0x96,0x87,0x78,0x69,0x5A,0x4B,0x3C,0x2D,0x1E,0x0F   ; 4E7DE
 
 ; data 4E7EE-4E8A2: note pitch table: 90 words (period values)
@@ -30062,8 +30062,8 @@ snd_voice_install_irq:
     db 0xEC,0x07,0xED,0x07,0xEE,0x07,0xEF,0x07,0xF0,0x07,0xF1,0x07,0xF2,0x07,0xF2,0x07   ; 4E88E
     db 0xF3,0x07,0xF4,0x07   ; 4E89E
 
-; unread bytes 4E8A2-4E8A4: word 0000 after the pitch table
-; evidence: not read (would be note 90)
+; data 4E8A2-4E8A4: pitch table entry 90 (word 0000h)
+; evidence: snd_channel_pitch_volume 4000:E49A indexes the pitch table with (note AND 7Fh)*2 (mov al,[es:bx+38h] / and al,7Fh / shl al,1 / mov dx,[cs:bp-1812h]), so this word is entry 90 of the same table (E7EE + 90*2); no shipped sequence plays note 5Ah (0 runtime reads).
     db 0x00,0x00   ; 4E8A2
 
 ; data 4E8A4-4E9A4: 256-byte volume conversion curve (0Fh down to 00h)

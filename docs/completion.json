@@ -2,26 +2,24 @@
  "rom_sha1": "207a3ceb9a09eabca6e455deeb7035e7e04c9795",
  "complete": false,
  "overall": {
-  "decompiled_bytes": 1048408,
+  "decompiled_bytes": 1048490,
   "rom_bytes": 1048576,
-  "percent": 99.98,
+  "percent": 99.99,
   "definition": "bytes that are classified AND represented as source, editable data or explained generated padding; 100 % only when this equals 1,048,576 and every metric is 100 %",
-  "documented_exceptions_bytes": 168,
+  "documented_exceptions_bytes": 86,
   "percent_including_documented_exceptions": 100.0,
   "note": "documented exceptions are rebuilt exactly and listed with bounds and reason (assets/exceptions.json) but are NOT counted as decompiled, because their meaning is not established"
  },
  "metrics": {
   "executable_code_classification": {
-   "percent": 99.96,
-   "numerator": 65510,
+   "percent": 99.99,
+   "numerator": 65528,
    "denominator": 65536,
    "definition": "code-bank bytes classified as traced code, dead code, jump table, code data or padding",
-   "remaining": "26 bytes not classified: 0 in code_unreached ranges, 168 in documented exceptions (unread byte groups of unknown purpose, exact bounds in docs/address_map.json)",
+   "remaining": "8 bytes not classified: 0 in code_unreached ranges, 86 in documented exceptions (unread byte groups of unknown purpose, exact bounds in docs/address_map.json)",
    "documented_exceptions": [
     "4997D-49981",
-    "4B710-4B714",
-    "4E7DE-4E7EE",
-    "4E8A2-4E8A4"
+    "4B710-4B714"
    ],
    "note": "no instruction executed outside bank 4 in any emulator run"
   },
@@ -40,7 +38,7 @@
   },
   "data_classification": {
    "percent": 99.99,
-   "numerator": 982882,
+   "numerator": 982946,
    "denominator": 983024,
    "definition": "data bytes whose class (asset, tiles, table, padding) is established by code or decoding",
    "breakdown": {
@@ -62,7 +60,7 @@
     "banner_text": 2153,
     "obj_gfx": 20790,
     "sound": 14190,
-    "exception": 142,
+    "exception": 78,
     "pcm_voice": 48989,
     "obj_tiles": 8192,
     "held_enemy_frames": 24576,
@@ -80,23 +78,23 @@
     "level_vision_records": 1164,
     "level_maps": 56816,
     "level_camera_tables": 876,
-    "level_camera": 43968,
+    "level_camera": 44032,
     "museum_menu": 194,
     "story_picture": 61423
    },
-   "remaining": "0 unknown bytes + 0 zero-run bytes of unestablished meaning + 142 bytes in documented exceptions (assets/exceptions.json)"
+   "remaining": "0 unknown bytes + 0 zero-run bytes of unestablished meaning + 78 bytes in documented exceptions (assets/exceptions.json)"
   },
   "data_decoding_editable": {
    "percent": 99.99,
-   "numerator": 982882,
+   "numerator": 982946,
    "denominator": 983024,
    "definition": "data bytes rebuilt from an editable decoded representation (PNG etc.) or generated FFh padding",
    "breakdown": {
-    "editable": 802163,
+    "editable": 802227,
     "generated": 180719,
-    "opaque": 142
+    "opaque": 78
    },
-   "remaining": "142 opaque bytes (gamedata/raw; all listed in assets/exceptions.json) + 0 generated zero-run bytes not yet explained"
+   "remaining": "78 opaque bytes (gamedata/raw; all listed in assets/exceptions.json) + 0 generated zero-run bytes not yet explained"
   },
   "runtime_coverage": {
    "percent": 79.85,
@@ -113,13 +111,13 @@
    "percent_rom_free": 100.0,
    "definition": "share of ROM bytes rebuilt without the original ROM (committed source + gamedata/)",
    "by_representation_bytes": {
-    "editable": 802163,
+    "editable": 802227,
     "generated": 180719,
     "source": 65552,
-    "opaque": 142
+    "opaque": 78
    },
    "by_representation_percent": {
-    "editable": 76.5,
+    "editable": 76.51,
     "generated": 17.23,
     "source": 6.25,
     "opaque": 0.01
