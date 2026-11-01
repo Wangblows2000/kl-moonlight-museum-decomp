@@ -72,5 +72,15 @@ EXT_TABLES = {
     '4000:B4D4': (0x80192, 0, 44, 'skip0'),
 }
 
+# Interrupt-handler tables installed through a register (not the 'mov word [bx],imm' form).
+# seg:off -> word count.  Found by runtime coverage (tools/runtime_coverage.py): HBlank handlers at
+# 4000:D8B9/D925 executed in the emulator but were unknown to the static trace.
+IRQ_TABLES = {
+    # h_D9D8 (object update handler): mov bx,[di+18h]; mov dx,cs:[bx+D9D0h]; mov bx,9Ch;
+    # mov [bx],dx; mov word [bx+2],4000h -> vector 27h (HBlank timer). 4 words D9D0..D9D7,
+    # code starts at D9D8.
+    '4000:D9D0': 4,
+}
+
 NORETURN_INDIRECT = set()
 INDIRECT_NOTES = {}

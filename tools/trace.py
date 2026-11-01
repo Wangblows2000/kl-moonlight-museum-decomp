@@ -193,6 +193,12 @@ def main():
     for s in hints.SEEDS:
         seg, off = (int(x, 16) for x in s.split(':'))
         t.add(seg, off, 'entry')
+    for k, n in getattr(hints, 'IRQ_TABLES', {}).items():
+        seg, off = (int(x, 16) for x in k.split(':'))
+        tf = to_file(seg, off)
+        t.tables[tf] = (seg, (0, n), 'irq-hint', tf)
+        for j in range(n):
+            t.add(seg, ROM[tf + 2 * j] | ROM[tf + 2 * j + 1] << 8, 'irq', tf + 2 * j)
     t.run()
     # summarise
     banks = {}

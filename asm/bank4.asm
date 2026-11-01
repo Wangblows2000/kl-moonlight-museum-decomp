@@ -23376,24 +23376,159 @@ loc_D8B1:
 loc_D8B7:
     popa                                     ; 4D8B7
     ret                                      ; 4D8B8
-    db 0x60,0x1E,0x06,0x33,0xC0,0x8E,0xD8,0xF6,0x06,0x98,0x13,0x01,0x75,0x52,0xB1,0x06   ; 4D8B9
-    db 0x8B,0x16,0xA0,0x13,0xD3,0xEA,0xFE,0xC1,0x33,0xC0,0xE4,0x02,0x3C,0x46,0x72,0x34   ; 4D8C9
-    db 0x80,0xE9,0x02,0x3C,0x4C,0x72,0x0C,0xFE,0xC9,0x3C,0x50,0x72,0x06,0xFE,0xC9,0x3C   ; 4D8D9
-    db 0x87,0x73,0x2D,0xC1,0xE0,0x03,0x03,0x06,0x8E,0x13,0x25,0x7F,0x00,0x8B,0xD8,0xD1   ; 4D8E9
-    db 0xE3,0x2E,0x8B,0x87,0xCA,0xB5,0xD3,0xF8,0x03,0xC2,0xE6,0x10,0xB0,0x80,0xE6,0xB6   ; 4D8F9
-    db 0x07,0x1F,0x61,0xCF,0x8A,0xC2,0xE6,0x10,0xB0,0x80,0xE6,0xB6,0x07,0x1F,0x61,0xCF   ; 4D909
-    db 0x32,0xC0,0xE6,0x10,0xB0,0x80,0xE6,0xB6,0x07,0x1F,0x61,0xCF,0x60,0x1E,0x06,0x33   ; 4D919
-    db 0xC0,0x8E,0xD8,0xE4,0x02,0x3C,0x90,0x1B,0xD2,0x23,0xC2,0x50,0x8B,0x2E,0x8E,0x13   ; 4D929
-    db 0x8B,0x1E,0x94,0x13,0x2B,0xEB,0x8B,0xDD,0xC1,0xEB,0x04,0x8B,0xCB,0xD1,0xE9,0x81   ; 4D939
-    db 0xE1,0x07,0x00,0xF7,0xE1,0x03,0xC3,0x25,0x7F,0x00,0x8B,0xD8,0xD1,0xE3,0x2E,0x8B   ; 4D949
-    db 0x87,0xCA,0xB5,0xD1,0xE0,0x8B,0xDD,0x81,0xE3,0xFF,0x00,0xC1,0xEB,0x04,0xB9,0x0B   ; 4D959
-    db 0x00,0x2B,0xCB,0x83,0xF9,0x0A,0x1B,0xD2,0x23,0xCA,0xD3,0xF8,0xE6,0x12,0x59,0x83   ; 4D969
-    db 0xF9,0x3E,0x73,0x25,0xB8,0x3E,0x00,0x8B,0xD5,0xF7,0xDA,0x81,0xE2,0xFF,0x00,0xC1   ; 4D979
-    db 0xEA,0x02,0x2B,0xC2,0x99,0xF7,0xD2,0x23,0xC2,0x3B,0xC1,0x72,0x2C,0x2B,0xC1,0xE6   ; 4D989
-    db 0x13,0xB0,0x80,0xE6,0xB6,0x07,0x1F,0x61,0xCF,0xB8,0x3E,0x00,0x8B,0xD5,0xF7,0xDA   ; 4D999
-    db 0x81,0xE2,0xFF,0x00,0xC1,0xEA,0x02,0x03,0xC2,0x3B,0xC1,0x77,0x0C,0x2B,0xC1,0xE6   ; 4D9A9
-    db 0x13,0xB0,0x80,0xE6,0xB6,0x07,0x1F,0x61,0xCF,0x32,0xC0,0xE6,0x12,0xE6,0x13,0xB0   ; 4D9B9
-    db 0x80,0xE6,0xB6,0x07,0x1F,0x61,0xCF,0xB9,0xD8,0x25,0xD9,0x25,0xD9,0xB9,0xD8   ; 4D9C9
+
+irq_D8B9:
+    pusha                                    ; 4D8B9
+    push ds                                  ; 4D8BA
+    push es                                  ; 4D8BB
+    rr xor, ax, ax                           ; 4D8BC
+    mov ds,ax                                ; 4D8BE
+    test byte [play_flags],0x1               ; 4D8C0
+    jnz short loc_D919                       ; 4D8C5
+    mov cl,0x6                               ; 4D8C7
+    mov dx,[0x13a0]                          ; 4D8C9
+    shr dx,cl                                ; 4D8CD
+    inc cl                                   ; 4D8CF
+    rr xor, ax, ax                           ; 4D8D1
+    in al,0x2                                ; 4D8D3
+    cmp al,0x46                              ; 4D8D5
+    jc short loc_D90D                        ; 4D8D7
+    sub cl,0x2                               ; 4D8D9
+    cmp al,0x4c                              ; 4D8DC
+    jc short loc_D8EC                        ; 4D8DE
+    dec cl                                   ; 4D8E0
+    cmp al,0x50                              ; 4D8E2
+    jc short loc_D8EC                        ; 4D8E4
+    dec cl                                   ; 4D8E6
+    cmp al,0x87                              ; 4D8E8
+    jnc short loc_D919                       ; 4D8EA
+loc_D8EC:
+    shl ax,byte 0x3                          ; 4D8EC
+    add ax,[0x138e]                          ; 4D8EF
+    and ax,0x7f                              ; 4D8F3
+    rr mov, bx, ax                           ; 4D8F6
+    shl bx,1                                 ; 4D8F8
+    mov ax,[cs:bx-0x4a36]                    ; 4D8FA
+    sar ax,cl                                ; 4D8FF
+    rr add, ax, dx                           ; 4D901
+    out 0x10,al                              ; 4D903
+    mov al,0x80                              ; 4D905
+    out 0xb6,al                              ; 4D907
+    pop es                                   ; 4D909
+    pop ds                                   ; 4D90A
+    popa                                     ; 4D90B
+    iret                                     ; 4D90C
+loc_D90D:
+    rr mov, al, dl                           ; 4D90D
+    out 0x10,al                              ; 4D90F
+    mov al,0x80                              ; 4D911
+    out 0xb6,al                              ; 4D913
+    pop es                                   ; 4D915
+    pop ds                                   ; 4D916
+    popa                                     ; 4D917
+    iret                                     ; 4D918
+loc_D919:
+    rr xor, al, al                           ; 4D919
+    out 0x10,al                              ; 4D91B
+    mov al,0x80                              ; 4D91D
+    out 0xb6,al                              ; 4D91F
+    pop es                                   ; 4D921
+    pop ds                                   ; 4D922
+    popa                                     ; 4D923
+    iret                                     ; 4D924
+
+irq_D925:
+    pusha                                    ; 4D925
+    push ds                                  ; 4D926
+    push es                                  ; 4D927
+    rr xor, ax, ax                           ; 4D928
+    mov ds,ax                                ; 4D92A
+    in al,0x2                                ; 4D92C
+    cmp al,0x90                              ; 4D92E
+    rr sbb, dx, dx                           ; 4D930
+    rr and, ax, dx                           ; 4D932
+    push ax                                  ; 4D934
+    mov bp,[0x138e]                          ; 4D935
+    mov bx,[0x1394]                          ; 4D939
+    rr sub, bp, bx                           ; 4D93D
+    rr mov, bx, bp                           ; 4D93F
+    shr bx,byte 0x4                          ; 4D941
+    rr mov, cx, bx                           ; 4D944
+    shr cx,1                                 ; 4D946
+    and cx,0x7                               ; 4D948
+    mul cx                                   ; 4D94C
+    rr add, ax, bx                           ; 4D94E
+    and ax,0x7f                              ; 4D950
+    rr mov, bx, ax                           ; 4D953
+    shl bx,1                                 ; 4D955
+    mov ax,[cs:bx-0x4a36]                    ; 4D957
+    shl ax,1                                 ; 4D95C
+    rr mov, bx, bp                           ; 4D95E
+    and bx,0xff                              ; 4D960
+    shr bx,byte 0x4                          ; 4D964
+    mov cx,0xb                               ; 4D967
+    rr sub, cx, bx                           ; 4D96A
+    cmp cx,byte +0xa                         ; 4D96C
+    rr sbb, dx, dx                           ; 4D96F
+    rr and, cx, dx                           ; 4D971
+    sar ax,cl                                ; 4D973
+    out 0x12,al                              ; 4D975
+    pop cx                                   ; 4D977
+    cmp cx,byte +0x3e                        ; 4D978
+    jnc short loc_D9A2                       ; 4D97B
+    mov ax,0x3e                              ; 4D97D
+    rr mov, dx, bp                           ; 4D980
+    neg dx                                   ; 4D982
+    and dx,0xff                              ; 4D984
+    shr dx,byte 0x2                          ; 4D988
+    rr sub, ax, dx                           ; 4D98B
+    cwd                                      ; 4D98D
+    not dx                                   ; 4D98E
+    rr and, ax, dx                           ; 4D990
+    rr cmp, ax, cx                           ; 4D992
+    jc short loc_D9C2                        ; 4D994
+    rr sub, ax, cx                           ; 4D996
+    out 0x13,al                              ; 4D998
+    mov al,0x80                              ; 4D99A
+    out 0xb6,al                              ; 4D99C
+    pop es                                   ; 4D99E
+    pop ds                                   ; 4D99F
+    popa                                     ; 4D9A0
+    iret                                     ; 4D9A1
+loc_D9A2:
+    mov ax,0x3e                              ; 4D9A2
+    rr mov, dx, bp                           ; 4D9A5
+    neg dx                                   ; 4D9A7
+    and dx,0xff                              ; 4D9A9
+    shr dx,byte 0x2                          ; 4D9AD
+    rr add, ax, dx                           ; 4D9B0
+    rr cmp, ax, cx                           ; 4D9B2
+    ja short loc_D9C2                        ; 4D9B4
+    rr sub, ax, cx                           ; 4D9B6
+    out 0x13,al                              ; 4D9B8
+    mov al,0x80                              ; 4D9BA
+    out 0xb6,al                              ; 4D9BC
+    pop es                                   ; 4D9BE
+    pop ds                                   ; 4D9BF
+    popa                                     ; 4D9C0
+    iret                                     ; 4D9C1
+loc_D9C2:
+    rr xor, al, al                           ; 4D9C2
+    out 0x12,al                              ; 4D9C4
+    out 0x13,al                              ; 4D9C6
+    mov al,0x80                              ; 4D9C8
+    out 0xb6,al                              ; 4D9CA
+    pop es                                   ; 4D9CC
+    pop ds                                   ; 4D9CD
+    popa                                     ; 4D9CE
+    iret                                     ; 4D9CF
+
+; jump table tbl_D9D0: 4 words, bound: irq-hint (first use at 4D9D0)
+tbl_D9D0:
+    dw irq_D8B9
+    dw irq_D925
+    dw irq_D925
+    dw irq_D8B9
 h_D9D8:
     or byte [di+0x1],0x2                     ; 4D9D8
     inc word [di+0x1c]                       ; 4D9DC
@@ -23416,7 +23551,7 @@ h_D9D8:
     out 0xb6,al                              ; 4DA05
     mov byte [di+0x1e],0xff                  ; 4DA07
     mov bx,[di+0x18]                         ; 4DA0B
-    mov dx,[cs:bx-0x2630]                    ; 4DA0E
+    mov dx,[cs:bx+tbl_D9D0]                  ; 4DA0E
     rr xor, ax, ax                           ; 4DA13
     mov ds,ax                                ; 4DA15
     mov bx,0x9c                              ; 4DA17

@@ -37,6 +37,11 @@ def run(script, outdir=None, rom=None):
             if t:
                 types.setdefault(t, int(r_['frame']))
     disp = [tuple(map(int, l.split())) for l in open(os.path.join(outdir, 'dispatch.txt'))]
+    # merge main_loop dispatches with per-frame samples (the sequencer can enter a handler
+    # without going back through main_loop)
+    for r_ in rows:
+        disp.append((int(r_['frame']), int(r_['game_state'])))
+    disp.sort(key=lambda x: x[0])
     seq = []
     for fr, st in disp:
         if not seq or seq[-1][1] != st:

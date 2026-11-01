@@ -1,0 +1,38 @@
+# FORCED: progress_code=2101h then clear -> does the sequencer load World 2?
+loadsram build/save_after_play.bin
+reset
+autoshot
+wait 700
+tap start
+wait 30
+tap a
+wait 400
+poke 13FE 01
+poke 13FF 21
+orpoke 1398 20
+wait 250
+shot t1
+tap a
+wait 250
+shot t2
+tap a
+wait 250
+shot t3
+tap a
+wait 250
+shot t4
+tap a
+wait 250
+shot t5
+tap a
+wait 250
+shot t6
+tap a
+wait 250
+shot t7
+tap a
+wait 250
+shot t8
+tap a
+hold right 200
+shot play
