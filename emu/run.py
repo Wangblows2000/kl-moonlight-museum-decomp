@@ -11,6 +11,25 @@ import csv, glob, json, os, subprocess, sys
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 
 
+FORCING = ('poke', 'orpoke', 'forcestate')
+
+
+def provenance(script):
+    """'natural' if the script only feeds controller input (wait/hold/tap/monkey/reset/shots)
+    and every SRAM image it loads was produced by a natural run; otherwise 'forced'."""
+    for line in open(script):
+        w = line.split()
+        if not w or w[0].startswith('#'):
+            continue
+        if w[0] in FORCING:
+            return 'forced'
+        if w[0] == 'loadsram':
+            src = os.path.join(ROOT, 'build', 'runtime', os.path.basename(os.path.dirname(w[1])), 'summary.json')
+            if not os.path.exists(src) or json.load(open(src)).get('provenance') != 'natural':
+                return 'forced'
+    return 'natural'
+
+
 def run(script, outdir=None, rom=None):
     name = os.path.splitext(os.path.basename(script))[0]
     outdir = outdir or os.path.join(ROOT, 'build', 'runtime', name)
@@ -47,7 +66,7 @@ def run(script, outdir=None, rom=None):
     for fr, st in disp:
         if not seq or seq[-1][1] != st:
             seq.append((fr, st))
-    summary = {'dispatch_sequence': seq, 'states_dispatched': sorted({s_ for _, s_ in disp}),'script': os.path.basename(script), 'frames': len(rows), 'state_transitions': trans,
+    summary = {'provenance': provenance(script), 'dispatch_sequence': seq, 'states_dispatched': sorted({s_ for _, s_ in disp}),'script': os.path.basename(script), 'frames': len(rows), 'state_transitions': trans,
                'object_types_seen': sorted(types), 'max_audio_peak': max(int(r_['audio_peak']) for r_ in rows),
                'marks': marks, 'harness': r.stderr.strip().splitlines()[-1]}
     json.dump(summary, open(os.path.join(outdir, 'summary.json'), 'w'), indent=1)

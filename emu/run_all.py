@@ -14,13 +14,13 @@ rom = os.path.join(ROOT, 'baserom', 'baserom.ws')
 if not os.path.exists(rom):
     rom = os.path.join(ROOT, 'build', 'klonoa.ws')     # ROM-free build is byte-identical
 en = os.path.join(ROOT, 'build', 'klonoa_en.ws')
-scripts = sorted(glob.glob(os.path.join(HERE, 'scripts', '*.txt')))
+scripts = sorted(glob.glob(os.path.join(HERE, 'scripts', '*.txt'))) + sorted(glob.glob(os.path.join(HERE, 'scripts', 'natural', '*.txt')))
 scripts.sort(key=lambda p: 0 if os.path.basename(p) == 'make_save.txt' else 1)
 res = {}
 for s in scripts:
     first = open(s).readline()
     use = en if ('ENGLISH' in first and os.path.exists(en)) else rom
     out = R.run(s, None, use)
-    res[os.path.basename(s)] = {'states': out['states_dispatched'], 'frames': out['frames']}
-    print('%-28s frames %6d states %s' % (os.path.basename(s), out['frames'], out['states_dispatched']))
+    res[os.path.basename(s)] = {'states': out['states_dispatched'], 'frames': out['frames'], 'provenance': out['provenance']}
+    print('%-28s %-8s frames %6d states %s' % (os.path.basename(s), out['provenance'], out['frames'], out['states_dispatched']))
 json.dump(res, open(os.path.join(ROOT, 'build', 'runtime_summary.json'), 'w'), indent=1)

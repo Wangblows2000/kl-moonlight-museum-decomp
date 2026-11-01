@@ -17,3 +17,13 @@
  {
 +   { extern void kt_read(uint32, uint32); uint32 b = (A >> 16) & 0xF; if (b >= 2) kt_read(A & 0xFFFFF, b < 4 ? ((A & 0xFFFF) + ((BankSelector[b] & ((rom_size >> 16) - 1)) << 16)) : (((((BankSelector[0] & 0xF) << 4) | b) & ((rom_size >> 16) - 1)) << 16) | (A & 0xFFFF)); }
     return ReadMemCore(A, false);
+--- a/mednafen/wswan/wswan-memory.c
++++ b/mednafen/wswan/wswan-memory.c
+@@ void WSwan_writemem20(uint32 A, uint8 V)
+ {
++   { extern void kt_ramw(uint32); if (A < 0x10000) kt_ramw(A); }
+    WriteMemCore(A, V, false);
+@@ uint8 WSwan_readmem20(uint32 A)
+ {
++   { extern void kt_ramr(uint32); if (A < 0x10000) kt_ramr(A); }
+    { extern void kt_read(uint32, uint32); ...

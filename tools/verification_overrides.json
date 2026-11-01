@@ -1,0 +1,270 @@
+{
+ "note": "Manual review of claims flagged by tools/verify_docs.py. A flagged claim of a routine listed here was checked by reading the code; false positives are explained (address reached through a caller, register base, jump table or vector install), corrected descriptions were rewritten in tools/routine_docs.json.",
+ "routines": {
+  "0103": {
+   "verdict": "false_positive",
+   "explanation": "1600h is not a memory access: it is the address encoded by the value written to port 04h (40104 mov al,0Bh / 40106 out 4,al; sprite table base = 0Bh*200h = 1600h). Ports 05h/06h are zeroed at 4010A/4010C. Description is correct.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "036B": {
+   "verdict": "false_positive",
+   "explanation": "Same as sprite_table_init: 1600h is the table address implied by 0Bh written to port 04h (4036B mov al,0Bh / 4036D out 4,al); 05h/06h zeroed at 40371/40373. Description is correct.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "0376": {
+   "verdict": "false_positive",
+   "explanation": "read_keypad is called directly at 4038A (call read_keypad). The checker missed it (read_keypad is at 40000). Rest checked: 40380-40388 ports 12h/13h from [139Eh]/[139Fh]; 4038F out 5=0; 40391-4039B port 06h = ([1382h]-1600h)/4; 4039D [1382h]=1600h; 403A4 sound_tick; 403AA-403AC vblank_line = in 2; 403B1 out B6h=40h.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "03E7": {
+   "verdict": "corrected",
+   "explanation": "The label dead_03E7 covers only the single alignment NOP at 403E7 (after dead_03D0's ret at 403E6); tbl_03E8 starts at 403E8. It inherited the description of the whole unreferenced range 403D0-403E8. The [13A0h]/[13A2h] reads and port 12h/13h writes are in dead_03D0 (403D2, 403DD, 403DF, 403E4), not here.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "03F0": {
+   "verdict": "false_positive",
+   "explanation": "read_keypad is called directly at 40406 (call read_keypad). Checker miss.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "0450": {
+   "verdict": "false_positive",
+   "explanation": "irq_parallax4_band1 (40481) is not called: its offset is written into the line-compare interrupt vector at 0:0090h (40469 mov bx,90h; 4046C mov word [bx],irq_parallax4_band1; 40470 segment 4000h), then 40475-40477 port 03h=1Fh. 'chains to' is correct.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "0DC7": {
+   "verdict": "corrected",
+   "explanation": "The label dead_0DC7 covers only the alignment NOP at 40DC7 after the ret at 40DC6 that ends the unreferenced routine dead_091C (4091C-40DC6); keyconfig_load_panels starts at 40DC8. It inherited the description of the whole range 4091C-40DC8. The port 20h-2Eh writes (e.g. 40D9D out 2Eh ... 40DC0 out 20h) and the [1386h] waits (4097A, 40D8F) are in dead_091C, not here.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "13F6": {
+   "verdict": "false_positive",
+   "explanation": "Port 07h is only cited as context: hw_init writes it (4013C mov al,31h / 4013E out 7,al; low nibble 1 -> SCR1 map at 0800h). The routine itself clears 0000:0800-0FFF (413F9 es=0, 413FB di=800h, 413FE cx=400h, 41401 rep stosw). Description is correct.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "1D8E": {
+   "verdict": "corrected",
+   "explanation": "The 13E1h (lives) flag is caller context and is correct: the only caller loads AL=[lives] at 428D1 (+1 while [138Eh] < 96h, 428D4-428DA) before call at 428DC. But the summary swaps the digit tables: after div cl (41D9F) AL=quotient (tens) and AH=remainder (ones). Tens: 41DA2-41DBC index table 3000:8877 and copy 3 tiles to 3EA0h; ones: 41DC0-41DDC index 3000:884F and copy to 3F00h. Placement: BP=0 (play_flags bit0 clear, 41D8F-41D97): map_fill_tile_rect CX=103h (1 wide x 3 high) tile 1EAh (=3EA0h) at DH,DL, then DH+1 tile 1F0h (=3F00h) (41DE3-41E01); bit0 set: CX=301h (3 wide x 1 high), second digit at DL+1 (41E06-41E1E). Map base AX=800h.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "3B5E": {
+   "verdict": "false_positive",
+   "explanation": "1380h (game_state) appears only in the caller context sentence, which is correct: caller 42B5E is followed by 42B66 mov word [game_state],7. The routine itself: 43B66 vector 98h=irq_vblank_sound_only; 43B7D/43B90 vector 9Ch by play_flags bit0; 43BB0 [1394h]=8Ch; 43BC0-43E9B every 16th frame (bp&0Fh=0) decrements each nibble of ports 30h-3Eh (floor 0); 43E9D-43EA8 radius -1 down to 0; 43EAB-43EB6 waits on vblank_line; 43EB8 loop until bp=C8h; 43EC2-43EC8 B6h/B2h=40h.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "4669": {
+   "verdict": "corrected",
+   "explanation": "12F5h is the high byte of the word store at 446B5 (mov [0x12f4],ax with AX=[es:bx+2]), so the flag is a false positive. However the inputs omit BX: after pop bx/pop es (446AD-446AE) the routine reads the caller's ES:BX block: byte [es:bx] -> [1303h] (446CE-446D1), word [es:bx+2] -> [12F4h]/[12F5h] (446B1-446B5), BX+4 -> [12E6h] (446BB), BX+14h -> [12E2h] (446C2). Also [12E0h] = [1330h] (446C6-446CA), [12EEh] = 40h constant, [12F0h] = 38h, [12ECh] = [12EAh]-40h.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "5F10": {
+   "verdict": "false_positive",
+   "explanation": "[139Ah]/[139Ch] are written by the callees reached through tbl_5F07 (call [cs:bx+tbl_5F07] at 45F3C): obj01_player_anim_select_carrying 45CA2 mov [139Ch],ax / 45CB1 mov [139Ah],si, and obj01_player_anim_select_normal 45D8C mov [139Ch],ax / 45D9B mov [139Ah],si. Checker did not follow the indirect call.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "6338": {
+   "verdict": "false_positive",
+   "explanation": "progress_code (13FEh) is only in the caller-context clause, which is correct: irq_vblank_gameplay 4042C-40437 calls it only when [progress_code]&FF00h = 3600h. The routine reads [138Eh] (4633D) and play_flags (46345).",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "68BE": {
+   "verdict": "false_positive",
+   "explanation": "[1416h] is caller context: lvl04_tick_alloc_obj05_gfx stores the allocated tile index in [1416h] (468EB) and passes AX = 2000h + index*16 before call at 468F4. The routine copies 120h words from 7000:6660 to 0000:AX (468BE-468CF). Correct.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "6C72": {
+   "verdict": "false_positive",
+   "explanation": "[1400h] is caller context: lvl02_tick_alloc_obj12_gfx 46C9F mov [1400h],ax; AX = 2000h + index*16; call at 46CA8. Routine copies 48h words from 7000:6F60 (46C72-46C83). Correct.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "6CE2": {
+   "verdict": "false_positive",
+   "explanation": "[1408h] is caller context: lvl1a_tick_alloc_obj12v_gfx 46D0F mov [1408h],ax; call at 46D18; obj12_draw_block uses [1408h] at 46FDB. Routine copies D8h words from 7000:6FF0 (46CE2-46CF3). Correct.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "6D22": {
+   "verdict": "corrected",
+   "explanation": "[1408h] is not read here (it is read by obj12_draw_block at 46FDB when [DI+1Fh] != 0), so the flag is a context reference. But the variant mapping is imprecise: 46D56 and ch,3; 46D59 cmp ch,3; 46D5C adc ch,0 adds 1 when CH&3 < 3, so 0->1, 1->2, 2->3, 3->3 (not a clamp). Outputs also omit 46D3D-46D49 (+0Bh=C0h, +0Ah=C0h, +9=1, +0Ch |= 10h) and that +2/+4 = AX<<4 / DX<<4 (46D22-46D2B); +14h = BP low byte (46D38-46D3A).",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "7478": {
+   "verdict": "false_positive",
+   "explanation": "[1404h] is caller context: lvl03_tick_alloc_obj08_gfx 474A5 mov [1404h],ax; call at 474AE. Routine copies 90h words from 7000:71A0 (47478-47489). Correct.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "7A70": {
+   "verdict": "false_positive",
+   "explanation": "[1412h] is caller context: lvl05_tick_alloc_obj07_gfx 47AC5 mov [1412h],ax; call at 47ACE. Routine copies 120h words from 7000:7340 (47A70-47A81). Correct.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "7A84": {
+   "verdict": "false_positive",
+   "explanation": "[1414h] is caller context: lvl06_tick_alloc_obj17_gfx 47B1D mov [1414h],ax; call at 47B26. Routine copies 120h words from 7000:6D20 (47A84-47A95). Correct.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "7A98": {
+   "verdict": "false_positive",
+   "explanation": "[140Ah] is caller context: lvl05_tick_alloc_obj07_gfx 47AF0 mov [140Ah],ax / call 47AF9 and lvl06_tick_alloc_obj17_gfx 47B48 / call 47B51. Routine copies 80h words from 7000:11A0 (47A98-47AA9). Correct.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "8DA8": {
+   "verdict": "corrected",
+   "explanation": "The [1382h] reference is a caller precondition and is true (obj1c_draw_door 48E8B-48E8F and obj1e_draw_gate 48FDD-48FE1 take BX=[1382h] and add 30h before calling), but the routine never touches [1382h], and the side-effects field omits that it moves DH/DL to the frame corner (48DAF/48DB2 sub dh,10h / sub dl,10h; rotated 48E10/48E13 add dh,8 / sub dl,10h) and clobbers AX/CX; both callers push/pop DX around the call (48E9C/48EA0, 48FEE/48FF2). Layout and play_flags test (48DA8) verified.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "917A": {
+   "verdict": "corrected",
+   "explanation": "The routine is a lone ret (4917A); it reads neither [1382h] nor play_flags. The inputs field copies the generic draw-pass context, which suggests use that does not happen. It is reached as entry 3 of tbl_917B via jmp [cs:bx+tbl_917B] at 49194 in obj1f_draw_switch.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "9184": {
+   "verdict": "false_positive",
+   "explanation": "[1382h] is read at 49184 (cmp word [1382h],17E0h). play_flags is read by the tail-jump targets of jmp [cs:bx+tbl_917B] at 49194: obj1f_draw_idle 49304 and obj1f_draw_activating 490FF (test byte [play_flags],1), and loc_D092 4D0A2 used by the draw targets. Checker did not follow the indirect jmp.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "97B4": {
+   "verdict": "false_positive",
+   "explanation": "[1382h] read at 497B4; play_flags is read in the tail-jump targets of jmp [cs:bx+tbl_97B0] at 497C8: obj20_draw_idle 490AF and obj22_draw_toggling 49751 (test byte [play_flags],1).",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "996A": {
+   "verdict": "false_positive",
+   "explanation": "[13D4h] is read by the targets of jmp [cs:bx+tbl_9962] at 49978: obj24_update_closed 498F4 and obj24_update_open 4992D (mov ax,[13D4h]; shr ax, [DI+1Eh]+1; test carry). Description is correct.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "9AFA": {
+   "verdict": "false_positive",
+   "explanation": "[1382h] read at 49AFA; play_flags read in the tail-jump targets of jmp [cs:bx+tbl_9AF1] at 49B0A, e.g. obj24_draw_closed 4998D (test byte [play_flags],1).",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "9C60": {
+   "verdict": "corrected",
+   "explanation": "The routine is a single ret at 49C60 (tbl_9C6E case 2). It reads neither [1382h] nor play_flags; the inputs field is the generic draw-pass template copied from its sibling cases (obj25_draw_solid tests play_flags at 49C40, loc_CE33 uses [1382h] at 4CE33/4CE4F), which does not apply here.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "9C76": {
+   "verdict": "false_positive",
+   "explanation": "play_flags is consulted by the cases reached through jmp [cs:bx+tbl_9C6E] at 49C86, which the checker does not follow: obj25_draw_solid tests [play_flags] bit 0 at 49C40, and all three drawing cases jump to loc_CE33 (49C50, 49C5D, 49C6B), which tests [play_flags] bit 0 at 4CE4F to pick the rotated layout. [1382h] is compared directly at 49C76.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "9FF8": {
+   "verdict": "corrected",
+   "explanation": "The routine itself only does or byte [di+1],2 (49FF8), inc word [di+1Ch] (49FFC) and jumps through tbl_9FEF indexed by the state byte [di+14h] (4A001-4A006). [13D6h] is read only by the cases obj28_update_solid (49F7C) and obj28_update_absent (49FB7), which shift it right by [di+1Eh]+1 and test the carry, i.e. bit number [+1Eh]. The dispatch index is the state, not the [13D6h] bit, so the old wording was misleading.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "A00B": {
+   "verdict": "corrected",
+   "explanation": "4A00B-4A088 checks [1382h] < 17C8h, reserves 30h bytes at [1382h] (4A018) and writes 12 entries with tiles [142Ah]|2400h, incrementing. There is no play_flags test anywhere in the routine (it calls nothing), so the template sentence 'play_flags bit 0 selects the rotated sprite layout' is wrong for this routine.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "A089": {
+   "verdict": "corrected",
+   "explanation": "4A089-4A18C reads [1382h] (4A089, 4A099/4A09D), +1Ch (4A092) and [142Ah] (4A0A3, 4A100). It calls nothing and never reads play_flags, so the play_flags part of the inputs is wrong.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "A18D": {
+   "verdict": "corrected",
+   "explanation": "A single ret at 4A18D (tbl_A282 case 2). Neither [1382h] nor play_flags is read.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "A18E": {
+   "verdict": "corrected",
+   "explanation": "4A18E-4A281 reads [1382h] (4A18E, 4A19E/4A1A2), +1Ch (4A197) and [142Ah] (4A1AE, 4A205). It calls nothing and never reads play_flags.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "A28A": {
+   "verdict": "corrected",
+   "explanation": "The [1382h] flag is a false positive: the dispatcher (4A28A-4A291) only jumps through tbl_A282 by state +14h, and the cases use [1382h] (4A00B, 4A089, 4A18E). The play_flags claim is wrong, though: none of the four cases (obj28_draw_solid/vanishing/absent/appearing, 4A00B-4A281) reads play_flags.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "A9A6": {
+   "verdict": "corrected",
+   "explanation": "The flagged 'hearts' (13E0h) is only a mention of the HUD routine, not a claimed access, so the flag itself is a false positive. The routine (4A9A6-4A9B2) compares [1382h] with 17E8h, sets BP = 2DB3h and jumps to loc_D092. loc_D092 (4D092) reserves 10h bytes at [1382h], tests [play_flags] bit 0 (4D0A2) to choose the layout, and writes 4 sprites with tiles BP..BP+3 = 2DB3h-2DB6h. sub_C49C is now draw_hearts_sprites, which reads [hearts] at 4C4AD and alternates tiles 2DB3h/2DB4h (4C4B3-4C4CA). So the shared tiles are only the first pair, and the inputs were missing play_flags.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "AD25": {
+   "verdict": "false_positive",
+   "explanation": "The 'lives' in the text is the save-block lives byte [149Fh], set to 3 at 4AD51, not the live counter 13E1h. 149Fh is the saved copy of lives: 4ADBA/4ADBD copy [lives] into [149Fh], and 4AFDD/4AFE0 copy it back. The other claims also hold: 1Dh words zeroed from 1480h (4AD2C-4AD37), the 14B0h-14B6h stores at 4AD39-4AD4B, and [148Fh] = 11h at 4AD56.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "B332": {
+   "verdict": "false_positive",
+   "explanation": "The outputs say 'via handlers'. The handlers are called through call [cs:bx+tbl_B326] at 4B392, which the checker cannot resolve. They set play_flags with or [play_flags],al using AL = 10h (warp_point_hold_right 4B1CD, warp_point_hold_left 4B220, warp_point_hold_down 4B272, warp_point_hold_up 4B2C9, warp_point_press_up_sfx 4B321) or AL = 20h (vision_exit_press_up 4B17B), and write progress_code (e.g. 4B19F, 4B2F3).",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "BD1A": {
+   "verdict": "false_positive",
+   "explanation": "[138Ch] is caller context: obj3d_update_text_window loads BP = [138Ch] at 4BD91 before call [cs:bx+tbl_BD6C] at 4BE27. The routine tests BP & 0E00h at 4BD21 and [1385h] & 3 at 4BD1A, as described.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "BD2C": {
+   "verdict": "false_positive",
+   "explanation": "[1388h] is caller context: obj3d_update_text_window loads SI = [1388h] at 4BD8D (and AH = the next script byte at 4BDB6) before dispatching at 4BE27. The routine tests SI & 800h at 4BD33, and this is skipped when [1385h] & 3 != 0 (4BD2C), as described.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "BF30": {
+   "verdict": "false_positive",
+   "explanation": "play_flags is caller context: keymap_apply reads [play_flags] & 7 at 4BFD9/4BFDD and calls through tbl_BFC6 at 4BFE3. Entries 0 and 4 are keymap_identity, which is a ret at 4BF30.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "BF31": {
+   "verdict": "false_positive",
+   "explanation": "play_flags is caller context (keymap_apply 4BFD9, tbl_BFC6 entries 1 and 3). The bit mapping matches 4BF35-4BF6B: keeps 200h; 1->80h, 4->20h, 2->10h, 8->40h, 50h->400h, A0h->800h.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "BF70": {
+   "verdict": "false_positive",
+   "explanation": "play_flags is caller context (keymap_apply 4BFD9, tbl_BFC6 entries 2 and 6). The code keeps the mask 2F0h (4BF72) and swaps 800h/400h (4BF76-4BF84).",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "BF89": {
+   "verdict": "false_positive",
+   "explanation": "play_flags is caller context (keymap_apply 4BFD9, tbl_BFC6 entries 5 and 7). The mapping at 4BF8B-4BFC1 matches keymap_vertical except A0h->400h and 50h->800h.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "BFD6": {
+   "verdict": "false_positive",
+   "explanation": "The sentence about [1388h]/[138Ch] -> [1390h]/[1392h] describes the callers, and every call site matches it: mov dx,[1388h] / call keymap_apply / mov [1390h],dx and mov dx,[138Ch] / call / mov [1392h],dx at 40E5B-40E6D, 4121D-4122F and 42A86-42A98. The routine itself reads play_flags at 4BFD9.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "DE51": {
+   "verdict": "corrected",
+   "explanation": "Ports 00h/01h/02h/76h were parsed by the checker out of the RAM range '0100h-0276h' that follows 'ports' in the outputs field. Port 8Bh is written: out 8Ah,ax at 4DE56 is a word write to 8Ah/8Bh. However, the outputs field 'ports 88h-8Eh' overstates the writes. The code writes only 88h-8Bh (word outs at 4DE54 and 4DE56) and 8Eh (4DE72), not 8Ch/8Dh. The callee sound_voice_stop also writes ports 94h (4DE3B), 90h (4DE44) and B2h (4DE4E), which the field omitted.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "E6A6": {
+   "verdict": "false_positive",
+   "explanation": "[0274h]/[0276h] are reached through a register base. sound_tick sets ES = 0 (4DE8F) and SI = 0260h (4DEEF), dispatches on [es:si+14h] = [0274h] at 4DF15-4DF23, and the routine writes [es:si+16h] = [0276h] = 0 (4E6A6) and [es:si+14h] = [0274h] = 4 (4E6AB). It then falls into snd_fade_out_stop_step (4E6B0), which adds the rate [0275h] to [0276h].",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "E6D6": {
+   "verdict": "corrected",
+   "explanation": "The address flag is a false positive: with ES = 0 and SI = 0260h (4DE8F, 4DEEF), [es:si+16h] = [0276h] is zeroed at 4E6D6 and [es:si+14h] = [0274h] = 5 is set at 4E6DB. But the routine has no ret and falls into snd_fade_out_mute_step at 4E6E0. That step computes AL = [0275h] + [0276h] (4E6E0/4E6E4), which cannot carry because [0276h] was just zeroed, stores it to [0276h] (4E6EA) and jumps to loc_DF28. So on exit [0276h] = [0275h], not 0, and the first fade step is already done, as in the sibling routine E6A6.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "EC00": {
+   "verdict": "corrected",
+   "explanation": "The routine does not access [13E1h]. The lives number it draws is the save-block byte [149Fh] (mov al,[149Fh] at 4ED74 -> draw_number_sprites_radix at 4ED7C). The stone count is [1480h + [130Ah]*8 + [130Ch]] (4ED5C-4ED6A). The phrase 'the selected Vision's best stones and lives' wrongly suggests a per-Vision lives value from the live counter.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "F302": {
+   "verdict": "false_positive",
+   "explanation": "FFh is a value, not a port: the checker parsed 'port C1h, FFh restored'. The code writes AL = 0 to port C1h at 4F326, copies with rep movsw (4F328), then dec al -> FFh and writes it to port C1h again at 4F32C. No port FFh is accessed. Optional rewording to avoid the parse: 'port C1h = 0 during the copy, then C1h = FFh'.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "F360": {
+   "verdict": "false_positive",
+   "explanation": "'saved lives (149Fh)' is the SRAM copy of save-block byte 149Fh, read at 4F3A6 as [es:si+21h] (record base 40h + n*40h, +2 marker, +1Fh = 149Fh-1480h) and stored to [1332h+i*4+2] at 4F3AA. The routine does not and is not claimed to access 13E1h. The other offsets also match: +11h -> 148Fh at 4F386/4F399, and +29h -> 14A7h at 4F3B3.",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "F4FD": {
+   "verdict": "false_positive",
+   "explanation": "The 'lives count' is the argument AL, which ticket_list_draw loads from ticket summary byte [1332h+i*4+2] (4FA22) before the call at 4FA2D. It is not [13E1h]. The routine divides AL by 10 (4F502) and emits tiles 2800h+digit+E6h via emit_sprite_plus_e6 (4F50C-4F51D), skipping a zero tens digit. It then draws layout 17h at [12DCh]+5C0Ch (4F520-4F52D).",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  },
+  "F9CE": {
+   "verdict": "corrected",
+   "explanation": "'lives' (13E1h) is a false positive: the lives come from summary byte +2 (4FA22) and are passed to ticket_draw_lives. The [148Fh] claim is wrong, though: the routine never reads 148Fh. The branch is cmp word [bx],0506h / jg at 4FA30, a signed compare of the summary word (+0 = Vision, +1 = world) built by sram_scan_tickets. Saved progress FFh gives 0F0Eh there, but any summary above 0506h takes the branch. In that branch, layout 16h and the layout-18h icons are drawn only when the count byte +3 is non-zero (4FA7C-4FAA5), and layout 0Ch is always drawn (4FAA8). Also, the single-ticket mode applies when [12DEh] != 0 (4F9DA), not only = 1, and shows the ticket whose index equals [131Ch] (4F9E4).",
+   "reviewed": "2026-11-01 (manual review of flagged claims against the disassembly)"
+  }
+ }
+}

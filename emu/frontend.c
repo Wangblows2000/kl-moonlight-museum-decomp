@@ -258,6 +258,15 @@ int main(int argc, char **argv)
    path(p, "objtypes", ".txt"); f = fopen(p, "w");
    for (int t = 1; t < 256; t++) if (atlas_count[t]) fprintf(f, "%02X %ld %ld\n", t, atlas_count[t], atlas_seen[t]);
    fclose(f);
+   {  /* RAM access attribution: lines "R|W PC(5 hex) KEY(4 hex)" */
+      extern uint32_t kt_acc_n; extern uint32_t kt_acc_dump(uint64_t *, uint32_t);
+      uint64_t *acc = malloc(sizeof(uint64_t) * (kt_acc_n + 1));
+      uint32_t n = kt_acc_dump(acc, kt_acc_n + 1);
+      path(p, "ramaccess", ".txt"); f = fopen(p, "w");
+      for (uint32_t i = 0; i < n; i++)
+         fprintf(f, "%c %05X %04X\n", (acc[i] >> 52) & 1 ? 'W' : 'R', (unsigned)(acc[i] >> 20) & 0xFFFFF, (unsigned)(acc[i] & 0xFFFF));
+      fclose(f); free(acc);
+   }
    path(p, "ports", ".txt"); f = fopen(p, "w");
    for (int pt = 0; pt < 256; pt++) for (int v = 0; v < 256; v++)
       if (kt_port_hist[pt][v]) fprintf(f, "%02X %02X %u\n", pt, v, kt_port_hist[pt][v]);

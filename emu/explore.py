@@ -19,7 +19,7 @@ the replay of that script from power-on (emu/run.py) is counted as natural runti
 
   python3 emu/explore.py --until 5600 --out emu/scripts/natural/playthrough.txt
 """
-import argparse, glob, json, os, random, sys, time, zlib
+import argparse, glob, json, os, random, re, sys, time, zlib
 from collections import deque
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, '..')
@@ -48,14 +48,42 @@ def vision_key(prog):
     return 'W%dV%d' % (prog >> 12, prog >> 8 & 15)
 
 
-def route(prog):
-    """area -> (BFS distance to the exit area, list of warp records leaving the area on a
-    shortest path, or the exit record itself)."""
+def load_spawns():
+    """{'W1V1': {area: [spawn records]}} from the decoded area blocks (gamedata/obj_area)."""
+    out = {}
+    for f in glob.glob(os.path.join(ROOT, 'gamedata', 'obj_area', '*.json')):
+        m = re.search(r'_area_(W\dV\d)_(\d+)\.json$', f)
+        if m:
+            out.setdefault(m.group(1), {})[int(m.group(2))] = json.load(open(f))['spawns']
+    return out
+
+
+SPAWNS = load_spawns()
+ITEM, KEY, GATE = 0x0E, 0x09, 0x0F
+
+
+def goal_objects(prog, flags):
+    """Uncollected goal objects of the Vision: items (kind 0Eh, bit param&3 of [13D0h]; the
+    exit gate kind 0Fh needs bits 0-2) and keys (kind 09h, bit param&3 of [13D1h]).
+    Returns [(area, x, y)]; empty when only the exit remains."""
+    items, keys = flags[0], flags[1]
+    out = []
+    for area, sp in SPAWNS.get(vision_key(prog), {}).items():
+        for s in sp:
+            if s['kind'] == ITEM and not items >> (s['param'] & 3) & 1:
+                out.append((area, s['x'], s['y']))
+            elif s['kind'] == KEY and not keys >> (s['param'] & 3) & 1:
+                out.append((area, s['x'], s['y']))
+    return sorted(set(out))
+
+
+def route(prog, targets):
+    """BFS over the warp graph toward the areas in `targets` (area -> [(x, y, warp-type)]).
+    Returns (area -> distance, area -> list of (x, y, type) points to head for)."""
     recs = WARPS.get(vision_key(prog), [])
-    exits = [r for r in recs if r['type'] == 'exit_press_up']
-    dist = {int(r['area'], 16): 0 for r in exits}
+    dist = {a: 0 for a in targets}
     q = deque(dist)
-    while q:                      # reverse BFS over "record in area A leads to records[target].area"
+    while q:
         a = q.popleft()
         for r in recs:
             if r['type'] == 'exit_press_up' or r['target'] >= len(recs):
@@ -64,13 +92,13 @@ def route(prog):
             if dst == a and src not in dist:
                 dist[src] = dist[a] + 1
                 q.append(src)
-    nxt = {}
+    nxt = {a: list(v) for a, v in targets.items()}
     for r in recs:
         a = int(r['area'], 16)
-        if r['type'] == 'exit_press_up':
-            nxt.setdefault(a, []).append(r)
-        elif r['target'] < len(recs) and dist.get(int(recs[r['target']]['area'], 16), 99) == dist.get(a, 99) - 1:
-            nxt.setdefault(a, []).append(r)
+        if a in targets or r['type'] == 'exit_press_up' or r['target'] >= len(recs):
+            continue
+        if dist.get(int(recs[r['target']]['area'], 16), 99) == dist.get(a, 99) - 1:
+            nxt.setdefault(a, []).append((r['x'], r['y'], r['type']))
     return dist, nxt
 
 
@@ -99,15 +127,30 @@ class Explorer:
         return 0
 
     def target(self, o):
-        if o['prog'] not in self.routes:
-            self.routes[o['prog']] = route(o['prog'])
-        dist, nxt = self.routes[o['prog']]
+        """(room distance, nearest point to head for as dict(x, y, type), distance to it,
+        goals collected).  Goals: uncollected items/keys first, then the Vision exit."""
+        goals = goal_objects(o['prog'], o['flags'])
+        rk = (o['prog'], tuple(goals))
+        if rk not in self.routes:
+            if goals:
+                tg = {}
+                for a, x, y in goals:
+                    tg.setdefault(a, []).append((x, y, 'goal'))
+            else:
+                recs = WARPS.get(vision_key(o['prog']), [])
+                tg = {}
+                for r in recs:
+                    if r['type'] == 'exit_press_up':
+                        tg.setdefault(int(r['area'], 16), []).append((r['x'], r['y'], r['type']))
+            self.routes[rk] = route(o['prog'], tg)
+        dist, nxt = self.routes[rk]
         area = o['prog'] & 0xFF
-        recs = nxt.get(area, [])
-        if not recs:
-            return dist.get(area, 50), None, 9999
-        r = min(recs, key=lambda r: abs(r['x'] - o['x']) + abs(r['y'] - o['y']))
-        return dist.get(area, 50), r, abs(r['x'] - o['x']) + abs(r['y'] - o['y'])
+        pts = nxt.get(area, [])
+        done = -len(goals)
+        if not pts:
+            return dist.get(area, 50), None, 9999, done
+        x, y, t = min(pts, key=lambda p: abs(p[0] - o['x']) + abs(p[1] - o['y']))
+        return dist.get(area, 50), dict(x=x, y=y, type=t), abs(x - o['x']) + abs(y - o['y']), done
 
     def key(self, o):
         return (o['prog'], o['x'] // 24, o['y'] // 24, o['carry']) + o['flags']
@@ -123,9 +166,9 @@ class Explorer:
         if c and c['q'] >= q:
             return False
         raw, log, frame = self.e.save()
-        d, r, dd = self.target(o)
+        d, r, dd, done = self.target(o)
         self.cells[k] = dict(q=q, st=(zlib.compress(raw, 1), log, frame), chosen=c['chosen'] if c else 0,
-                             d=d, dd=dd, prog=o['prog'], new=not c)
+                             d=d, dd=dd, prog=o['prog'], new=not c, rank=(done, -d))
         return not c
 
     def restore(self, c):
@@ -137,8 +180,8 @@ class Explorer:
         if self.rng.random() < 0.25:
             w = [1.0 / (1 + c['chosen']) ** 0.5 for c in cs]
         else:
-            best = min(c['d'] for c in cs)
-            w = [(1.0 / (1 + c['chosen']) ** 0.5) * (2.718 ** (-c['dd'] / 48.0) + 0.05) if c['d'] == best else 0.0
+            best = max(c['rank'] for c in cs)
+            w = [(1.0 / (1 + c['chosen']) ** 0.5) * (2.718 ** (-c['dd'] / 48.0) + 0.05) if c['rank'] == best else 0.0
                  for c in cs]
         c = self.rng.choices(cs, weights=w)[0]
         c['chosen'] += 1
@@ -190,8 +233,8 @@ class Explorer:
         new = 0
         end = e.frame + frames
         while e.frame < end:
-            d, r, dd = self.target(o)
-            for btn, n in self.act(o, r if dd < 40 else None):
+            d, r, dd, done = self.target(o)
+            for btn, n in self.act(o, r if (r and dd < 40 and r['type'] in DIRS) else None):
                 for _ in range(n // 4):
                     e.run(4, btn)
                     o = self.obs()
@@ -236,9 +279,9 @@ class Explorer:
                     vision_key(prog0), it + 1, len(self.cells), time.time() - t0, self.e.frame))
                 return True
             if it % 500 == 499:
-                best = min(self.cells.values(), key=lambda c: (c['d'], c['dd']))
-                self.say('  %s it %d cells %d best room-dist %d warp-dist %d' % (
-                    vision_key(prog0), it + 1, len(self.cells), best['d'], best['dd']))
+                best = max(self.cells.values(), key=lambda c: (c['rank'], -c['dd']))
+                self.say('  %s it %d cells %d best goals-left %d room-dist %d point-dist %d' % (
+                    vision_key(prog0), it + 1, len(self.cells), -best['rank'][0], best['d'], best['dd']))
         return False
 
 

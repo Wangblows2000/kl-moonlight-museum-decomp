@@ -602,10 +602,6 @@ dead_03D0:
     sar ax,cl                                ; 403E2
     out 0x13,al                              ; 403E4
     ret                                      ; 403E6
-
-; UNREFERENCED CODE 403D0-403E8 (no caller, jump or table entry; never executed): complete routine: ports 12h/13h = -([13A0h]>>4), [13A2h]>>4 (SCR scroll from camera), ret + alignment NOP
-; evidence: decodes as one complete routine (mov cl,4 ... out 13h,al / ret / nop); emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
-dead_03E7:
     nop                                      ; 403E7
 
 ; jump table tbl_03E8: 4 words, bound: hint (first use at 40413)
@@ -1852,10 +1848,6 @@ loc_0D9A:
     add sp,byte +0x10                        ; 40DC2
     popa                                     ; 40DC5
     ret                                      ; 40DC6
-
-; UNREFERENCED CODE 4091C-40DC8 (no caller, jump or table entry; never executed): complete routine (1196 bytes): saves palette ports 20h-2Eh, zeroes them, then over 60 frames (hlt on [1386h]) steps every nibble toward the saved value (fade in), restores ports, ret + NOP
-; evidence: decodes as one complete routine with balanced stack (sub sp,10h ... add sp,10h / popa / ret); same nibble-step idiom as obj38_update_palette_fade; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
-dead_0DC7:
     nop                                      ; 40DC7
 
 ; Loads the key-configuration panel graphics: maps ROM bank 1 at 2000h and BPE-expands two panel streams (Type A / Type B) into tile RAM 34C0h and 3A10h, swapping which goes where according to the current choice (DI) and picking the horizontal or vertical set from play_flags bit0. [high, reviewed: range_0000_7B9B.json]
@@ -3655,9 +3647,9 @@ bpe_expand_bank3:
     call bpe_expand                          ; 41D8A
     ret                                      ; 41D8D
 
-; Draws AL (0-99) as two large digits: AL/10 and AL%10 select 3-tile digit graphics from bank-3 tables 3000:884F (tens) and 3000:8877 (ones) (+14h for vertical), copies them to tile RAM 3F00h/3EA0h and places them in the map at DH,DL via DC70 (1x3 horizontal, 3x1 vertical). Used by the lives screen. [medium, reviewed: range_0000_7B9B.json]
+; Draws AL (0-99) as two large digits: div by 10 (41D9F); the tens digit indexes word table 3000:8877 and the ones digit 3000:884F (+14h, i.e. 10 entries further, when play_flags bit0 is set); each entry points to 3 tiles that copy_tiles_to_ram copies to tile RAM 3EA0h (tens, tile 1EAh) and 3F00h (ones, tile 1F0h). map_fill_tile_rect then places them in the map at 0800h: bit0 clear 1 column x 3 rows, tens at column DH and ones at DH+1; bit0 set 3 columns x 1 row, tens at row DL and ones at DL+1. Only caller (428DC, lives screen) passes [lives] (+1 while [138Eh] < 96h). [medium, reviewed: range_0000_7B9B.json; corrected by doc verification review 2026-11-01: The 13E1h (lives) flag is caller context and is correct: the only caller loads AL=[lives] at 428D1 (+1 while [138Eh] < 96h, 428D4-428DA) before call at 428DC. But the summary swaps the digit tables: after div cl (41D9F) AL=quotient (tens) and AH=remainder (ones). Tens: 41DA2-41DBC index table 3000:8]
 ; in:  AL = number, DX = map position, play_flags bit0
-; out: tile RAM 3EA0h/3F00h, BG map at 0800h (AX=800h passed to DC70)
+; out: tile RAM 3EA0h-3ECFh (tens) and 3F00h-3F2Fh (ones); map words at 0800h + position (DH,DL) / (DH+1,DL) or (DH,DL+1)
 ; side effects: none
 ; evidence: 41D9D-41D9F mov cl,0xa; div cl; 41DA7 mov bx,0x8877; 41DC7 mov bx,0x884f; call sub_6244 (cx=3); 41DEF/41E12 call sub_DC70 with bp=1EAh/1F0h. Only caller 428DC is in state13_lives_vision_over.
 draw_two_digit_number:
@@ -8273,8 +8265,8 @@ loc_464E:
     jnz short loc_4613                       ; 44666
     ret                                      ; 44668
 
-; Parses the level map header at [1328h]:[132Ah]: width/height in blocks ([12F6h]/[12F7h]), pointers to the block map ([12E4h]), palette ([12E6h]), metatile definitions ([12E2h]), tile classification thresholds ([12F4h]/[12F5h]), tileset size [1303h], and derived row strides [12EAh], [12ECh], [12EEh], [12F0h]. [medium, reviewed: range_0000_7B9B.json]
-; in:  [1328h], [132Ah], [1330h], ES = tileset segment
+; Parses the level map header at [1328h]:[132Ah]: width/height in blocks ([12F6h]/[12F7h]), pointers to the block map ([12E4h]), palette ([12E6h]), metatile definitions ([12E2h]), tile classification thresholds ([12F4h]/[12F5h]), tileset size [1303h], and derived row strides [12EAh], [12ECh], [12EEh], [12F0h]. [medium, reviewed: range_0000_7B9B.json; corrected by doc verification review 2026-11-01: 12F5h is the high byte of the word store at 446B5 (mov [0x12f4],ax with AX=[es:bx+2]), so the flag is a false positive. However the inputs omit BX: after pop bx/pop es (446AD-446AE) the routine reads the caller's ES:BX block: byte [es:bx] -> [1303h] (446CE-446D1), word [es:bx+2] -> [12F4h]/[12F5h] (]
+; in:  [1328h]:[132Ah] = map header (width, height, block map); [1330h] (copied to [12E0h]); ES:BX = tileset header (byte 0 -> [1303h], word +2 -> [12F4h]/[12F5h], BX+4 -> [12E6h], BX+14h -> [12E2h]); ES and BX preserved
 ; out: [12E0h]-[12F7h], [1303h]
 ; side effects: none
 ; evidence: 44674 mov [0x12f6],al; 4467E [0x12f7]; 44684 [0x12e4]=bx+2; 4468F [0x12ee]=40h; 44699 [0x12f0]; 446A3 [0x12ea]=width*40h; 446B5 [0x12f4]=[es:bx+2]; 446BB [0x12e6]; 446C2 [0x12e2]; 446D1 [0x1303]
@@ -10842,10 +10834,6 @@ dead_5BF2:
     pusha                                    ; 45BF2
     popa                                     ; 45BF3
     ret                                      ; 45BF4
-
-; UNREFERENCED CODE 45BF2-45BF6 (no caller, jump or table entry; never executed): stub routine pusha/popa/ret + NOP
-; evidence: follows jmp near loc_5BC4; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
-dead_5BF5:
     nop                                      ; 45BF5
 
 ; Chooses the player's animation while holding something ([DI+15h]=1): picks an animation id (11h-17h, +20h in vertical mode) and frame from the state flags (hurt timer, throw timer [1Bh], hanging from type 08, landing, airborne, walking) and stores them in [139Ah]/[139Ch] for player_upload_anim_frame. [high, reviewed: range_0000_7B9B.json]
@@ -13151,9 +13139,9 @@ loc_6D0B:
 loc_6D21:
     ret                                      ; 46D21
 
-; Level spawn routine: delayed spawner that becomes a type-12h block after BP*4 frames, with block variant [1Fh] = (CH&3) clamped to 1..3 (selects the [1408h] graphics). [high, reviewed: range_0000_7B9B.json]
+; Level spawn routine: places a delayed spawner (type 1Bh, byte +1 = 1) at AX<<4, DX<<4 that becomes type 12h (block, +1Eh) after the delay in +14h (BP low byte; obj1b_update_delayed_spawn converts after timer > [DI+14h]*4). Block variant +1Fh = (CH&3)+1 for CH&3 = 0..2, and 3 for CH&3 = 3; obj12_draw_block uses the [1408h] graphics for a non-zero variant (46FDB). [high, reviewed: range_0000_7B9B.json; corrected by doc verification review 2026-11-01: [1408h] is not read here (it is read by obj12_draw_block at 46FDB when [DI+1Fh] != 0), so the flag is a context reference. But the variant mapping is imprecise: 46D56 and ch,3; 46D59 cmp ch,3; 46D5C adc ch,0 adds 1 when CH&3 < 3, so 0->1, 1->2, 2->3, 3->3 (not a clamp). Outputs also omit 46D3D-46D49]
 ; in:  DI, AX, DX, BP = delay, CH = variant
-; out: DI +0=011Bh, +2/+4, +1Eh=12h, +14h, +1Fh, +10h/+11h=44h
+; out: DI +0 = 011Bh, +2 = AX<<4, +4 = DX<<4, +9 = 1, +0Ah = +0Bh = C0h, +0Ch |= 10h, +10h = +11h = 44h, +14h = BP low byte, +1Eh = 12h, +1Fh = variant 1..3; AX, CX, DX clobbered
 ; side effects: none
 ; evidence: 46D2E mov al,0x1b; 46D34 mov byte [di+0x1e],0x12; 46D38 mov ax,bp; mov [di+0x14],al; 46D56-46D5F and ch,3; cmp ch,3; adc ch,0; mov [di+0x1f],ch
 lvl1a_spawn_obj12_delayed:
@@ -15500,10 +15488,6 @@ loc_7DF5:
     mov ch,[di+0x15]                         ; 47DFE
     mov byte [di],0x0                        ; 47E01
     jmp near spawn_explosion_burst           ; 47E04
-
-; UNREFERENCED CODE 47DEF-47E08 (no caller, jump or table entry; never executed): routine tail: cmp [di+1Fh] / call 5FB2 / x,y,ch from slot / delete / jmp 812F (spawn_explosion_burst) + NOP
-; evidence: decodes as instructions ending in an unconditional jmp; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
-dead_7E07:
     nop                                      ; 47E07
 
 ; Type 0Eh (enemy held by the player): zero velocity; if +0Ch bit 5 is set becomes type 0Dh falling (vy 8, accel 1); if +0Ch bit 11 is set becomes type 10h moving horizontally at +/-20h by facing bit 0. Otherwise ticks the capture timer, runs sub_7712 against the player, and when the timer expires or +0Ch bit 12 is set releases the player's hold (sub_5FB2) and explodes. [medium, reviewed: range_7B9C_A99F.json]
@@ -16941,10 +16925,6 @@ dead_8816:
     or byte [si+0x11],0x40                   ; 48822
     or byte [di+0x11],0x80                   ; 48826
     ret                                      ; 4882A
-
-; UNREFERENCED CODE 48816-4882C (no caller, jump or table entry; never executed): routine fragment: positions slot SI 18h px above DI, sets contact bits, ret + NOP
-; evidence: ends in ret; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
-dead_882B:
     nop                                      ; 4882B
 
 ; Collision callback (matrix convention coll_<type of DI>_<type of SI>). Swapped wrapper: exchanges SI and DI and calls coll_12_0A. [high, reviewed: manual review 2026-11-01 (session 4)]
@@ -17714,10 +17694,10 @@ obj1c_update_idle:
     ret                                      ; 48DA6
     nop                                      ; 48DA7
 
-; Emits 12 sprites forming the border of a 32x32 square (top row of 4, two 2-sprite side rows, bottom row of 4) with consecutive tiles starting at BP, into the buffer at BX; layout rotated when play_flags bit 0 is set. [high, reviewed: range_7B9C_A99F.json]
+; Emits 12 sprites forming the border of a 32x32 square (top row of 4, two 2-sprite side rows, bottom row of 4) with consecutive tiles starting at BP, into the buffer at BX; layout rotated when play_flags bit 0 is set. [high, reviewed: range_7B9C_A99F.json; corrected by doc verification review 2026-11-01: The [1382h] reference is a caller precondition and is true (obj1c_draw_door 48E8B-48E8F and obj1e_draw_gate 48FDD-48FE1 take BX=[1382h] and add 30h before calling), but the routine never touches [1382h], and the side-effects field omits that it moves DH/DL to the frame corner (48DAF/48DB2 sub dh,10h]
 ; in:  BX = sprite-list write position, BP = first tile/attr, DH/DL = screen centre
 ; out: 12 sprite entries at BX; BX and BP advanced
-; side effects: Caller must reserve 30h bytes in [1382h]
+; side effects: Does not read or update [1382h]: callers take BX = [1382h] and reserve 30h bytes (12 entries) themselves (48E8B-48E8F, 48FDD-48FE1). Clobbers AX, CX and DX (DH/DL moved to the frame corner); callers save DX.
 ; evidence: loop cx=4 (add ah,8); add al,8 / add ah,18h pairs; test byte [play_flags],1 -> loc_8E10 rotated variant
 emit_sprite_frame_32:
     test byte [play_flags],0x1               ; 48DA8
@@ -18247,8 +18227,8 @@ obj1f_draw_on:
     mov bp,0x29da                            ; 49174
     jmp near loc_D092                        ; 49177
 
-; State-3 entry of the obj1F draw table: draws nothing. [high, reviewed: range_7B9C_A99F.json]
-; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; State-3 entry of the obj1F draw table: draws nothing. [high, reviewed: range_7B9C_A99F.json; corrected by doc verification review 2026-11-01: The routine is a lone ret (4917A); it reads neither [1382h] nor play_flags. The inputs field copies the generic draw-pass context, which suggests use that does not happen. It is reached as entry 3 of tbl_917B via jmp [cs:bx+tbl_917B] at 49194 in obj1f_draw_switch.]
+; in:  none read (reached via tbl_917B from obj1f_draw_switch, 49194, with the draw-pass registers DI/DH/DL, which it ignores)
 ; out: none
 ; side effects: none
 ; evidence: ret
@@ -19928,8 +19908,8 @@ obj25_draw_crumbling:
     mov ch,0x4                               ; 49C5B
     jmp near loc_CE33                        ; 49C5D
 
-; State-2 draw: nothing (platform absent). [high, reviewed: range_7B9C_A99F.json]
-; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; State-2 draw: nothing (platform absent). [high, reviewed: range_7B9C_A99F.json; corrected by doc verification review 2026-11-01: The routine is a single ret at 49C60 (tbl_9C6E case 2). It reads neither [1382h] nor play_flags; the inputs field is the generic draw-pass template copied from its sibling cases (obj25_draw_solid tests play_flags at 49C40, loc_CE33 uses [1382h] at 4CE33/4CE4F), which does not apply here.]
+; in:  none used (called through tbl_9C6E from obj25_draw_vanish_platform with DI = slot, DH/DL = screen X/Y, all ignored)
 ; out: none
 ; side effects: none
 ; evidence: ret
@@ -20469,7 +20449,7 @@ tbl_9FEF:
     dw obj28_update_appearing
     nop                                      ; 49FF7
 
-; Type 28h update: marks updated, counts +1Ch, dispatches through tbl_9FEF following bit +1Eh of [13D6h]. [high, reviewed: range_7B9C_A99F.json]
+; Type 28h update: sets bit 1 of +01h, increments the frame counter +1Ch, and dispatches on the state byte +14h through tbl_9FEF. The state-0 and state-2 cases (obj28_update_solid / obj28_update_absent) test bit number [+1Eh] of [13D6h] to start vanishing or reappearing. [high, reviewed: range_7B9C_A99F.json; corrected by doc verification review 2026-11-01: The routine itself only does or byte [di+1],2 (49FF8), inc word [di+1Ch] (49FFC) and jumps through tbl_9FEF indexed by the state byte [di+14h] (4A001-4A006). [13D6h] is read only by the cases obj28_update_solid (49F7C) and obj28_update_absent (49FB7), which shift it right by [di+1Eh]+1 and test the ]
 ; in:  DI = object slot (called from objects_update with ES = 8000h)
 ; out: see cases
 ; side effects: none
@@ -20482,8 +20462,8 @@ obj28_update_toggle_block:
     shl bx,1                                 ; 4A004
     jmp [cs:bx+tbl_9FEF]                     ; 4A006
 
-; Draws the solid block as the 12-sprite 32x32 frame from tile base [142Ah], attribute 2400h. [high, reviewed: range_7B9C_A99F.json]
-; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; Draws the solid block as the 12-sprite 32x32 frame from tile base [142Ah], attribute 2400h. [high, reviewed: range_7B9C_A99F.json; corrected by doc verification review 2026-11-01: 4A00B-4A088 checks [1382h] < 17C8h, reserves 30h bytes at [1382h] (4A018) and writes 12 entries with tiles [142Ah]|2400h, incrementing. There is no play_flags test anywhere in the routine (it calls nothing), so the template sentence 'play_flags bit 0 selects the rotated sprite layout' is wrong for t]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer. Unlike the type-25h draws, no play_flags test: always the unrotated layout
 ; out: 12 sprite entries (+30h)
 ; side effects: none
 ; evidence: cmp word [1382h],17C8h / bp=[142Ah]|2400h / loop cx=4 ...
@@ -20541,8 +20521,8 @@ loc_A07A:
     loop loc_A07A                            ; 4A086
     ret                                      ; 4A088
 
-; Draws the block breaking apart: corner and edge sprites displaced outward by +1Ch/2. [medium, reviewed: range_7B9C_A99F.json]
-; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; Draws the block breaking apart: corner and edge sprites displaced outward by +1Ch/2. [medium, reviewed: range_7B9C_A99F.json; corrected by doc verification review 2026-11-01: 4A089-4A18C reads [1382h] (4A089, 4A099/4A09D), +1Ch (4A092) and [142Ah] (4A0A3, 4A100). It calls nothing and never reads play_flags, so the play_flags part of the inputs is wrong.]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer. Unlike the type-25h draws, no play_flags test: always the unrotated layout; +1Ch = frame counter (offset = +1Ch/2)
 ; out: 12 sprite entries
 ; side effects: none
 ; evidence: mov ax,[di+1Ch] / shr ax,1 / mov ch,al / add ah,ch / add al,ch
@@ -20654,16 +20634,16 @@ loc_A092:
     add bx,byte +0x4                         ; 4A189
     ret                                      ; 4A18C
 
-; State-2 draw: nothing. [high, reviewed: range_7B9C_A99F.json]
-; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; State-2 draw: nothing. [high, reviewed: range_7B9C_A99F.json; corrected by doc verification review 2026-11-01: A single ret at 4A18D (tbl_A282 case 2). Neither [1382h] nor play_flags is read.]
+; in:  none used (called through tbl_A282 from obj28_draw_toggle_block with DI = slot, DH/DL = screen X/Y, all ignored)
 ; out: none
 ; side effects: none
 ; evidence: ret
 obj28_draw_absent:
     ret                                      ; 4A18D
 
-; Draws the block re-forming: sprites displaced by +1Ch/2 around a smaller centre (offsets inward). [medium, reviewed: range_7B9C_A99F.json]
-; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; Draws the block re-forming: sprites displaced by +1Ch/2 around a smaller centre (offsets inward). [medium, reviewed: range_7B9C_A99F.json; corrected by doc verification review 2026-11-01: 4A18E-4A281 reads [1382h] (4A18E, 4A19E/4A1A2), +1Ch (4A197) and [142Ah] (4A1AE, 4A205). It calls nothing and never reads play_flags.]
+; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer. Unlike the type-25h draws, no play_flags test: always the unrotated layout; +1Ch = frame counter (offset = +1Ch/2)
 ; out: 12 sprite entries
 ; side effects: none
 ; evidence: sub dh,8 / sub dl,8 / sub ah,ch / sub al,ch
@@ -20776,8 +20756,8 @@ tbl_A282:
     dw obj28_draw_absent
     dw obj28_draw_appearing
 
-; Draw dispatcher for type 28h through tbl_A282 by state (each case checks sprite-list room itself). [high, reviewed: range_7B9C_A99F.json]
-; in:  DI = object slot, DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer; play_flags bit 0 selects the rotated sprite layout
+; Draw dispatcher for type 28h through tbl_A282 by state (each case checks sprite-list room itself). [high, reviewed: range_7B9C_A99F.json; corrected by doc verification review 2026-11-01: The [1382h] flag is a false positive: the dispatcher (4A28A-4A291) only jumps through tbl_A282 by state +14h, and the cases use [1382h] (4A00B, 4A089, 4A18E). The play_flags claim is wrong, though: none of the four cases (obj28_draw_solid/vanishing/absent/appearing, 4A00B-4A281) reads play_flags.]
+; in:  DI = object slot (state +14h selects the tbl_A282 case), DH = screen X, DL = screen Y (object draw pass state19_world_record_case0/1); [1382h] = sprite-list write pointer (used by the cases). play_flags is not consulted
 ; out: Appends sprite entries (word tile/attr, byte Y, byte X) at [1382h] and advances [1382h]
 ; side effects: none
 ; evidence: mov bl,[di+14h] / jmp [cs:bx+tbl_A282]
@@ -20910,10 +20890,6 @@ dead_A35A:
     mov [di+0x14],al                         ; 4A36C
     pop ax                                   ; 4A36F
     ret                                      ; 4A370
-
-; UNREFERENCED CODE 4A343-4A372 (no caller, jump or table entry; never executed): two complete routines: turn slot SI / slot DI into a type-29h fragment (AL -> +1Eh, clear velocity/timers) + NOP
-; evidence: each decodes as push ax ... pop ax / ret, mirroring the live sub_A326 fragment initialiser; emitted as db by tools/gen_bank4.py: no decoded instruction, call, jump or jump table targets it; never executed in the trace or the 36-Vision runtime runs
-dead_A371:
     nop                                      ; 4A371
 
 ; Type 29h fragment: increments +14h each frame and deletes itself after 8 frames. [high, reviewed: range_7B9C_A99F.json]
@@ -21841,8 +21817,8 @@ obj34_update_static:
     ret                                      ; 4A9A4
     nop                                      ; 4A9A5
 
-; Draw handler for type 34h: if the sprite table write pointer [1382h] is below 17E8h, draws a 2x2 sprite group with base tile word 2DB3h via loc_D092 (the same tile pair used for the HUD hearts in sub_C49C). [medium, reviewed: range_A9A0_FFFF.json]
-; in:  DI = slot, DH/DL = screen x/y from the draw pass
+; Draw handler for type 34h: if the sprite-list pointer [1382h] is below 17E8h, draws a 2x2 sprite group with tiles 2DB3h-2DB6h via loc_D092 (layout rotated when play_flags bit 0 is set). Its first two tiles, 2DB3h/2DB4h, are the ones draw_hearts_sprites uses for the HUD hearts. It does not read [13E0h]. [medium, reviewed: range_A9A0_FFFF.json; corrected by doc verification review 2026-11-01: The flagged 'hearts' (13E0h) is only a mention of the HUD routine, not a claimed access, so the flag itself is a false positive. The routine (4A9A6-4A9B2) compares [1382h] with 17E8h, sets BP = 2DB3h and jumps to loc_D092. loc_D092 (4D092) reserves 10h bytes at [1382h], tests [play_flags] bit 0 (4D0]
+; in:  DI = slot, DH/DL = screen x/y from the draw pass; [1382h]; play_flags bit 0 (in loc_D092)
 ; out: sprite entries at [1382h], [1382h] += 10h
 ; side effects: none
 ; evidence: cmp word [0x1382],0x17e8 / mov bp,0x2db3 / jmp loc_D092; sub_C49C uses si=0x2db3 for hearts
@@ -28734,9 +28710,9 @@ sound_voice_stop:
     out 0xb2,al                              ; 4DE4E
     ret                                      ; 4DE50
 
-; Silences everything: zeroes volume ports 88h-8Bh and noise control 8Eh, clears the sequence pointers and channel masks of all four tracks, the global fade state [0274h]-[0276h], sets all track priorities to FFh and stops the voice (sub_DE37). [high, reviewed: range_A9A0_FFFF.json]
+; Silences everything: zeroes volume ports 88h-8Bh and noise control 8Eh, clears the sequence pointers and channel masks of all four tracks, the global fade state [0274h]-[0276h], sets all track priorities to FFh and stops the voice (sub_DE37). [high, reviewed: range_A9A0_FFFF.json; corrected by doc verification review 2026-11-01: Ports 00h/01h/02h/76h were parsed by the checker out of the RAM range '0100h-0276h' that follows 'ports' in the outputs field. Port 8Bh is written: out 8Ah,ax at 4DE56 is a word write to 8Ah/8Bh. However, the outputs field 'ports 88h-8Eh' overstates the writes. The code writes only 88h-8Bh (word out]
 ; in:  none
-; out: ports 88h-8Eh, 0100h-0276h fields
+; out: ports 88h-8Bh = 0 (word outs 4DE54/4DE56) and 8Eh = 0 (4DE72); via sound_voice_stop: port 94h = 0, port 90h &= DDh, port B2h &= 7Fh. RAM: track words 0100h/0158h/01B0h/0208h = 0, bytes 0103h/015Bh/01B3h/020Bh = 0, 0274h-0276h = 0, 010Ch/0164h/01BCh/0214h = FFh; via sound_voice_stop [0264h] = 0 and [0271h] ANDed with the new port-90h value
 ; side effects: DS = 0
 ; evidence: out 0x88,ax / out 0x8a,ax / mov [0x100],ax / mov [0x158],ax / mov [0x1b0],ax / mov [0x208],ax / out 0x8e,al / mov [0x274],ax / mov [0x10c],al (FF) / call sub_DE37
 sound_stop_all:
@@ -29881,9 +29857,9 @@ loc_E6CF:
     pop ds                                   ; 4E6D4
     ret                                      ; 4E6D5
 
-; Global fade mode 2: resets master attenuation to 0 and switches to mode 5 (fade out without stopping the tracks). [high, reviewed: range_A9A0_FFFF.json]
+; Global fade mode 2: resets the master attenuation [0276h] to 0, switches to mode 5 (fade out without stopping the tracks) and falls through into snd_fade_out_mute_step, which performs the first step ([0276h] = rate [0275h]) and continues track processing at loc_DF28. [high, reviewed: range_A9A0_FFFF.json; corrected by doc verification review 2026-11-01: The address flag is a false positive: with ES = 0 and SI = 0260h (4DE8F, 4DEEF), [es:si+16h] = [0276h] is zeroed at 4E6D6 and [es:si+14h] = [0274h] = 5 is set at 4E6DB. But the routine has no ret and falls into snd_fade_out_mute_step at 4E6E0. That step computes AL = [0275h] + [0276h] (4E6E0/4E6E4),]
 ; in:  SI = 0260h
-; out: [0274h] = 5, [0276h] = 0
+; out: [0274h] = 5, [0276h] = [0275h] (after the fall-through first step)
 ; side effects: none
 ; evidence: mov byte [es:si+0x16],0x0 / mov byte [es:si+0x14],0x5
 snd_fade_out_mute_start:
@@ -30502,7 +30478,7 @@ loc_EBEE:
 ; evidence: FFh bytes; not read
     db 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF   ; 4EBF1
 
-; One frame of the museum World/Vision selection screen: up/down move between three rows ([1308h], sound 2Bh); on row 0 left/right change the world (EX world 6 only when [133Eh] bit0), on row 1 change the Vision, limited to reached progress ([148Fh], EX Visions via [1497h]); draws world/Vision numbers, the selected Vision's best stones and lives, a blinking cursor, best EX time for EX Visions 1-2, the world icons (layouts from 9000:FA50) and an animated banner when [133Fh] is set; stores the selected progress code W V 01 in [12D8h]. Returns AX = 1 when the cursor is on row 2. [medium, reviewed: range_A9A0_FFFF.json]
+; One frame of the museum World/Vision selection screen: up/down move between three rows ([1308h], sound 2Bh); on row 0 left/right change the world (EX world 6 only when [133Eh] bit0), on row 1 change the Vision, limited to reached progress ([148Fh], EX Visions via [1497h]); draws world/Vision numbers, the selected Vision's best stone count (byte at 1480h + world*8 + Vision, 4ED5C-4ED6A) and the saved lives byte [149Fh] (4ED74), a blinking cursor, best EX time for EX Visions 1-2, the world icons (layouts from 9000:FA50) and an animated banner when [133Fh] is set; stores the selected progress code W V 01 in [12D8h]. Returns AX = 1 when the cursor is on row 2. [medium, reviewed: range_A9A0_FFFF.json; corrected by doc verification review 2026-11-01: The routine does not access [13E1h]. The lives number it draws is the save-block byte [149Fh] (mov al,[149Fh] at 4ED74 -> draw_number_sprites_radix at 4ED7C). The stone count is [1480h + [130Ah]*8 + [130Ch]] (4ED5C-4ED6A). The phrase 'the selected Vision's best stones and lives' wrongly suggests a p]
 ; in:  [138Ch] new keys, 1308h-1351h menu state, save block
 ; out: [1308h]-[130Ch], [12D8h], sprite table, ports 00h/2Ah
 ; side effects: sounds 2Bh/2Dh/31h
@@ -32255,7 +32231,7 @@ loc_F9AA:
     call draw_sprite_layout                  ; 4F9CA
     ret                                      ; 4F9CD
 
-; Draws the three tickets (40 px apart, scrolled by [12DAh]; only the chosen one when [12DEh] = 1): an empty ticket is layout 7; a used ticket shows its lives (sub_F4FD) and either the last cleared stage as big digits W, separator, V plus layout 6 (summary word <= 0506h), or for a finished game ([148Fh] = FFh) layout 16h followed by one layout-18h icon per cleared EX Vision and layout 0Ch. [high, reviewed: range_A9A0_FFFF.json]
+; Draws the three tickets (x base [1312h] = 22h, 4Ah, 72h, 40 px apart; [12DCh] = [1312h] - [12DAh]). When [12DEh] != 0, only the ticket whose index equals [131Ch] is drawn. An empty ticket ([1316h+i] != 1) is layout 7. A used ticket shows its lives (summary byte +2, ticket_draw_lives). Then, if its summary word (+0 = Vision, +1 = world, from sram_scan_tickets) is <= 0506h (signed), it shows the last cleared stage as big digits world, separator (big digit 7), Vision, plus layout 6. Otherwise (e.g. saved progress FFh -> 0F0Eh) it shows layout 16h followed by one layout-18h icon per cleared EX Vision (byte +3), both only when that count is non-zero, and then layout 0Ch. [high, reviewed: range_A9A0_FFFF.json; corrected by doc verification review 2026-11-01: 'lives' (13E1h) is a false positive: the lives come from summary byte +2 (4FA22) and are passed to ticket_draw_lives. The [148Fh] claim is wrong, though: the routine never reads 148Fh. The branch is cmp word [bx],0506h / jg at 4FA30, a signed compare of the summary word (+0 = Vision, +1 = world) bui]
 ; in:  ticket summaries 1316h/1332h, [12DAh], [12DEh], [131Ch]
 ; out: sprite table, [1312h], [1314h], [12DCh]
 ; side effects: none

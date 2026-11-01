@@ -25,14 +25,14 @@
   },
   "routine_documentation": {
    "percent": 100.0,
-   "numerator": 779,
-   "denominator": 779,
+   "numerator": 773,
+   "denominator": 773,
    "definition": "entry points with a hand-written or reviewed (high/medium confidence) description; unreferenced (dead) routines count when the reviewed bank-4 classification describes them",
-   "dead_routines_described": 31,
+   "dead_routines_described": 25,
    "breakdown": {
     "hand": 36,
     "reviewed": 712,
-    "dead": 31
+    "dead": 25
    },
    "remaining": "0 role-only/low-confidence, 0 generic, 0 dead-code routines without a behaviour description; reviewed entries are spot-checked, not individually re-verified"
   },
@@ -97,15 +97,72 @@
    "remaining": "78 opaque bytes (gamedata/raw; all listed in assets/exceptions.json) + 0 generated zero-run bytes not yet explained"
   },
   "runtime_coverage": {
-   "percent": 79.85,
-   "numerator": 18705,
+   "percent": 41.97,
+   "numerator": 9831,
    "denominator": 23425,
-   "definition": "statically traced instructions executed in at least one emulator run",
-   "entry_points_executed": "562 / 748 live entry points",
-   "dead_instructions": "1357 unreferenced instructions excluded from the denominator; executed: 0",
-   "states": "20/20 reached; 13 naturally (0,1,2,3,4,5,6,8,9,12,13,16,19), 7 only with fault injection (7,10,11,14,15,17,18) - see docs/game-states.md; all 36 Visions loaded via the museum menu with an unlock fixture",
-   "runs": 63,
+   "definition": "NATURAL runtime coverage: live instructions executed in at least one run driven only by controller input (no poke/orpoke/forcestate; SRAM only from natural runs), replayed from power-on with emu/ktrun",
+   "entry_points_executed_natural": "307 / 748 live entry points",
+   "all_runs_including_forced": "18674 / 23425 instructions (79.72 %), 561 live entry points",
+   "dead_instructions": "1357 unreferenced instructions excluded from the denominator; executed in any run: 0",
+   "runs": "64 runs, 10 natural",
    "executed_outside_static_trace": 0
+  },
+  "natural_state_coverage": {
+   "percent": 66.67,
+   "numerator": 12,
+   "denominator": 18,
+   "definition": "game states 0-19 dispatched in natural runs, out of the 18 states the code can enter (14 and 15 are never written by any instruction: statically unreachable)",
+   "natural": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    6,
+    8,
+    9,
+    10,
+    12,
+    16,
+    19
+   ],
+   "forced_only": [
+    5,
+    7,
+    11,
+    13,
+    17,
+    18
+   ],
+   "missing": [
+    5,
+    7,
+    11,
+    13,
+    17,
+    18
+   ],
+   "statically_unreachable": [
+    14,
+    15
+   ]
+  },
+  "documentation_verification": {
+   "percent": 36.87,
+   "numerator": 285,
+   "denominator": 773,
+   "definition": "routines whose description passes the static cross-check AND every RAM address it names was accessed by the routine (or its callees) in a natural run (docs/verification.md); other levels listed in breakdown",
+   "breakdown": {
+    "runtime-confirmed": 285,
+    "static-consistent": 212,
+    "runtime-partial": 276
+   },
+   "executed": {
+    "natural": 307,
+    "no": 187,
+    "forced_only": 254,
+    "dead": 25
+   }
   },
   "reproducible_source_build": {
    "percent_rom_free": 100.0,

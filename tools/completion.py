@@ -23,6 +23,37 @@ cov = J('build', 'runtime_coverage.json')
 trace = J('build', 'trace.json')
 
 ROM = 0x100000
+
+
+def natural_states():
+    """game states dispatched in natural runs vs forced runs (build/runtime/*/summary.json)"""
+    import glob
+    nat, forced = set(), set()
+    for f in glob.glob(os.path.join(ROOT, 'build', 'runtime', '*', 'summary.json')):
+        d = json.load(open(f))
+        (nat if d.get('provenance') == 'natural' else forced).update(d.get('states_dispatched', []))
+    unreachable = {14, 15}            # never written by any code (docs/game-states.md)
+    reachable = set(range(20)) - unreachable
+    return {'percent': pct(len(nat & reachable), len(reachable)), 'numerator': len(nat & reachable),
+            'denominator': len(reachable),
+            'definition': 'game states 0-19 dispatched in natural runs, out of the 18 states the code can '
+                          'enter (14 and 15 are never written by any instruction: statically unreachable)',
+            'natural': sorted(nat), 'forced_only': sorted((forced - nat) & reachable),
+            'missing': sorted(reachable - nat), 'statically_unreachable': sorted(unreachable)}
+
+
+def doc_verification():
+    p = os.path.join(ROOT, 'docs', 'verification.json')
+    if not os.path.exists(p):
+        return {'note': 'run tools/verify_docs.py'}
+    v = json.load(open(p))['summary']
+    n = v['routines']
+    ok = v['verification'].get('runtime-confirmed', 0)
+    return {'percent': pct(ok, n), 'numerator': ok, 'denominator': n,
+            'definition': 'routines whose description passes the static cross-check AND every RAM address it '
+                          'names was accessed by the routine (or its callees) in a natural run '
+                          '(docs/verification.md); other levels listed in breakdown',
+            'breakdown': v['verification'], 'executed': v['executed']}
 by_class, by_rep, data_by_class, data_by_rep = {}, {}, {}, {}
 code_classified = 0
 code_exceptions = []
@@ -86,17 +117,21 @@ metrics = {
                      'zero-run bytes not yet explained' % (
             data_by_rep.get('opaque', 0), data_by_rep.get('generated_unexplained', 0))},
     'runtime_coverage': {
-        'percent': pct(cov['static_instructions_executed'], cov['static_instructions']),
-        'numerator': cov['static_instructions_executed'], 'denominator': cov['static_instructions'],
-        'definition': 'statically traced instructions executed in at least one emulator run',
-        'entry_points_executed': '%d / %d live entry points' % (ran, n_ep - basis['dead']),
-        'dead_instructions': '%d unreferenced instructions excluded from the denominator; executed: %d' % (
+        'percent': pct(cov.get('static_instructions_executed_natural', 0), cov['static_instructions']),
+        'numerator': cov.get('static_instructions_executed_natural', 0), 'denominator': cov['static_instructions'],
+        'definition': 'NATURAL runtime coverage: live instructions executed in at least one run driven only by '
+                      'controller input (no poke/orpoke/forcestate; SRAM only from natural runs), replayed from '
+                      'power-on with emu/ktrun',
+        'entry_points_executed_natural': '%d / %d live entry points' % (cov.get('entry_points_executed_natural', 0), n_ep - basis['dead']),
+        'all_runs_including_forced': '%d / %d instructions (%.2f %%), %d live entry points' % (
+            cov['static_instructions_executed'], cov['static_instructions'],
+            pct(cov['static_instructions_executed'], cov['static_instructions']), ran),
+        'dead_instructions': '%d unreferenced instructions excluded from the denominator; executed in any run: %d' % (
             cov.get('dead_instructions', 0), len(cov.get('dead_instructions_executed', []))),
-        'states': '20/20 reached; 13 naturally (0,1,2,3,4,5,6,8,9,12,13,16,19), 7 only with fault injection '
-                  '(7,10,11,14,15,17,18) - see docs/game-states.md; all 36 Visions loaded via the museum '
-                  'menu with an unlock fixture',
-        'runs': len(cov['runs']),
+        'runs': '%d runs, %d natural' % (len(cov['runs']), cov.get('natural_runs', 0)),
         'executed_outside_static_trace': len(cov['executed_but_not_in_static_trace'])},
+    'natural_state_coverage': natural_states(),
+    'documentation_verification': doc_verification(),
     'reproducible_source_build': {
         'percent_rom_free': 100.0,
         'definition': 'share of ROM bytes rebuilt without the original ROM (committed source + gamedata/)',
@@ -128,4 +163,5 @@ report = {'rom_sha1': '207a3ceb9a09eabca6e455deeb7035e7e04c9795', 'complete': Fa
 json.dump(report, open(os.path.join(ROOT, 'docs', 'completion.json'), 'w'), indent=1)
 print('OVERALL decompiled bytes: %d / %d = %.2f %%' % (decompiled, ROM, overall['percent']))
 for k, v in metrics.items():
-    print('%-34s %6.2f %%' % (k, v.get('percent', v.get('percent_rom_free'))))
+    if 'percent' in v or 'percent_rom_free' in v:
+        print('%-34s %6.2f %%' % (k, v.get('percent', v.get('percent_rom_free'))))

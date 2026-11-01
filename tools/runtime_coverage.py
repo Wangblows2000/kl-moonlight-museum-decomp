@@ -22,12 +22,25 @@ for f, v in insn.items():
 
 runs = sorted(d for d in glob.glob(os.path.join(ROOT, 'build', 'runtime', '*')) if os.path.isfile(os.path.join(d, 'exec.bin')))
 execd = bytearray(0x100000)
+nat = bytearray(0x100000)          # executed in at least one NATURAL run (controller input only)
+prov = {}
 edges = set()
+ramacc = set()
 for d in runs:
+    sp = os.path.join(d, 'summary.json')
+    pv = json.load(open(sp)).get('provenance', 'forced') if os.path.exists(sp) else 'forced'
+    prov[os.path.basename(d)] = pv
     e = open(os.path.join(d, 'exec.bin'), 'rb').read()
     for i, b in enumerate(e):
         if b:
             execd[i] = 1
+            if pv == 'natural':
+                nat[i] = 1
+    ra = os.path.join(d, 'ramaccess.txt')
+    if os.path.exists(ra):
+        for line in open(ra):
+            k, pc, key = line.split()
+            ramacc.add((k, pc, key, pv))
     for line in open(os.path.join(d, 'edges.txt')):
         a, b = line.split()
         edges.add((int(a, 16), int(b, 16)))
@@ -40,12 +53,19 @@ dead = set(T.get('dead_insn', []))
 static_starts = [f for f in insn if f not in dead]          # live code only
 dead_hit = [f for f in dead if execd[f]]
 hit = [f for f in static_starts if execd[f]]
+hit_nat = [f for f in static_starts if nat[f]]
 entry_pts = [f for f, k in labels.items() if k & {'call', 'farcall', 'entry', 'irq', 'table'} and f in insn]
 entry_hit = [f for f in entry_pts if execd[f]]
+entry_nat = [f for f in entry_pts if nat[f]]
 # indirect targets
 ind_unknown = sorted({(a, b) for a, b in edges if 0x40000 <= b < 0x100000 and b not in labels})
 res = {
     'runs': [os.path.basename(d) for d in runs],
+    'run_provenance': prov,
+    'natural_runs': sum(1 for v in prov.values() if v == 'natural'),
+    'static_instructions_executed_natural': len(hit_nat),
+    'entry_points_executed_natural': len(entry_nat),
+    'entry_points_executed_natural_list': ['%05X' % f for f in sorted(entry_nat)],
     'rom_instruction_starts_executed': len(rom_exec),
     'executed_but_not_in_static_trace': ['%05X' % a for a in unknown],
     'executed_inside_static_instruction': ['%05X' % a for a in misaligned],
@@ -61,7 +81,12 @@ res = {
     'entry_points_executed_list': ['%05X' % f for f in sorted(entry_hit)],
 }
 json.dump(res, open(os.path.join(ROOT, 'build', 'runtime_coverage.json'), 'w'), indent=1)
+with open(os.path.join(ROOT, 'build', 'ramaccess_all.txt'), 'w') as f:      # merged attribution
+    for k, pc, key, pv in sorted(ramacc):
+        f.write('%s %s %s %s\n' % (k, pc, key, pv))
 for k, v in res.items():
+    if k in ('run_provenance', 'entry_points_executed_natural_list'):
+        continue
     if k == 'entry_points_executed_list':
         continue
     print('%-40s %s' % (k, v if not isinstance(v, list) or len(v) < 12 else '%d items: %s ...' % (len(v), v[:12])))

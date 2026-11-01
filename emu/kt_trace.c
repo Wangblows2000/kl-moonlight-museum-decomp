@@ -95,6 +95,37 @@ void kt_hook(uint32_t lin)
    kt_peeking = 0;
 }
 
+/* RAM access attribution (game RAM 0000h-FFFFh): set of (PC of the accessing instruction,
+ * address key) pairs; address key = address for 0000h-1FFFh (work RAM / variables), else
+ * 2000h + (address >> 8) (tile / map / sound RAM pages).  Used by tools/verify_docs.py. */
+#define KT_ACC_BITS 23
+static uint64_t kt_acc[1u << KT_ACC_BITS];
+uint32_t kt_acc_n;
+static void kt_acc_add(uint32_t kind, uint32_t a)
+{
+   if (kt_peeking || kt_cur == 0xFFFFFFFF) return;
+   uint32_t key = a < 0x2000 ? a : 0x2000 + (a >> 8);
+   uint64_t v = ((uint64_t)kind << 52) | ((uint64_t)kt_cur << 20) | key | (1ull << 63);
+   uint32_t h = (uint32_t)((v * 0x9E3779B97F4A7C15ull) >> (64 - KT_ACC_BITS));
+   while (kt_acc[h]) {
+      if (kt_acc[h] == v) return;
+      h = (h + 1) & ((1u << KT_ACC_BITS) - 1);
+   }
+   if (kt_acc_n >= (1u << KT_ACC_BITS) - 1024) return;
+   kt_acc[h] = v;
+   kt_acc_n++;
+}
+void kt_ramw(uint32_t a) { kt_acc_add(1, a); }
+void kt_ramr(uint32_t a) { kt_acc_add(0, a); }
+/* iterate: returns entries as (kind<<52 | pc<<20 | key) */
+uint32_t kt_acc_dump(uint64_t *out, uint32_t max)
+{
+   uint32_t n = 0;
+   for (uint32_t h = 0; h < (1u << KT_ACC_BITS) && n < max; h++)
+      if (kt_acc[h]) out[n++] = kt_acc[h] & ~(1ull << 63);
+   return n;
+}
+
 void kt_port(uint32_t port, uint8_t v)
 {
    kt_port_hist[port & 0xFF][v]++;

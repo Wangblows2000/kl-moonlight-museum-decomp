@@ -230,7 +230,9 @@ def main():
             if f is None:
                 break
             before = len(t.insn)
-            t.add(0x4000, f - 0x40000, 'dead' if routine else 'filler')
+            # a lone alignment NOP after the routine's RET is filler, not a routine of its own
+            lone_nop = ROM[f] == 0x90 and (f + 1 >= b or t.covered(f + 1))
+            t.add(0x4000, f - 0x40000, 'dead' if routine and not lone_nop else 'filler')
             t.run()
             if len(t.insn) == before:
                 break
