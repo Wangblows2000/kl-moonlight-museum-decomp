@@ -12,7 +12,13 @@
    "evidence": "visual",
    "description": "Museum gallery artwork, framed 20x19-tile picture + 2 tiles + 8 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 360,
+   "width": 20,
+   "palette_bytes": 0,
+   "layout_evidence": "load_world_picture 4000:1D1C; 360 = 20x18 cells (continuity check agrees)",
+   "layout_confidence": "high"
   },
   {
    "offset": "01174",
@@ -26,7 +32,13 @@
    "evidence": "visual",
    "description": "Museum gallery artwork, framed 20x19-tile picture + 2 tiles + 8 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 360,
+   "width": 20,
+   "palette_bytes": 0,
+   "layout_evidence": "load_world_picture 4000:1D1C; 360 = 20x18 cells (continuity check agrees)",
+   "layout_confidence": "high"
   },
   {
    "offset": "020E5",
@@ -40,7 +52,13 @@
    "evidence": "visual",
    "description": "Museum gallery artwork, framed 20x19-tile picture + 2 tiles + 8 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 360,
+   "width": 20,
+   "palette_bytes": 0,
+   "layout_evidence": "load_world_picture 4000:1D1C; 360 = 20x18 cells (continuity check agrees)",
+   "layout_confidence": "high"
   },
   {
    "offset": "02FEA",
@@ -54,7 +72,13 @@
    "evidence": "visual",
    "description": "Museum gallery artwork, framed 20x19-tile picture + 2 tiles + 8 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 360,
+   "width": 20,
+   "palette_bytes": 0,
+   "layout_evidence": "load_world_picture 4000:1D1C; 360 = 20x18 cells (continuity check agrees)",
+   "layout_confidence": "high"
   },
   {
    "offset": "03EDB",
@@ -68,7 +92,13 @@
    "evidence": "visual",
    "description": "Museum gallery artwork, framed 20x19-tile picture + 2 tiles + 8 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 360,
+   "width": 20,
+   "palette_bytes": 0,
+   "layout_evidence": "load_world_picture 4000:1D1C; 360 = 20x18 cells (continuity check agrees)",
+   "layout_confidence": "high"
   },
   {
    "offset": "04C45",
@@ -82,7 +112,13 @@
    "evidence": "visual",
    "description": "Museum gallery artwork, framed 20x19-tile picture + 2 tiles + 8 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 360,
+   "width": 20,
+   "palette_bytes": 0,
+   "layout_evidence": "load_world_picture 4000:1D1C; 360 = 20x18 cells (continuity check agrees)",
+   "layout_confidence": "high"
   },
   {
    "offset": "10004",
@@ -92,11 +128,17 @@
    "trailing_bytes": 3,
    "sha1_unpacked": "3d45d4063d9b1ac561413d400b1637d8e074fde6",
    "family": "pause_window",
-   "layout_width_tiles": 15,
+   "layout_width_tiles": 11,
    "evidence": "visual",
    "description": "pause / in-game menu window graphics",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 99,
+   "width": 11,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 11 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "103E9",
@@ -106,11 +148,17 @@
    "trailing_bytes": 3,
    "sha1_unpacked": "e4379b2297866e5fc706920af6183525b32e2706",
    "family": "pause_window",
-   "layout_width_tiles": 15,
+   "layout_width_tiles": 9,
    "evidence": "visual",
    "description": "pause / in-game menu window graphics",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 99,
+   "width": 9,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 9 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "10881",
@@ -120,11 +168,17 @@
    "trailing_bytes": 2,
    "sha1_unpacked": "3143468bcc051a22596906bc27a35c063c8c0fe7",
    "family": "menu_label",
-   "layout_width_tiles": 19,
+   "layout_width_tiles": 9,
    "evidence": "visual",
    "description": "menu option label (Japanese text strip), 19 tiles",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 18,
+   "width": 9,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 9 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "1099B",
@@ -134,11 +188,17 @@
    "trailing_bytes": 2,
    "sha1_unpacked": "992b3f6fe268240b55fce9f2a93fb826087ab303",
    "family": "menu_label",
-   "layout_width_tiles": 19,
+   "layout_width_tiles": 2,
    "evidence": "visual",
    "description": "menu option label (Japanese text strip), 19 tiles",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 18,
+   "width": 2,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 2 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "10AC7",
@@ -148,11 +208,17 @@
    "trailing_bytes": 2,
    "sha1_unpacked": "6e84d89be8d656172d116153a9d0cccaf1986619",
    "family": "menu_label",
-   "layout_width_tiles": 19,
+   "layout_width_tiles": 9,
    "evidence": "visual",
    "description": "menu option label (Japanese text strip), 19 tiles",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 18,
+   "width": 9,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 9 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "10BD7",
@@ -162,11 +228,17 @@
    "trailing_bytes": 2,
    "sha1_unpacked": "4c86c8c0f8308f6c154a7288ed8829d22aa1fbff",
    "family": "menu_label",
-   "layout_width_tiles": 19,
+   "layout_width_tiles": 2,
    "evidence": "visual",
    "description": "menu option label (Japanese text strip), 19 tiles",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 18,
+   "width": 2,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 2 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "10CFF",
@@ -176,11 +248,17 @@
    "trailing_bytes": 2,
    "sha1_unpacked": "a852843d0eb2714dea16073e95a3d7fde270991d",
    "family": "menu_label",
-   "layout_width_tiles": 19,
+   "layout_width_tiles": 9,
    "evidence": "visual",
    "description": "menu option label (Japanese text strip), 19 tiles",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 18,
+   "width": 9,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 9 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "10E08",
@@ -190,11 +268,17 @@
    "trailing_bytes": 2,
    "sha1_unpacked": "0b98e0c367ce8372898f1dd2a536da9c2573f56c",
    "family": "menu_label",
-   "layout_width_tiles": 19,
+   "layout_width_tiles": 2,
    "evidence": "visual",
    "description": "menu option label (Japanese text strip), 19 tiles",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 18,
+   "width": 2,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 2 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "10F24",
@@ -204,11 +288,17 @@
    "trailing_bytes": 2,
    "sha1_unpacked": "62569e68e281ce9f0abd6fcf9586c61dea3231d5",
    "family": "menu_label",
-   "layout_width_tiles": 19,
+   "layout_width_tiles": 9,
    "evidence": "visual",
    "description": "menu option label (Japanese text strip), 19 tiles",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 18,
+   "width": 9,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 9 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "11036",
@@ -218,11 +308,17 @@
    "trailing_bytes": 2,
    "sha1_unpacked": "7e0eef014ae1a709c7aa08f60a099e5dfc6a7693",
    "family": "menu_label",
-   "layout_width_tiles": 19,
+   "layout_width_tiles": 2,
    "evidence": "visual",
    "description": "menu option label (Japanese text strip), 19 tiles",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 18,
+   "width": 2,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 2 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "1115D",
@@ -232,11 +328,17 @@
    "trailing_bytes": 2,
    "sha1_unpacked": "8cea881b850f042b26738dac7a2616b34b3f8f60",
    "family": "menu_label",
-   "layout_width_tiles": 19,
+   "layout_width_tiles": 9,
    "evidence": "visual",
    "description": "menu option label (Japanese text strip), 19 tiles",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 18,
+   "width": 9,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 9 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "11273",
@@ -246,11 +348,17 @@
    "trailing_bytes": 2,
    "sha1_unpacked": "8f9d04f50af347a5c6939e4d37f14f627c45e404",
    "family": "menu_label",
-   "layout_width_tiles": 19,
+   "layout_width_tiles": 2,
    "evidence": "visual",
    "description": "menu option label (Japanese text strip), 19 tiles",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 18,
+   "width": 2,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 2 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "113A9",
@@ -260,11 +368,17 @@
    "trailing_bytes": 0,
    "sha1_unpacked": "5389cea09cb6cfba49f41a3e88f745f7d00ad19e",
    "family": "keyconfig_panel",
-   "layout_width_tiles": 17,
+   "layout_width_tiles": 8,
    "evidence": "visual",
    "description": "key-config panel (Type A / Type B)",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 80,
+   "width": 8,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 8 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "116C7",
@@ -274,11 +388,17 @@
    "trailing_bytes": 0,
    "sha1_unpacked": "7359bcc534c97faf1e3bf1bdb18d60ce8776fd65",
    "family": "keyconfig_panel",
-   "layout_width_tiles": 17,
+   "layout_width_tiles": 8,
    "evidence": "visual",
    "description": "key-config panel (Type A / Type B)",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 80,
+   "width": 8,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 8 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "119E9",
@@ -288,11 +408,17 @@
    "trailing_bytes": 12,
    "sha1_unpacked": "2dd729167bfb6090f3f91279ae19b77e2a319518",
    "family": "yes_no_button",
-   "layout_width_tiles": 12,
+   "layout_width_tiles": 6,
    "evidence": "visual",
    "description": "Yes / No style button graphics + 12 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 12,
+   "width": 6,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 6 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "11A95",
@@ -302,11 +428,17 @@
    "trailing_bytes": 12,
    "sha1_unpacked": "755667368bf064bd37db1571a11bdf033664dc92",
    "family": "yes_no_button",
-   "layout_width_tiles": 12,
+   "layout_width_tiles": 6,
    "evidence": "visual",
    "description": "Yes / No style button graphics + 12 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 12,
+   "width": 6,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 6 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "11B45",
@@ -316,11 +448,17 @@
    "trailing_bytes": 0,
    "sha1_unpacked": "69d3f23546fb358b098f9e869e51979a663e5416",
    "family": "keyconfig_panel",
-   "layout_width_tiles": 17,
+   "layout_width_tiles": 10,
    "evidence": "visual",
    "description": "key-config panel (Type A / Type B)",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 80,
+   "width": 10,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 10 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "11EB3",
@@ -330,11 +468,17 @@
    "trailing_bytes": 0,
    "sha1_unpacked": "ddc26435a5bbd753462e60de0c208338b5f98ec9",
    "family": "keyconfig_panel",
-   "layout_width_tiles": 17,
+   "layout_width_tiles": 10,
    "evidence": "visual",
    "description": "key-config panel (Type A / Type B)",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 80,
+   "width": 10,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 10 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "1222D",
@@ -344,11 +488,17 @@
    "trailing_bytes": 12,
    "sha1_unpacked": "a2da07edcbb8b5f6a6a8faf473d7cf4ce56bc0e3",
    "family": "yes_no_button",
-   "layout_width_tiles": 12,
+   "layout_width_tiles": 2,
    "evidence": "visual",
    "description": "Yes / No style button graphics + 12 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 12,
+   "width": 2,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 2 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "122D6",
@@ -358,11 +508,17 @@
    "trailing_bytes": 12,
    "sha1_unpacked": "15fe3e64c9a374d839f17d82cb702fe03a77e6cb",
    "family": "yes_no_button",
-   "layout_width_tiles": 12,
+   "layout_width_tiles": 2,
    "evidence": "visual",
    "description": "Yes / No style button graphics + 12 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 12,
+   "width": 2,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 2 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "1237F",
@@ -372,11 +528,17 @@
    "trailing_bytes": 3,
    "sha1_unpacked": "ff9d20f37f228bbbe0163a426aaeaeac884c932a",
    "family": "pause_window",
-   "layout_width_tiles": 15,
+   "layout_width_tiles": 11,
    "evidence": "visual",
    "description": "pause / in-game menu window graphics",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 99,
+   "width": 11,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 11 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "12778",
@@ -386,11 +548,17 @@
    "trailing_bytes": 3,
    "sha1_unpacked": "62fdf623580d9c60dbabed86df6a6dcd7aa2d4f5",
    "family": "pause_window",
-   "layout_width_tiles": 15,
+   "layout_width_tiles": 9,
    "evidence": "visual",
    "description": "pause / in-game menu window graphics",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 99,
+   "width": 9,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 9 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "12BF6",
@@ -404,7 +572,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "13170",
@@ -418,7 +592,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "13684",
@@ -432,7 +612,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "13B19",
@@ -446,7 +632,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "1406B",
@@ -460,7 +652,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "14568",
@@ -474,7 +672,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "14A6C",
@@ -488,7 +692,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "14E2F",
@@ -502,7 +712,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "1528D",
@@ -516,7 +732,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "156FF",
@@ -530,7 +752,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "15B8C",
@@ -544,7 +772,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "160C0",
@@ -558,7 +792,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "1652E",
@@ -572,7 +812,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "16A01",
@@ -586,7 +832,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "16E5D",
@@ -600,7 +852,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "172AF",
@@ -614,7 +872,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "17748",
@@ -628,7 +892,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "17BAB",
@@ -642,7 +912,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "1809E",
@@ -656,7 +932,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "18481",
@@ -670,7 +952,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "188C6",
@@ -684,7 +972,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "18D3D",
@@ -698,7 +992,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "1921D",
@@ -712,7 +1012,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "1976B",
@@ -726,7 +1032,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "19C7E",
@@ -740,7 +1052,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "1A24B",
@@ -754,7 +1072,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "1A76F",
@@ -768,7 +1092,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "1AC6A",
@@ -782,7 +1112,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "1B0DA",
@@ -796,7 +1132,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "1B5D1",
@@ -810,7 +1152,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "1BB18",
@@ -824,7 +1172,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "1C056",
@@ -838,7 +1192,13 @@
    "evidence": "visual",
    "description": "in-Vision hint signboard: 14x9 tiles of Japanese text + icons, 7 tiles, 14 bytes",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 126,
+   "width": 14,
+   "palette_bytes": 0,
+   "layout_evidence": "hint_sign_draw 4000:1138 emits 9 rows x 0Eh sprites, tile 14Ch+cell, attribute byte from RAM 3CA0h (= right after the 126 tiles)",
+   "layout_confidence": "high"
   },
   {
    "offset": "37300",
@@ -852,7 +1212,13 @@
    "evidence": "visual",
    "description": "large banner lettering: VISION / CLEAR / OVER / GOOD NIGHT",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 30,
+   "width": 10,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 10 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "374D7",
@@ -866,7 +1232,13 @@
    "evidence": "visual",
    "description": "large banner lettering: VISION / CLEAR / OVER / GOOD NIGHT",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 30,
+   "width": 10,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 10 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "37697",
@@ -876,11 +1248,17 @@
    "trailing_bytes": 11,
    "sha1_unpacked": "c2d7d8a392703f8dad50331e516dbb9cd9d3f750",
    "family": "banner_text",
-   "layout_width_tiles": 10,
+   "layout_width_tiles": 9,
    "evidence": "visual",
    "description": "large banner lettering: VISION / CLEAR / OVER / GOOD NIGHT",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 27,
+   "width": 9,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 9 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "3782F",
@@ -890,11 +1268,17 @@
    "trailing_bytes": 8,
    "sha1_unpacked": "fce3a10b4e2a6e10d238df14dff2d3551f3e69f5",
    "family": "banner_text",
-   "layout_width_tiles": 10,
+   "layout_width_tiles": 18,
    "evidence": "visual",
    "description": "large banner lettering: VISION / CLEAR / OVER / GOOD NIGHT",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 72,
+   "width": 18,
+   "palette_bytes": 0,
+   "layout_evidence": "N tiles + N attribute bytes (size = 17*N exactly; same layout as hint signs / story pictures whose loaders prove it); grid width 18 from tile-edge continuity (horizontal/portrait variants)",
+   "layout_confidence": "medium"
   },
   {
    "offset": "91124",
@@ -1426,7 +1810,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "F096A",
@@ -1440,7 +1830,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "F1167",
@@ -1454,7 +1850,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "F1510",
@@ -1468,7 +1870,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "F1C56",
@@ -1482,7 +1890,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "F22B5",
@@ -1496,7 +1910,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "F28E2",
@@ -1510,7 +1930,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "F3107",
@@ -1524,7 +1950,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "F3B91",
@@ -1538,7 +1970,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "F449C",
@@ -1552,7 +1990,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "F4E28",
@@ -1566,7 +2010,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "F56D8",
@@ -1580,7 +2030,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "F5DEE",
@@ -1594,7 +2050,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "F677A",
@@ -1608,7 +2070,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "F70A9",
@@ -1622,7 +2090,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "F7C59",
@@ -1636,7 +2110,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "F8690",
@@ -1650,7 +2130,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "F8FA4",
@@ -1664,7 +2150,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "F9982",
@@ -1678,7 +2170,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "FA530",
@@ -1692,7 +2190,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "FB250",
@@ -1706,7 +2210,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "FBB6D",
@@ -1720,7 +2230,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "FC38C",
@@ -1734,7 +2250,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "FD106",
@@ -1748,7 +2270,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "FD8BA",
@@ -1762,7 +2290,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "FE162",
@@ -1776,7 +2310,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "FEAC2",
@@ -1790,7 +2330,13 @@
    "evidence": "visual",
    "description": "story illustration: 20x11 tiles (160x88 px) + 14 tiles + 12-byte palette block",
    "decoder": "bpe_expand / tools/bpe.py",
-   "encoder": "tools/bpe_gage.py (exact)"
+   "encoder": "tools/bpe_gage.py (exact)",
+   "codec": "bpe_pic",
+   "ntiles": 220,
+   "width": 20,
+   "palette_bytes": 16,
+   "layout_evidence": "load_story_picture 4000:F148 builds a 20x11 SCR2 area (cx=14h, dx=0Bh) with the attribute bytes at RAM 2DD0h and palettes from 2EACh",
+   "layout_confidence": "high"
   },
   {
    "offset": "FF027",

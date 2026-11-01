@@ -50,7 +50,8 @@ for off in sorted(streams) + [FOOTER]:
     s = streams[off]
     data, used = expand(rom, off)
     cat = CAT['%05X' % off]
-    regions.append({'offset': '%05X' % off, 'size': used, 'type': 'bpe', 'unpacked': len(data),
+    pic = {'type': 'bpe_pic', 'ntiles': cat['ntiles'], 'palette_bytes': cat['palette_bytes']} if cat.get('codec') == 'bpe_pic' else {'type': 'bpe'}
+    regions.append({'offset': '%05X' % off, 'size': used, 'unpacked': len(data), **pic,
                     'family': cat['family'], 'width': cat['layout_width_tiles'],
                     'unpacked_sha1': hashlib.sha1(data).hexdigest(), 'sha1': hashlib.sha1(rom[off:off + used]).hexdigest()})
     pos = off + used
@@ -58,7 +59,14 @@ emit_raw_or_fill(pos, FOOTER)
 # refine with decoded structures (assets/structures.json): cut them out of raw/fill regions
 import glob
 S = []
+_only = None
+if '--only' in sys.argv:
+    _only = set(sys.argv[sys.argv.index('--only') + 1].split(','))
 for _f in sorted(glob.glob(os.path.join(ROOT, 'assets', 'structures', '*.json'))):
+    if _only is not None and os.path.splitext(os.path.basename(_f))[0] not in _only:
+        continue
+    if os.path.basename(_f).endswith('_notes.json'):
+        continue
     S += json.load(open(_f))['structures']
 S.sort(key=lambda st: int(st['offset'], 16))
 for x, y in zip(S, S[1:]):

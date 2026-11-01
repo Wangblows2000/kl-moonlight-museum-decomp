@@ -23,3 +23,20 @@ pictures 12 bytes = 6 palette words).  These tails are not yet decoded further.
 Rebuild: PNG -> tiles (+ tail) -> exact re-encode.  Edited assets rebuild with
 `python build.py build --allow-modified`; a stream that grows beyond its original size cannot
 be relocated yet.
+
+## Picture assets (`bpe_pic`, 91 streams)
+
+Every non-tileset family is **N tiles + N per-cell attribute bytes** (story pictures add a
+16-byte palette block): unpacked size = 17*N (+16).  Proven by the loaders:
+`load_story_picture` (4000:F148) builds a 20x11 SCR2 area from the tiles at RAM 2010h, the
+attribute bytes at 2DD0h and palettes at 2EACh; `hint_sign_draw` (4000:1138) emits 14x9
+sprites with tile 14Ch+cell and the attribute byte from RAM 3CA0h (directly after the 126
+tiles).  Attribute byte = high byte of the map/sprite word: bit0 tile bit 8, bits 1-3/1-4
+palette, bit 5 bank/window, bit 6 hflip, bit 7 vflip.
+
+Files: `<OFFSET>.png` (tiles in cell order, width x height), `<OFFSET>.attr.json` (grid of
+raw attribute bytes + derived palette/flip grids for reading), `<OFFSET>.pal.json` (story
+pictures: 8 palettes x 4 shade indices).  Grid sizes: story 20x11, hint sign 14x9, gallery
+20x18 (from code); pause window 11x9 / 9x11, menu label 9x2 / 2x9, key-config 8x10 / 10x8,
+Yes/No 6x2 / 2x6 (horizontal / portrait variants, width chosen by tile-edge continuity,
+medium confidence).  Tilesets (38 streams) and the font remain plain tile sheets.

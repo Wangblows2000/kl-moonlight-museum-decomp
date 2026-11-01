@@ -169,7 +169,62 @@ class Pcm:
             return wv.readframes(wv.getnframes())
 
 
-CODECS = {'fill': Fill(), 'raw': Raw(), 'tiles': Tiles(), 'bpe': Bpe(), 'pcm': Pcm()}
+ATTR_LEGEND = ('attribute byte = high byte of the WonderSwan map/sprite word for that cell: bit0 tile '
+               'number bit 8, bits 1-3 (sprites) / 1-4 (map) palette, bit 5 map bank (map) or window '
+               '(sprite), bit 6 horizontal flip, bit 7 vertical flip.  "palette" and the flip fields are '
+               'derived for reading; the build uses "attr".')
+
+
+class BpePicture:
+    """BPE stream holding a picture: N tiles (cell order) + N per-cell attribute bytes
+    (+ optional palette block).  Files: <OFFSET>.png (tiles laid out width x height),
+    <OFFSET>.attr.json (attribute grid), <OFFSET>.pal.json (palette block, if any)."""
+    level = 'editable'
+
+    def _paths(self, region, root):
+        b = os.path.join(root, region.get('family', 'picture'), region['offset'])
+        return b + '.png', b + '.attr.json', b + '.pal.json'
+
+    def extract(self, blob, region, outdir):
+        from bpe import expand
+        data, used = expand(blob, 0)
+        n, w = region['ntiles'], region['width']
+        png, attr, pal = self._paths(region, outdir)
+        os.makedirs(os.path.dirname(png), exist_ok=True)
+        tiles_to_png(data, n, w, png)
+        a = data[16 * n:17 * n]
+        grid = [list(a[r * w:(r + 1) * w]) for r in range(n // w)]
+        json.dump({'width': w, 'height': n // w, 'legend': ATTR_LEGEND, 'attr': grid,
+                   'palette': [[(b >> 1) & 0xF for b in row] for row in grid],
+                   'hflip': [[(b >> 6) & 1 for b in row] for row in grid],
+                   'vflip': [[(b >> 7) & 1 for b in row] for row in grid]}, open(attr, 'w'), indent=None)
+        files = [png, attr]
+        rest = data[17 * n:]
+        if region.get('palette_bytes'):
+            assert len(rest) == region['palette_bytes']
+            pals = [[(rest[2 * i] & 0xF), rest[2 * i] >> 4, rest[2 * i + 1] & 0xF, rest[2 * i + 1] >> 4]
+                    for i in range(len(rest) // 2)]
+            json.dump({'legend': 'mono palettes as written to ports 20h-3Eh: 4 shade indices (colour 0-3) per palette',
+                       'palettes': pals}, open(pal, 'w'), indent=1)
+            files.append(pal)
+        else:
+            assert not rest
+        return files
+
+    def build(self, region, gamedir):
+        from bpe_gage import compress_stream
+        n, w = region['ntiles'], region['width']
+        png, attr, pal = self._paths(region, gamedir)
+        data = bytearray(png_to_tiles(png, n, w))
+        for row in json.load(open(attr))['attr']:
+            data += bytes(row)
+        if region.get('palette_bytes'):
+            for p4 in json.load(open(pal))['palettes']:
+                data += bytes((p4[0] | p4[1] << 4, p4[2] | p4[3] << 4))
+        return compress_stream(bytes(data))
+
+
+CODECS = {'fill': Fill(), 'raw': Raw(), 'tiles': Tiles(), 'bpe': Bpe(), 'pcm': Pcm(), 'bpe_pic': BpePicture()}
 
 # format plug-ins: every tools/fmt_*.py may define CODECS = {type: codec_instance}
 import glob as _glob
