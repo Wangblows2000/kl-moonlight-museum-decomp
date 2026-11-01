@@ -209,11 +209,15 @@ class Explorer:
     def act(self, o, near):
         """One macro action: list of (buttons, frames)."""
         r = self.rng
-        if near is not None and r.random() < 0.6:
+        if near is not None and r.random() < 0.75:
             d = DIRS[near['type']]
+            dx = near['x'] - o['x']
+            step = []
+            if abs(dx) > 4:                 # walk onto the point first (about 1 px per frame)
+                step = [(B['right'] if dx > 0 else B['left'], min(max(abs(dx) // 2, 2), 24))]
             if near['type'] in ('exit_press_up', 'press_up_sfx'):
-                return [(0, 2), (d, 3), (0, 3)]
-            return [(d, r.randint(4, 20))]
+                return step + [(0, 2), (d, 3), (0, 3)]
+            return step + [(d, r.randint(4, 20))]
         horiz = r.choice([B['right'], B['left'], 0, B['right'], B['left']])
         kind = r.random()
         if kind < 0.35:

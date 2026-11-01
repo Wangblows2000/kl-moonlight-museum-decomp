@@ -1,0 +1,2617 @@
+# NATURAL playthrough from power-on with blank SRAM (controller input only; found by emu/explore.py)
+# progress reached: 1103 at frame 24118
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 14
+hold a 2
+wait 32
+hold right 87
+hold right+b 3
+hold right 28
+hold right+a 32
+hold right 50
+hold right+a 9
+hold right 2
+hold right+b 6
+hold right 37
+hold left 9
+hold right+a 19
+hold right 1
+hold a 7
+wait 9
+hold right+a 29
+hold right 10
+hold right+b 3
+hold right 2
+hold a 11
+wait 2
+hold b 11
+wait 9
+hold right+a 21
+hold right 8
+hold left+b 3
+hold left 9
+hold right 15
+hold a 24
+hold left 11
+hold right 37
+hold b 3
+wait 5
+hold left+a 18
+hold left 3
+hold right+a 40
+hold right 6
+hold a 12
+hold right+a 22
+hold right 7
+hold right+a 8
+hold right 2
+hold left+b 3
+hold left 2
+hold down+right 4
+hold right+a 6
+hold right 2
+hold right+a 27
+hold left+a 7
+hold left 2
+hold left+b 5
+hold left+a 4
+hold down 5
+hold right+a 16
+hold right 43
+hold b 3
+wait 10
+hold right+a 37
+hold right 10
+hold a 4
+hold right+a 26
+hold right 10
+hold down+right 4
+hold b 3
+wait 10
+hold right 24
+hold right+b 3
+hold right 11
+hold left 7
+hold right 23
+hold right+a 8
+hold right 2
+hold down+right+a 12
+hold right+a 15
+hold right 7
+hold right+a 13
+hold right 2
+hold right+b 4
+wait 8
+hold right 39
+hold right+a 14
+hold right 3
+hold right+b 3
+hold right 2
+hold right+a 12
+hold right 2
+hold right+a 26
+hold right 6
+hold right+a 8
+hold right 2
+hold down+right+a 12
+hold down+right 3
+wait 18
+hold right+a 15
+hold right 2
+hold down+right+a 4
+hold right 21
+hold right+a 8
+hold right 2
+hold down+right+a 18
+hold right+a 31
+hold right 8
+hold left+a 10
+hold left 43
+hold right 14
+hold a 38
+wait 6
+hold right 48
+hold right+a 12
+hold right+b 3
+hold right 8
+hold b 3
+wait 8
+hold right 24
+wait 7
+hold left+a 8
+hold left 8
+hold right 23
+hold right+a 31
+hold right 8
+hold left+b 3
+hold left 4
+hold right 16
+hold right+b 3
+hold right 12
+hold right+a 4
+hold right 4
+hold right+a 31
+hold right 5
+hold right+a 23
+hold right 10
+hold right+b 3
+hold right 32
+hold down+left 14
+hold a 15
+wait 3
+hold right+a 26
+hold right 52
+hold down+right 13
+hold up+right 4
+hold right+b 3
+hold right 12
+hold right+a 8
+hold right 5
+hold right+a 40
+hold right 10
+hold left+a 4
+hold right+a 7
+hold right 2
+wait 9
+hold right 47
+hold left 8
+hold right+a 4
+hold left+a 21
+hold left 2
+hold right+a 21
+hold right 10
+hold right+a 31
+hold right 3
+hold left 5
+hold right 77
+hold b 3
+wait 10
+hold right 33
+hold up+left 4
+hold right 39
+hold right+b 3
+hold right 20
+hold right+b 3
+hold right 4
+hold right+a 15
+hold right 8
+hold a 9
+wait 2
+hold b 20
+hold right+b 3
+hold right 14
+hold left+a 13
+hold left 2
+hold left+b 5
+hold right+a 33
+hold right 4
+hold right+a 32
+wait 82
+hold b 3
+wait 10
+hold right 57
+hold a 5
+wait 2
+hold down+a 6
+hold right 28
+hold right+a 6
+hold b 3
+wait 8
+hold left 4
+hold right 28
+hold right+a 11
+hold right 8
+hold down 3
+hold down+right 3
+hold right+b 3
+hold right 6
+hold a 4
+hold right 22
+hold right+a 14
+hold right 7
+hold right+a 12
+hold right 2
+hold right+b 8
+hold right 18
+wait 8
+hold right+a 5
+hold right 25
+hold right+b 3
+hold right 13
+hold a 28
+wait 10
+hold right+a 14
+hold right 5
+hold right+b 3
+hold right 15
+hold left+a 4
+wait 5
+hold left 14
+wait 10
+hold right+a 18
+hold right 7
+hold up 5
+hold right 8
+hold b 3
+wait 13
+hold right 13
+hold left 22
+hold b 3
+wait 9
+hold right+b 3
+hold right 5
+hold left+a 10
+hold left 2
+hold left+a 4
+hold right+a 12
+hold right 2
+hold right+b 4
+hold right 60
+hold down 7
+hold a 17
+wait 1
+hold left 6
+hold right 7
+hold right+b 3
+hold right 18
+wait 13
+hold down+right 15
+hold right+a 20
+hold right 32
+wait 14
+hold right 38
+hold down+right 15
+hold right 17
+wait 86
+hold b 3
+wait 14
+hold right+a 40
+hold right 2
+wait 15
+hold right+a 10
+hold a 13
+wait 9
+hold right+a 9
+hold right 2
+hold down+right+a 17
+hold right+a 9
+hold right 3
+hold a 4
+hold down 8
+hold right+b 3
+hold right 3
+hold down+right 4
+hold left 49
+hold right+a 24
+hold right 5
+wait 21
+hold left+a 21
+hold left 3
+hold right+b 3
+hold right 45
+hold right+b 3
+hold right 7
+hold a 21
+wait 3
+hold right+a 8
+hold right 9
+hold right+a 65
+hold right 5
+hold right+a 28
+hold right 20
+hold right+a 24
+hold right 19
+hold left+a 4
+hold right+a 13
+hold right 2
+hold down+right+a 8
+hold up 8
+hold right 28
+hold b 3
+wait 11
+hold right 34
+hold right+a 10
+hold right 27
+hold right+a 8
+hold right 2
+hold down+right+a 20
+hold right 12
+hold right+b 3
+hold right 5
+hold left+a 4
+hold right+b 3
+hold right 15
+hold right+a 27
+hold right 26
+hold a 8
+wait 2
+hold b 7
+hold a 10
+wait 2
+hold down+a 6
+wait 27
+hold left 17
+wait 29
+hold down 12
+hold right 32
+hold down+left 14
+hold left+a 6
+hold left 4
+hold right 38
+hold left+b 3
+hold left 10
+hold right+a 24
+hold right+b 3
+hold right 21
+wait 33
+hold right+a 10
+hold right 2
+hold right+b 6
+hold up 8
+hold left 48
+hold b 3
+wait 23
+hold left 28
+hold right+b 3
+hold right 6
+hold right+a 4
+hold left 30
+hold right 13
+hold left+a 13
+hold left 2
+hold left+a 17
+hold a 31
+wait 1
+hold left+b 3
+hold left 8
+wait 36
+hold right+a 10
+hold right 5
+hold left+b 3
+hold left 55
+hold left+b 3
+hold left 4
+hold right+a 13
+hold right 2
+hold right+a 17
+hold left 7
+hold left+b 3
+hold left 12
+hold left+b 3
+hold left 13
+hold down+right 5
+hold right+a 20
+hold a 31
+hold right+a 18
+hold right 7
+hold up 8
+hold b 3
+wait 10
+hold up+left 4
+hold right+a 32
+hold right 8
+hold left 10
+wait 4
+hold right 23
+hold b 3
+wait 8
+hold left+b 3
+hold left 5
+hold right+a 4
+hold right 2
+hold left 4
+hold right+b 3
+hold right 9
+hold right+a 24
+hold right 10
+hold right+b 3
+hold right 3
+hold right+b 3
+hold right 4
+hold right+a 24
+hold right 21
+hold a 22
+wait 1
+hold left+b 3
+hold left 4
+hold down+right 3
+hold right+a 6
+hold right 38
+hold left 10
+hold right+a 5
+hold right 2
+hold down+right+a 15
+hold right 78
+hold right+a 8
+hold right 2
+hold right+b 10
+hold down 3
+hold right+a 5
+hold right 2
+hold right+a 37
+hold right 20
+hold right+b 3
+hold right 4
+hold right+a 31
+hold right 8
+wait 36
+hold right 64
+hold right+b 3
+hold right 8
+hold right+b 3
+hold right 17
+hold right+a 30
+hold right 4
+hold down+right 12
+hold a 7
+wait 2
+hold b 7
+wait 6
+hold b 3
+wait 8
+hold right 80
+hold right+a 34
+hold right 4
+hold down+left 4
+hold left 16
+hold right+b 3
+hold right 15
+hold left+a 9
+hold left 2
+hold down+left+a 15
+hold right+a 20
+hold left+a 4
+hold left 2
+hold down+left+a 7
+hold right 6
+hold left+b 3
+hold left 2
+hold a 5
+wait 1
+hold right+a 12
+hold right 2
+hold down+right+a 14
+hold right+a 12
+hold right+b 3
+hold right 12
+hold left 28
+hold b 3
+wait 13
+hold left+a 34
+hold left 1
+hold right 11
+hold up+right 8
+hold right 75
+hold right+b 3
+hold right 45
+hold left 9
+hold right 39
+hold left+b 3
+hold left 4
+hold down+right 13
+wait 4
+hold left+b 3
+hold left 14
+hold right+a 18
+hold right 10
+hold right+a 20
+hold left+a 59
+hold left 1
+hold up+left 3
+hold left+a 12
+hold left 16
+hold b 3
+wait 13
+hold left 110
+hold left+b 3
+hold left 18
+hold down+right 7
+hold left+a 26
+hold left 3
+hold left+b 3
+hold left 4
+hold up 7
+hold left 27
+hold right+a 40
+hold left 32
+wait 26
+hold left+a 27
+hold left 37
+hold right+b 3
+hold right 9
+hold left 4
+hold left+a 23
+hold left 3
+hold left+a 20
+hold a 15
+wait 2
+hold down+a 7
+hold left 6
+hold right+a 24
+hold right 10
+hold up+right 9
+hold right+b 3
+hold right 12
+hold right+a 49
+wait 20
+hold right+a 60
+hold b 3
+wait 2
+hold right 28
+wait 31
+hold down+right 15
+hold up+right 13
+hold down+right 14
+hold right+b 3
+hold right 41
+wait 34
+hold right 44
+wait 4
+hold right 40
+wait 2
+hold up 3
+wait 3
+hold right 4
+wait 2
+hold up 3
+wait 5
+hold up 3
+wait 5
+hold up 3
+wait 3
+hold a 25
+wait 6
+hold up 3
+wait 5
+hold up 3
+wait 3
+hold right+a 4
+hold right 2
+hold right+a 4
+hold left+a 28
+hold left 4
+hold up+left 10
+wait 2
+hold up 3
+wait 5
+hold up 3
+wait 5
+hold up 3
+wait 5
+hold up 3
+wait 3
+hold left 40

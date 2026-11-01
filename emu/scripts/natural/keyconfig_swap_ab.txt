@@ -1,0 +1,21 @@
+# NATURAL (save from the natural make_save run, menu input only): pause -> Key config -> Type B (A/B swapped) -> seeded random play with the swapped layout.  The "? ? ?" (rotate) item only exists when replaying a Vision below the furthest progress [148Fh] (4000:10A7-10D6), so vertical mode needs a cleared Vision first.
+loadsram build/runtime/make_save/sram_end.bin
+reset
+autoshot
+wait 700
+tap start
+wait 30
+tap a
+wait 400
+tap start
+wait 90
+tap down
+tap down
+tap a
+wait 120
+tap right
+wait 20
+shot keyconfig_type_b
+tap a
+wait 200
+monkey 30000 21
