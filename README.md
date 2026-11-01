@@ -6,21 +6,29 @@ Matching disassembly of **Kaze no Klonoa: Moonlight Museum** (WonderSwan, Japan,
 No ROM data is included.  Supply your own dump as `baserom/baserom.ws`
 (see `baserom/README.md` for hashes).
 
-## Build
+## Build (Windows or Linux)
 
-Requirements: NASM 2.15+ (tested 2.16.01), Python 3.9+, `capstone` (only for
-re-tracing: `pip install capstone`), `ndisasm` (ships with NASM, only for regeneration).
+Requirements: **Python 3.9+**, **NASM 2.15+** and **Pillow**
+(`python -m pip install pillow`; add `pytest capstone` for tests and re-tracing).
+Windows: `winget install NASM.NASM` (or the installer from nasm.us) - `build.py` finds it
+in `%ProgramFiles%\NASM` or via the `NASM` environment variable.
 
 ```
-make check        # build build/klonoa.ws (code from source, data rebuilt from decoded
-                  # assets + layout) and verify size, header checksum, SHA-1
-make english      # also build build/klonoa_en.ws with the fan translation (docs/english-patch.md)
-make assets       # decoded assets + previews in build/assets (never commit)
-make test-source  # tests that need no ROM (what CI runs)
-make test         # all tests; ROM / emulator tests skip if unavailable
-make regen        # re-trace and regenerate asm/bank4.asm
-emu/build.sh DIR  # build the traced emulator harness from a beetle-wswan checkout
+python build.py extract --rom path/to/your/klonoa.ws   # ONCE: unpack your ROM into gamedata/
+python build.py                                         # build build/klonoa.ws - no ROM needed
+python build.py verify                                  # SHA-1 check against the original
+python build.py english --ips path/to/Moonlight_Museum_1.1.ips   # optional English build
+python build.py build --allow-modified                  # after editing assets (modding)
+python build.py test                                    # test suite
 ```
+
+`gamedata/` holds the game's data in editable form (PNG tile sheets, and raw `.bin` files for
+regions not decoded yet).  It is copyrighted, ROM-derived material: it is git-ignored and must
+never be committed.  On Linux/macOS `make` wraps the same steps (`make check`, `make english`,
+`make test`, `make regen`).
+
+Licence: GPL-3.0-or-later for this project's own work - see `LICENSE`, `LICENSING.md` and
+`THIRD_PARTY_NOTICES.md`.  The game itself is (c) Namco / Bandai and is not relicensed.
 
 Status, metrics and plans: `docs/STATUS.md`, `docs/completion.json`, `docs/ROADMAP.md`.
 
@@ -38,6 +46,8 @@ Status, metrics and plans: `docs/STATUS.md`, `docs/completion.json`, `docs/ROADM
 | `tools/gen_bank4.py` | emits NASM source, verifies every instruction's encoding |
 | `tools/bpe.py`, `tools/scan_bpe.py` | Python port of the game's BPE decompressor; asset scanner |
 | `tools/inventory.py` | bank-aware byte classification -> `docs/inventory.md` |
+| `build.py` | cross-platform build driver (extract once, ROM-free builds, verify, English, tests) |
+| `tools/extract.py`, `tools/build_data.py`, `tools/assetcodec.py` | ROM -> gamedata/ (editable) -> data banks, per-region codecs with round-trip checks |
 | `docs/STATUS.md` | target, evidence, open questions |
 | `docs/completion.json` | machine-readable completion report (tools/completion.py) |
 | `docs/ROADMAP.md` | measurable milestones |

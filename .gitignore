@@ -10,3 +10,4 @@ __pycache__/
 *.bps
 *.ups
 emu/ktrun
+gamedata/

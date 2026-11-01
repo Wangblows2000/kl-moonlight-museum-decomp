@@ -20,7 +20,8 @@ itself is not covered by the GPL at all.
 | Python | Python Software Foundation | https://www.python.org/ | 3.13 | PSF-2.0 | build/analysis tooling |
 | pytest | Holger Krekel and pytest-dev | https://pytest.org/ | 9.1.1 | MIT | test runner |
 | Pillow | Jeffrey A. Clark (Alex) and contributors; PIL by Fredrik Lundh | https://python-pillow.org/ | 12.3.0 | MIT-CMU | PNG previews / editable tile images |
-| GitHub Actions `actions/checkout` | GitHub | https://github.com/actions/checkout | v4 | MIT | CI |
+| GitHub Actions `actions/checkout`, `actions/setup-python` | GitHub | https://github.com/actions | v4, v5 | MIT | CI |
+| Chocolatey `nasm` package (Windows CI only) | Chocolatey community | https://community.chocolatey.org/packages/nasm | latest | package scripts Apache-2.0; NASM BSD-2-Clause | installs NASM on the Windows runner |
 
 ## Emulator used for runtime testing (`emu/`)
 

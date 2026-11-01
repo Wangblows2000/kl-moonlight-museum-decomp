@@ -1,33 +1,47 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Build build/data.bin (1 MiB image of all data banks) from assets/layout.json.
+"""Build build/data.bin (1 MiB image of every data bank) from gamedata/ + assets/layout.json.
+ROM-free.  Each region is checked against the SHA-1 recorded in the layout.
 
-  bpe  : build/assets/bpe/XXXXX.bin compressed with tools/bpe_gage.py (must equal layout sha1)
-  fill : generated
-  raw  : build/assets/raw/XXXXX.bin
-The code bank (40000h-4FFFFh) and the footer are produced by NASM from source; klonoa.asm
-incbins only the data ranges from this image."""
-import hashlib, json, os, sys
+  python tools/build_data.py [--gamedata gamedata] [--out build/data.bin] [--allow-modified]
+
+--allow-modified keeps going when edited assets no longer match the original hashes (modding);
+without it a mismatch is an error."""
+import argparse, hashlib, json, os, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.join(HERE, '..')
+ROOT = os.path.abspath(os.path.join(HERE, '..'))
 sys.path.insert(0, HERE)
-from bpe_gage import compress_stream
-layout = json.load(open(os.path.join(ROOT, 'assets', 'layout.json')))
-A = os.path.join(ROOT, 'build', 'assets')
-img = bytearray(0x100000)
-bad = 0
-for r in layout['regions']:
-    off, size = int(r['offset'], 16), r['size']
-    if r['type'] == 'fill':
-        blob = bytes([int(r['value'], 16)]) * size
-    elif r['type'] == 'raw':
-        blob = open(os.path.join(A, 'raw', '%05X.bin' % off), 'rb').read()
-    else:
-        src = open(os.path.join(A, 'bpe', '%05X.bin' % off), 'rb').read()
-        blob = compress_stream(src)
-    if len(blob) != size or ('sha1' in r and hashlib.sha1(blob).hexdigest() != r['sha1']):
-        print('MISMATCH %s %s' % (r['offset'], r['type'])); bad += 1
-    img[off:off + len(blob)] = blob
-open(os.path.join(ROOT, 'build', 'data.bin'), 'wb').write(img)
-print('build/data.bin: %d regions, %d mismatches' % (len(layout['regions']), bad))
-sys.exit(1 if bad else 0)
+from assetcodec import codec
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--gamedata', default=os.path.join(ROOT, 'gamedata'))
+    ap.add_argument('--out', default=os.path.join(ROOT, 'build', 'data.bin'))
+    ap.add_argument('--allow-modified', action='store_true')
+    a = ap.parse_args()
+    if not os.path.isdir(a.gamedata):
+        sys.exit('%s not found: run "python build.py extract" once with your ROM' % a.gamedata)
+    layout = json.load(open(os.path.join(ROOT, 'assets', 'layout.json')))
+    img = bytearray(0x100000)
+    changed = 0
+    for r in layout['regions']:
+        off, size = int(r['offset'], 16), r['size']
+        blob = codec(r).build(r, a.gamedata)
+        ok = len(blob) == size and ('sha1' not in r or hashlib.sha1(blob).hexdigest() == r['sha1'])
+        if not ok:
+            changed += 1
+            if not a.allow_modified:
+                sys.exit('region %s (%s) does not match the original (edited asset?) - use --allow-modified'
+                         % (r['offset'], r['type']))
+            if len(blob) > size:
+                sys.exit('region %s grew from %d to %d bytes; relocation is not supported yet' % (r['offset'], size, len(blob)))
+            blob = blob + b'\xFF' * (size - len(blob))
+        img[off:off + size] = blob
+    os.makedirs(os.path.dirname(a.out), exist_ok=True)
+    open(a.out, 'wb').write(img)
+    print('%s: %d regions, %d differ from the original' % (a.out, len(layout['regions']), changed))
+
+
+if __name__ == '__main__':
+    main()

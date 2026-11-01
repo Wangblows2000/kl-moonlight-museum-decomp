@@ -1,10 +1,10 @@
 # Kaze no Klonoa: Moonlight Museum (WonderSwan) - matching disassembly
 #
 #   make test-source   source-only checks, no ROM needed (what CI runs)
-#   make check         full byte-perfect rebuild + verification (needs baserom)
+#   make check         full byte-perfect rebuild + verification (ROM-free once gamedata/ exists)
 #   make test          every test; ROM-dependent tests are skipped without the ROM
 #   make regen         re-trace and regenerate asm/bank4.asm (needs baserom)
-#   make assets        extract decoded assets into build/assets (needs baserom)
+#   make assets        extract the ROM once into gamedata/ (editable; later builds need no ROM)
 #   make english       also build build/klonoa_en.ws with the English fan patch
 #                      (patch file at baserom/english.ips, never committed)
 #   make ENGLISH=1     same as 'make english'; add FIX_CHECKSUM=1 to correct the header sum
@@ -34,15 +34,16 @@ baserom-check:
 	  echo "Expected SHA-1 207a3ceb9a09eabca6e455deeb7035e7e04c9795 (see baserom/README.md)."; \
 	  exit 1; fi
 
-# Data banks: decode assets from the ROM, then rebuild every data byte from assets/layout.json
-build/assets/.stamp: assets/layout.json tools/extract_assets.py tools/bpe.py | baserom-check
-	$(PYTHON) tools/extract_assets.py
-	@touch $@
+# Data banks: tools/extract.py unpacks the ROM ONCE into gamedata/ (editable, git-ignored);
+# every later build is ROM-free: tools/build_data.py rebuilds all data from gamedata/.
+gamedata/EXTRACTED_FROM.txt: | baserom-check
+	$(PYTHON) tools/extract.py
 
-build/data.bin: build/assets/.stamp tools/build_data.py tools/bpe_gage.py
+build/data.bin: gamedata/EXTRACTED_FROM.txt assets/layout.json tools/build_data.py tools/assetcodec.py tools/bpe_gage.py
+	@mkdir -p build
 	$(PYTHON) tools/build_data.py
 
-$(ROM): $(SOURCES) build/data.bin | baserom-check
+$(ROM): $(SOURCES) build/data.bin
 	@mkdir -p build
 	$(NASM) -O0 -f bin -o $@ klonoa.asm
 
@@ -58,8 +59,8 @@ english: $(ROM) | ips-check
 	$(PYTHON) tools/ips.py apply $(ROM) $(IPS) $(ROM_EN) $(if $(filter 1,$(FIX_CHECKSUM)),--fix-checksum)
 	$(PYTHON) tools/verify_english.py $(ROM_EN) $(FIX_CHECKSUM)
 
-check: baserom-check $(ROM)
-	$(PYTHON) tools/verify.py
+check: $(ROM)
+	$(PYTHON) build.py verify
 	$(PYTHON) tools/check_source_only.py
 
 test-source:
@@ -82,7 +83,7 @@ inventory: baserom-check
 	$(PYTHON) tools/scan_bpe.py
 	$(PYTHON) tools/inventory.py
 
-assets: build/assets/.stamp
+assets: gamedata/EXTRACTED_FROM.txt
 
 clean:
 	rm -rf build

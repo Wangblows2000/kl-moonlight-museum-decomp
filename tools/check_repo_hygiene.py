@@ -21,6 +21,9 @@ for f in files:
     p = os.path.join(ROOT, f)
     if not os.path.isfile(p):
         continue
+    if f.startswith(('gamedata/', 'build/', 'baserom/baserom')):
+        bad.append((f, 'ROM-derived directory'))
+        continue
     if f.lower().endswith(('.ws', '.wsc', '.bin', '.pc2', '.gitbundle', '.sav', '.ips', '.bps', '.ups')):
         bad.append((f, 'forbidden extension'))
         continue

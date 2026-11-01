@@ -13,6 +13,7 @@ sys.path.insert(0, HERE)
 from bpe import expand
 rom = open(os.path.join(ROOT, 'baserom', 'baserom.ws'), 'rb').read()
 streams = {int(s['offset'], 16): s for s in json.load(open(os.path.join(ROOT, 'assets', 'bpe_manifest.json')))['streams']}
+CAT = {a['offset']: a for a in json.load(open(os.path.join(ROOT, 'assets', 'catalog.json')))['assets']}
 CODE = (0x40000, 0x50000)
 FOOTER = 0xFFFF0
 regions = []
@@ -48,7 +49,9 @@ for off in sorted(streams) + [FOOTER]:
     emit_raw_or_fill(pos, off)
     s = streams[off]
     data, used = expand(rom, off)
+    cat = CAT['%05X' % off]
     regions.append({'offset': '%05X' % off, 'size': used, 'type': 'bpe', 'unpacked': len(data),
+                    'family': cat['family'], 'width': cat['layout_width_tiles'],
                     'unpacked_sha1': hashlib.sha1(data).hexdigest(), 'sha1': hashlib.sha1(rom[off:off + used]).hexdigest()})
     pos = off + used
 emit_raw_or_fill(pos, FOOTER)

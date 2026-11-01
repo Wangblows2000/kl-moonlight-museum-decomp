@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 name: CI
 
 on:
@@ -6,27 +7,42 @@ on:
 
 jobs:
   source:
-    # The commercial ROM is never available in CI.  These jobs prove that the committed
-    # source assembles to the exact original code bank and footer (hash-checked), that the
-    # encoding macros are correct, and that the decompressor round-trips.  ROM-dependent
-    # tests are reported as skipped, not passed.
-    runs-on: ubuntu-latest
+    # The commercial ROM and gamedata/ are never available in CI.  These jobs prove that the
+    # committed source assembles to the exact original code bank and footer (hash-checked),
+    # that the encoding macros, codecs and compressor work, and that no ROM-derived data is
+    # tracked.  ROM/gamedata-dependent tests are reported as skipped, not passed.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install tools
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install NASM (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y nasm
+      - name: Install NASM (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          sudo apt-get update
-          sudo apt-get install -y nasm
-          python3 -m pip install --upgrade pytest capstone
+          choco install nasm -y --no-progress
+          "C:\Program Files\NASM" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Python packages
+        run: python -m pip install --upgrade pytest capstone pillow
       - name: Versions
-        run: nasm -v && python3 --version
-      - name: Guard - no ROM or extracted data committed
-        run: python3 tools/check_repo_hygiene.py
-      - name: Missing-ROM build fails clearly
         run: |
-          if make build/klonoa.ws > out.txt 2>&1; then echo "build unexpectedly succeeded"; exit 1; fi
-          grep -q "baserom/baserom.ws not found" out.txt && cat out.txt
-      - name: Source-only tests
-        run: make test-source
-      - name: Full test suite (ROM tests skip)
-        run: python3 -m pytest -q -rs tests
+          nasm -v
+          python --version
+      - name: Guard - no ROM or extracted data committed
+        run: python tools/check_repo_hygiene.py
+      - name: Missing gamedata gives a clear error
+        shell: bash
+        run: |
+          if python build.py > out.txt 2>&1; then echo "build unexpectedly succeeded"; exit 1; fi
+          cat out.txt
+          grep -q "python build.py extract" out.txt
+      - name: Test suite (ROM / gamedata / emulator tests skip)
+        run: python -m pytest -q -rs tests
