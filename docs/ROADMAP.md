@@ -6,13 +6,13 @@ Statuses: NOT STARTED, IN PROGRESS, PARTIALLY VERIFIED, VERIFIED, BLOCKED.
 | category | requirement | status | where we are |
 |---|---|---|---|
 | Build fidelity | exact byte-for-byte ROM match | **VERIFIED** | full ROM match; bank 4 + footer verified from source alone in CI |
-| Code discovery | every executable entry point identified | PARTIALLY VERIFIED | 741 entry points, 0 unresolved transfers, runtime finds nothing outside the trace; 4,142 bank-4 bytes unreached |
+| Code discovery | every executable entry point identified | PARTIALLY VERIFIED | 746 entry points (5 dead-code), 0 unresolved transfers, runtime finds nothing outside the trace in 51 runs; 3,657 bank-4 bytes unreached |
 | Code understanding | every function documented and understood | PARTIALLY VERIFIED | 731/746 documented (36 hand + 695 reviewed, with registers/side effects/evidence); 20/20 game states; review spot-checked, not every entry re-verified |
-| Data classification | every ROM byte classified with evidence | IN PROGRESS | 42.6 % with evidence; 559 KB raw |
+| Data classification | every ROM byte classified with evidence | IN PROGRESS | 43.2 % with evidence; 553 KB raw (bank 2 partly identified: title tiles, player frames, font) |
 | Asset understanding | every structure/format identified | IN PROGRESS | BPE assets all assigned to families; level/sound/object data partial |
 | Compression | all streams decoded and verified | **VERIFIED** | 129/129 decode and re-encode byte-identically |
-| Runtime validation | all reachable systems tested | PARTIALLY VERIFIED | 404/741 entry points executed; Worlds 2-6 gameplay not played |
-| Save system | save / load / overwrite verified | PARTIALLY VERIFIED | all three pass in the emulator; record format undocumented |
+| Runtime validation | all reachable systems tested | PARTIALLY VERIFIED | 464/746 entry points executed; all 20 states reached; Worlds 2-EX entered only via forced progress code |
+| Save system | save / load / overwrite verified | PARTIALLY VERIFIED | all three pass in the emulator; record layout documented (docs/save-format.md), field meanings medium confidence |
 | CI | clean build + automated tests | **VERIFIED** | GitHub Actions green on every push |
 | Documentation | complete contributor + technical docs | IN PROGRESS | see docs/ |
 
@@ -26,8 +26,7 @@ Statuses: NOT STARTED, IN PROGRESS, PARTIALLY VERIFIED, VERIFIED, BLOCKED.
 - Sound command set documented (see routine headers DF5F/DF8A/E698 and docs/STATUS.md).
 
 **M2 - Object atlas** (target: every object type seen on screen)
-- Add an `atlas` command to the harness: crop the screen around each newly seen object type
-  (slot +2/+4 minus camera 13A0h/13A2h, >>4).
+- Done: `atlas` harness command; 26 types live at runtime, all 63 described by code review.
 - Reach Worlds 2-6 naturally: decode how a Vision is selected (state 2 menu ->
   state 3/4) so scripts can start any unlocked Vision with a forged-but-valid save.
 
