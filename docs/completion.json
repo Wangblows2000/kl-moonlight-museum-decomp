@@ -1,0 +1,109 @@
+{
+ "rom_sha1": "207a3ceb9a09eabca6e455deeb7035e7e04c9795",
+ "categories": {
+  "build_fidelity": {
+   "status": "VERIFIED",
+   "requirement": "exact byte-for-byte ROM match",
+   "metric": "1048576/1048576 bytes; bank 4 + footer also verified from source without the ROM (CI)",
+   "evidence": [
+    "tests/test_rom.py::test_full_rebuild_matches",
+    "tests/test_source.py"
+   ]
+  },
+  "code_discovery": {
+   "status": "PARTIALLY VERIFIED",
+   "requirement": "every executable entry point identified",
+   "metric": "741 entry points, 23425 instructions, 0 unresolved indirect transfers; runtime found 0 executed addresses outside the static trace across 45 runs; 4142 bank-4 bytes still unreached (data or dead code)",
+   "evidence": [
+    "tools/trace.py",
+    "tools/runtime_coverage.py",
+    "tests/test_runtime.py::test_runtime_execution_is_covered_by_static_trace"
+   ]
+  },
+  "code_understanding": {
+   "status": "IN PROGRESS",
+   "requirement": "every function documented and understood",
+   "metric": "36/741 named after reading the code, 447/741 named by proven dispatch role (behaviour not yet described), 258 generic; all 20 game states identified",
+   "evidence": [
+    "docs/functions.md",
+    "docs/game-states.md",
+    "tools/symbols.py"
+   ]
+  },
+  "data_classification": {
+   "status": "IN PROGRESS",
+   "requirement": "every ROM byte classified with evidence",
+   "metric": "code bank 65536 + footer 16 + BPE assets 194269 + FFh padding 186944 = 446765 bytes (42.6%) classified with evidence; zero runs 42844 (generated, but may be table data); raw (undecoded) 558967 bytes",
+   "evidence": [
+    "assets/layout.json",
+    "docs/inventory.md"
+   ]
+  },
+  "asset_understanding": {
+   "status": "IN PROGRESS",
+   "requirement": "every data structure and asset format identified",
+   "metric": "BPE container format fully understood; 129/129 streams assigned to a family (92 visually checked); level data, sound data, object/collision tables only partly decoded",
+   "evidence": [
+    "docs/assets.md",
+    "assets/catalog.json"
+   ]
+  },
+  "compression": {
+   "status": "VERIFIED",
+   "requirement": "all streams decoded and verified",
+   "metric": "129/129 streams decode to declared sizes and re-encode byte-identically",
+   "evidence": [
+    "tests/test_bpe.py::test_all_catalogued_streams",
+    "tests/test_bpe.py::test_exact_recompression_of_every_stream"
+   ]
+  },
+  "runtime_validation": {
+   "status": "PARTIALLY VERIFIED",
+   "requirement": "all reachable game systems tested",
+   "metric": "404/741 entry points executed in 45 emulator runs; all 20 states reached (some only with fault injection); Worlds 2-6 gameplay not yet played",
+   "evidence": [
+    "tests/test_runtime.py",
+    "emu/scripts/",
+    "docs/game-states.md"
+   ]
+  },
+  "save_system": {
+   "status": "PARTIALLY VERIFIED",
+   "requirement": "save/load/overwrite verified",
+   "metric": "creation, reset-with-save -> Continue -> resume, and overwrite via the save screen pass in the emulator; SRAM record format not yet documented",
+   "evidence": [
+    "tests/test_runtime.py"
+   ]
+  },
+  "ci": {
+   "status": "VERIFIED",
+   "requirement": "clean build and automated tests passing",
+   "metric": "GitHub Actions runs source-only tests on every push; ROM tests run locally",
+   "evidence": [
+    ".github/workflows/ci.yml"
+   ]
+  },
+  "documentation": {
+   "status": "IN PROGRESS",
+   "requirement": "complete contributor and technical documentation",
+   "metric": "README, STATUS, ROADMAP, inventory, functions, game states, assets, english patch, tools triage",
+   "evidence": [
+    "docs/"
+   ]
+  }
+ },
+ "numbers": {
+  "rom_bytes": 1048576,
+  "bytes_from_assembly_source": 65552,
+  "bytes_generated_from_layout_and_decoded_assets": 424057,
+  "raw_bytes_copied_from_rom": 558967,
+  "entry_points": 741,
+  "named_hand": 36,
+  "named_role": 447,
+  "unnamed": 258,
+  "instructions": 23425,
+  "runtime_entry_points_executed": 404,
+  "bpe_streams": 129,
+  "emulator_runs": 45
+ }
+}

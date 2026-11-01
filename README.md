@@ -12,10 +12,17 @@ Requirements: NASM 2.15+ (tested 2.16.01), Python 3.9+, `capstone` (only for
 re-tracing: `pip install capstone`), `ndisasm` (ships with NASM, only for regeneration).
 
 ```
-make check     # assemble build/klonoa.ws and verify size, header checksum, SHA-1
-make regen     # re-trace from vectors and regenerate asm/bank4.asm
-make test      # regen + check + confirm regeneration is deterministic
+make check        # build build/klonoa.ws (code from source, data rebuilt from decoded
+                  # assets + layout) and verify size, header checksum, SHA-1
+make english      # also build build/klonoa_en.ws with the fan translation (docs/english-patch.md)
+make assets       # decoded assets + previews in build/assets (never commit)
+make test-source  # tests that need no ROM (what CI runs)
+make test         # all tests; ROM / emulator tests skip if unavailable
+make regen        # re-trace and regenerate asm/bank4.asm
+emu/build.sh DIR  # build the traced emulator harness from a beetle-wswan checkout
 ```
+
+Status, metrics and plans: `docs/STATUS.md`, `docs/completion.json`, `docs/ROADMAP.md`.
 
 ## Layout
 
@@ -31,7 +38,15 @@ make test      # regen + check + confirm regeneration is deterministic
 | `tools/gen_bank4.py` | emits NASM source, verifies every instruction's encoding |
 | `tools/bpe.py`, `tools/scan_bpe.py` | Python port of the game's BPE decompressor; asset scanner |
 | `tools/inventory.py` | bank-aware byte classification -> `docs/inventory.md` |
-| `docs/STATUS.md` | metrics, evidence, open questions |
+| `docs/STATUS.md` | target, evidence, open questions |
+| `docs/completion.json` | machine-readable completion report (tools/completion.py) |
+| `docs/ROADMAP.md` | measurable milestones |
+| `docs/functions.md` | every code entry point: name, basis, callers, ports, runtime |
+| `docs/game-states.md` | all 20 game states with screens and evidence |
+| `docs/assets.md` | all 129 compressed assets: family, sizes, decoded hashes |
+| `assets/` | layout.json (every data byte), catalog.json, bpe_manifest.json - metadata only |
+| `emu/` | traced emulator harness, runtime test scripts |
+| `tests/` | pytest suite (source, macros, BPE, ROM rebuild, runtime) |
 | `docs/tools-triage.md` | which external tools/test ROMs were used or deferred, and why |
 
 ## Methodology (short)

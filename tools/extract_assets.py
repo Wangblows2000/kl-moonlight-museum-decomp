@@ -18,7 +18,10 @@ os.makedirs(os.path.join(out, 'bpe'), exist_ok=True)
 os.makedirs(os.path.join(out, 'raw'), exist_ok=True)
 
 
-def tiles_png(data, path):
+CAT = {a['offset']: a for a in json.load(open(os.path.join(ROOT, 'assets', 'catalog.json')))['assets']}
+
+
+def tiles_png(data, path, cols=16):
     try:
         from PIL import Image
     except ImportError:
@@ -26,7 +29,6 @@ def tiles_png(data, path):
     n = len(data) // 16
     if not n:
         return
-    cols = 16
     rows = (n + cols - 1) // cols
     im = Image.new('L', (cols * 8, rows * 8), 255)
     px = im.load()
@@ -47,7 +49,8 @@ for r in layout['regions']:
         data, used = expand(rom, off)
         assert used == r['size']
         open(os.path.join(out, 'bpe', '%05X.bin' % off), 'wb').write(data)
-        tiles_png(data, os.path.join(out, 'bpe', '%05X.png' % off))
+        a = CAT.get(r['offset'], {})
+        tiles_png(data, os.path.join(out, 'bpe', '%05X_%s.png' % (off, a.get('family', 'asset'))), a.get('layout_width_tiles', 16))
         n += 1
     elif r['type'] == 'raw':
         open(os.path.join(out, 'raw', '%05X.bin' % off), 'wb').write(rom[off:off + r['size']])

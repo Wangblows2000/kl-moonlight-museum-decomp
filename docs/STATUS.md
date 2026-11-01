@@ -1,4 +1,17 @@
-# Status - sprint 1 (2026-11-01)
+# Status
+
+Generated numbers live in `docs/completion.json`; the roadmap is `docs/ROADMAP.md`.
+This file records the target, the evidence behind the main findings, and open questions.
+
+## Session log
+
+| date | work | commits |
+|---|---|---|
+| 2026-11-01 (1) | tracer, matching bank-4 source, BPE decoder, inventory | 40767c7, 3ff41b4 |
+| 2026-11-01 (2) | ROM-free CI, English build switch, traced emulator, all 20 game states, runtime coverage (found 2 missed HBlank handlers), role names for 447 entry points, runtime save tests, exact BPE re-encoding, data banks rebuilt from decoded assets, asset catalog | 21c2b54 .. HEAD |
+
+Correction to sprint 1: the game was developed by **Namco** ((c)1997 1998 NAMCO on the title
+screen); publisher byte 01 in the footer is the Bandai licensee code.
 
 ## Target
 
@@ -33,24 +46,13 @@ Interrupts: base 20h (port B0h).  Vector 26h (VBlank) and 27h (HBlank timer) at
 
 ## Metrics
 
-All numbers are reproducible: `make regen inventory check`.
+See `docs/completion.json` (computed by `tools/completion.py` from the trace, layout,
+catalog, function index and runtime coverage).  Headline: byte-perfect build; 23,425
+instructions in source; 741 entry points (36 hand-named, 447 role-named); 129/129
+compressed streams decode and re-encode exactly; 42.6 % of ROM bytes classified with
+evidence; 404 entry points executed in the emulator.
 
-| measure | value | notes |
-|---|---|---|
-| **bytes matching original** | **1,048,576 / 1,048,576 (100%)** | whole-ROM SHA-1 match |
-| bytes produced from source (not incbin) | 65,552 (6.25%) | bank 4 (65,536) + footer (16); verified without the baserom by `tools/check_source_only.py` |
-| bytes classified with evidence | 464,489 (44.3%) | `docs/inventory.md`; unknown = 584,087 (55.7%) |
-| executable bytes disassembled | 59,361 traced code bytes (23,288 instructions) | 100% of code reachable from reset, IRQ vectors, runtime IRQ installs and the 14 bounded in-bank + 10 external pointer tables |
-| unresolved indirect transfers | 0 | `tools/trace.py` |
-| code entry points identified | 739 | 23 reset/IRQ, 303 CALL targets, 413 table-dispatched handlers |
-| routines named + documented | 21 | `tools/symbols.py`, each with confidence tag |
-| instructions as readable source | 23,288 / 23,288 | 17,102 plain, 3,022 via `rr`, 8 forced-disp16, 3,156 label branches, **0 raw-byte fallbacks** |
-| functions translated to C | 0 | deliberate: hand-written assembly, no compiler to match (see below) |
-| bank-4 bytes not reached by trace | 4,429 | data tables + some unreferenced code-shaped blocks (e.g. 4000:091C, 1,196 bytes); kept as `db`, not counted as code |
-
-**Not claimed:** "100% decompiled".  What is complete is (a) a matching build and
-(b) readable, labelled source for every instruction reachable from the hardware entry
-points.  Understanding (names/comments) covers 21 of 739 entry points.
+**Not claimed:** "100% decompiled".
 
 ## Toolchain evidence
 
@@ -74,24 +76,26 @@ points.  Understanding (names/comments) covers 21 of 739 entry points.
 - Sound: driver in bank 4 (DD40-E7xx), data in bank 5, channel work RAM 0100h-02FFh,
   wave table copied to RAM 0280h.  Original engine; not Cygnals/WTD.
 
+## Runtime testing
+
+Harness: Mednafen WonderSwan core (libretro beetle-wswan, commit 4b01295) with two one-line
+hooks (`emu/core-hooks.patch`), driven by `emu/frontend.c`.  Scripts in `emu/scripts/`;
+results under `build/runtime/` (git-ignored, ROM-derived).  Fault-injection commands
+(`poke`, `orpoke`, `forcestate`) are always labelled FORCED in the script header.
+
+Resolved from sprint 1: port C8h is written only on the internal-EEPROM write-timeout path;
+no run ever wrote it (`ports.txt`), consistent with an error path.
+
 ## Open questions
 
 1. Banks 2, 5, 7 (outside matrices), 8 (outside tables) and level data in 9-E: formats
    not decoded; 55.7% of the ROM is still "unknown" data.
-2. `ieep_write_word` writes 40h to port C8h (cartridge EEPROM control) on timeout, on a
-   cartridge with SRAM.  Intent unknown.
+2. Why `ieep_write_word` touches port C8h on timeout (never observed at runtime).
 3. Unreferenced code-shaped blocks in bank 4 (e.g. 4000:091C-0DC7): dead code, or
    reached through a pointer not yet found?
-4. The 20 game states and 64 object types are unnamed.
-5. No emulator run yet: all conclusions are static.  Runtime tracing (Mednafen/ares
-   debugger) should confirm handler-table bounds that rely on adjacency.
+4. The 63 object types are role-named (objTT_update/draw) but not yet identified on screen.
+5. Natural trigger for state 5 (play_flags bit 4) not yet found.
 
-## Suggested next steps
+## Next steps
 
-1. Name the 20 game-state handlers and the 64 object types (update/draw pairs).
-2. Decode the bank-9 level directory and the sound format; split data banks into named
-   `incbin` regions with `tools/bpe.py` extraction for BPE assets.
-3. Write a BPE *compressor* and test whether it reproduces the original streams; only
-   then replace incbin'd compressed assets with source assets.
-4. Emulator trace (Mednafen) to confirm adjacency-bounded tables and find any
-   untraced code paths.
+See docs/ROADMAP.md.
