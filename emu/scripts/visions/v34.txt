@@ -1,0 +1,67 @@
+# FIXTURE (forced save fields after the museum menu opened, natural menu input): progress 148Fh=FF, perfect worlds 1497h=3F, EX flag 133Eh=1; World 3 Vision 4, then random play
+loadsram build/runtime/make_save/sram_end.bin
+reset
+wait 700
+tap start
+wait 30
+tap a
+wait 400
+tap start
+wait 90
+tap down
+tap down
+tap down
+tap a
+wait 600
+poke 148F FF
+poke 1497 3F
+poke 133E 01
+hold up 6
+wait 20
+hold right 6
+wait 20
+hold right 6
+wait 20
+hold down 6
+wait 20
+hold right 6
+wait 20
+hold right 6
+wait 20
+hold right 6
+wait 20
+shot menu
+hold a 6
+wait 150
+shot card
+wait 60
+tap a
+wait 60
+tap a
+wait 60
+tap a
+wait 60
+tap a
+wait 60
+tap a
+wait 60
+tap a
+wait 60
+tap a
+wait 60
+tap a
+wait 60
+tap a
+wait 60
+tap a
+wait 60
+tap a
+wait 60
+tap a
+wait 60
+tap a
+wait 60
+tap a
+autoshot
+atlas
+monkey 20000 34
