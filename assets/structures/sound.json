@@ -1,0 +1,442 @@
+{
+ "note": "Sound data of bank 5 (header, sound table, waves, PCM table, envelopes, sequences) and the small BPE pointer / palette tables of banks 0, 1 and F. Committed metadata only (offsets, sizes, codecs, evidence) - no game data. Format: docs/formats/sound.md.",
+ "structures": [
+  {
+   "offset": "00000",
+   "size": 12,
+   "type": "snd_ptr_table",
+   "family": "misc_tables",
+   "name": "world_picture_ptrs",
+   "params": {
+    "names": [
+     "world1_picture (bank 0 BPE stream)",
+     "world2_picture",
+     "world3_picture",
+     "world4_picture",
+     "world5_picture",
+     "world6_picture"
+    ]
+   },
+   "evidence": "load_world_picture (4000:1D3E mov bp,[word es:bx+0x0], ES=2000h with port C2h=F0h = ROM bank 0, index world-1) passes the word to bpe_expand; the 6 words are the 6 gallery_picture BPE streams of bank 0; the table ends at the first stream (0000C). Runtime: 12 of 12 bytes read.",
+   "confidence": "high"
+  },
+  {
+   "offset": "05A48",
+   "size": 110,
+   "type": "snd_bgpal",
+   "family": "misc_tables",
+   "name": "world_bg_palettes",
+   "evidence": "load_world_picture (4000:1D58 mov si,[es:bx+0x5a48], index = world 0-7 masked to 3 bits; 1D5D-1D79 reads words +2..+0Ah and writes them to BG palette ports 22h-2Ah) with ROM bank 0 at 2000h. 7 index words (first points 0Eh past the table start), 6 records of 16 bytes ending at the FFh padding (05AB6). Words +0, +0Ch, +0Eh of each record are not loaded by the code (palettes 0, 6, 7). Runtime: 72 of 110 bytes read.",
+   "confidence": "high"
+  },
+  {
+   "offset": "10000",
+   "size": 4,
+   "type": "snd_ptr_table",
+   "family": "misc_tables",
+   "name": "pause_window_ptrs",
+   "params": {
+    "names": [
+     "pause_window_4item_vertical",
+     "pause_window_4item_horizontal"
+    ]
+   },
+   "evidence": "pause_load_window_gfx (4000:10D1 mov bp,[word es:bx+0x0], bx = 0 vertical / 2 horizontal, ROM bank 1 via port C2h=F1h) -> bpe_expand; values = pause_window BPE streams 103E9 and 10004; the table ends at the first stream. Runtime: 4 of 4 bytes read.",
+   "confidence": "high"
+  },
+  {
+   "offset": "10829",
+   "size": 68,
+   "type": "snd_ptr_table",
+   "family": "misc_tables",
+   "name": "hint_sign_ptrs",
+   "params": {
+    "names": [
+     "pause_window_5item_vertical",
+     "pause_window_5item_horizontal",
+     "hint_sign_01",
+     "hint_sign_02",
+     "hint_sign_03",
+     "hint_sign_04",
+     "hint_sign_05",
+     "hint_sign_06",
+     "hint_sign_07",
+     "hint_sign_08",
+     "hint_sign_09",
+     "hint_sign_10",
+     "hint_sign_11",
+     "hint_sign_12",
+     "hint_sign_13",
+     "hint_sign_14",
+     "hint_sign_15",
+     "hint_sign_16",
+     "hint_sign_17",
+     "hint_sign_18",
+     "hint_sign_19",
+     "hint_sign_20",
+     "hint_sign_21",
+     "hint_sign_22",
+     "hint_sign_23",
+     "hint_sign_24",
+     "hint_sign_25",
+     "hint_sign_26",
+     "hint_sign_27",
+     "hint_sign_28",
+     "hint_sign_29",
+     "hint_sign_30",
+     "hint_sign_31",
+     "hint_sign_32"
+    ]
+   },
+   "evidence": "pause_load_window_gfx (4000:10C4 mov bp,[es:bx+0x829], bx = 2*([13FDh]+1) for hint signs, 0/2 for the 5-item window; bank 1) -> bpe_expand. 34 words: 2 pause_window streams + the 32 hint_sign streams 12BF6-1C056; ends where the menu-label table at 2000:086D begins. Runtime: 10 of 68 bytes read.",
+   "confidence": "high"
+  },
+  {
+   "offset": "1086D",
+   "size": 20,
+   "type": "snd_ptr_table",
+   "family": "misc_tables",
+   "name": "menu_label_ptrs",
+   "params": {
+    "names": [
+     "label_item0_h",
+     "label_item1_h",
+     "label_item2_h",
+     "label_item3_h",
+     "label_item4_h",
+     "label_item0_v",
+     "label_item1_v",
+     "label_item2_v",
+     "label_item3_v",
+     "label_item4_v"
+    ]
+   },
+   "evidence": "pause_load_item_label (4000:1123 mov bp,[es:di+0x86d], di = 2*item + 0Ah in vertical mode; bank 1) -> bpe_expand. 10 words = the 10 menu_label streams (5 horizontal, 5 vertical); ends at the first stream (10881). Runtime: 12 of 20 bytes read.",
+   "confidence": "high"
+  },
+  {
+   "offset": "11399",
+   "size": 16,
+   "type": "snd_ptr_table",
+   "family": "misc_tables",
+   "name": "keyconfig_panel_ptrs",
+   "params": {
+    "names": [
+     "choice0_panel_h (DI=0, to 34C0h)",
+     "choice0_panel_v",
+     "choice1_panel_h (DI!=0, to 34C0h)",
+     "choice1_panel_v",
+     "choice1_button_h (DI!=0, to 3A10h)",
+     "choice1_button_v",
+     "choice0_button_h (DI=0, to 3A10h)",
+     "choice0_button_v"
+    ]
+   },
+   "evidence": "keyconfig_load_panels (4000:0DE6/0DF4/0E05/0E13 mov bp,[es:bx+0x1399/0x13A5/0x13A1/0x139D], bx = 0 horizontal / 2 vertical; bank 1) -> bpe_expand into tile RAM 34C0h/3A10h; values = keyconfig_panel and yes_no_button streams; ends at the first stream (113A9). Runtime: 16 of 16 bytes read.",
+   "confidence": "high"
+  },
+  {
+   "offset": "50000",
+   "size": 200,
+   "type": "snd_table",
+   "family": "sound",
+   "name": "sound_table",
+   "evidence": "Header words 5000:0000-0007 read by sound_init (4000:DD78 mov si,[0x0], wave copy), snd_channel_pitch_volume (4000:E511 add ax,[0x0]; E4BE mov di,[0x6]), snd_track_output_channels (4000:E334 mov bp,[0x2]), snd_channel_vol_envelope/release (4000:E55C/E582 mov di,[0x4]). Sound entries 5000:0008+3*AX read by sound_play (4000:DDA5 mov al,[es:bx+0x8]; DDBF mov ax,[es:bx+0x9]) and sound_stop_id (4000:DDEB). 64 entries: the table ends where the wave table (header word 0) begins at 00C9, leaving 1 byte (500C8) outside; highest literal sound number in code is 3Dh. Runtime: 140 of 200 bytes read.",
+   "confidence": "high"
+  },
+  {
+   "offset": "500C9",
+   "size": 320,
+   "type": "snd_wave",
+   "family": "sound",
+   "name": "waves",
+   "evidence": "Wave table at header word 5000:0000 = 00C9: snd_channel_pitch_volume (4000:E50E shl ax,4 / add ax,[0x0] / rep movsw x8 to wave RAM 0280h) copies wave [+40h]*16; sound_init (4000:DD78) copies waves 0-3. 20 waves: highest wave operand in the sequences is 19 and wave 19 ends exactly at the PCM table (header word 1 = 0209). Runtime: 272 of 320 bytes read.",
+   "confidence": "high"
+  },
+  {
+   "offset": "50209",
+   "size": 30,
+   "type": "snd_pcm_table",
+   "family": "sound",
+   "name": "pcm_table",
+   "params": {
+    "names": [
+     "",
+     "voice_01",
+     "voice_02",
+     "voice_03",
+     "voice_04",
+     "voice_05",
+     "voice_06",
+     "voice_07",
+     "voice_08",
+     "end_of_voice_08"
+    ]
+   },
+   "evidence": "PCM table at header word 5000:0002 = 0209: snd_track_output_channels (4000:E334-E357) reads [bp+3n] word/byte as start and [bp+3n+3]/[bp+3n+5] as end of sample n. Entries 1-8 = the voice samples in assets/structures/pcm.json, entry 9 = end of sample 8 (5F6CD); entry 0 unused (note 0 = key off). Ends at the volume-envelope table (header word 2 = 0227). Runtime: 18 of 30 bytes read.",
+   "confidence": "high"
+  },
+  {
+   "offset": "50227",
+   "size": 437,
+   "type": "snd_venv",
+   "family": "sound",
+   "name": "vol_envelopes",
+   "evidence": "Volume envelope table at header word 5000:0004 = 0227: snd_channel_vol_envelope (4000:E552-E573 mov di,[0x4] / mov ax,[ds:bp+di] / FBh-FFh control codes, E64D-E65F) and snd_channel_release (4000:E576-E589 reads the byte before envelope env+1). 56 pointers (first pointer = 0227+2*56), 55 envelopes (sequence venv operands 1-54), last pointer 03DC is only used for envelope 54's release byte. Byte 503DC itself is not included (never read). Runtime: 323 of 437 bytes read.",
+   "confidence": "high"
+  },
+  {
+   "offset": "503DD",
+   "size": 595,
+   "type": "snd_penv",
+   "family": "sound",
+   "name": "pitch_envelopes",
+   "evidence": "Pitch envelope table at header word 5000:0006 = 03DD: snd_channel_pitch_volume (4000:E4B2-E4EC, control 80h at E662-E676) and the noise path of snd_track_output_channels (4000:E426-E462, E67D-E695). 20 pointers (first pointer 0405 = 03DD+2*20); sequence penv operands 1-13; slots 14-19 point at 0630 = end of the envelope data (start of the sequences). Runtime: 372 of 595 bytes read.",
+   "confidence": "high"
+  },
+  {
+   "offset": "50630",
+   "size": 12608,
+   "type": "snd_seq",
+   "family": "sound",
+   "name": "sequences",
+   "params": {
+    "entries": {
+     "3701": [
+      0
+     ],
+     "370E": [
+      1
+     ],
+     "371A": [
+      2
+     ],
+     "0630": [
+      3
+     ],
+     "07A0": [
+      4,
+      5
+     ],
+     "06E2": [
+      6
+     ],
+     "0713": [
+      7
+     ],
+     "067C": [
+      8
+     ],
+     "0691": [
+      9
+     ],
+     "06A2": [
+      10
+     ],
+     "07B3": [
+      11
+     ],
+     "07EE": [
+      12
+     ],
+     "0801": [
+      13
+     ],
+     "08B9": [
+      14
+     ],
+     "08EC": [
+      15
+     ],
+     "0947": [
+      16
+     ],
+     "0A3C": [
+      17
+     ],
+     "0A69": [
+      18
+     ],
+     "083F": [
+      19
+     ],
+     "0860": [
+      20
+     ],
+     "0871": [
+      21
+     ],
+     "082E": [
+      22
+     ],
+     "3726": [
+      23
+     ],
+     "3757": [
+      24
+     ],
+     "3764": [
+      25
+     ],
+     "1351": [
+      26
+     ],
+     "0C09": [
+      27
+     ],
+     "0752": [
+      28
+     ],
+     "0882": [
+      29
+     ],
+     "144B": [
+      30
+     ],
+     "0D67": [
+      31
+     ],
+     "0AB0": [
+      32
+     ],
+     "0B71": [
+      33
+     ],
+     "0B8F": [
+      34
+     ],
+     "0A1B": [
+      35
+     ],
+     "0978": [
+      36
+     ],
+     "09BB": [
+      37
+     ],
+     "0BBF": [
+      38
+     ],
+     "0B50": [
+      39
+     ],
+     "0B47": [
+      40
+     ],
+     "0B26": [
+      41
+     ],
+     "0A90": [
+      42
+     ],
+     "175A": [
+      43
+     ],
+     "177D": [
+      44
+     ],
+     "17C0": [
+      45
+     ],
+     "16FE": [
+      46
+     ],
+     "1727": [
+      47
+     ],
+     "1828": [
+      48
+     ],
+     "1845": [
+      49
+     ],
+     "186E": [
+      50
+     ],
+     "1803": [
+      51
+     ],
+     "18BB": [
+      52
+     ],
+     "211B": [
+      53
+     ],
+     "23DD": [
+      54
+     ],
+     "1D7A": [
+      55
+     ],
+     "0BF8": [
+      56
+     ],
+     "1DC4": [
+      57
+     ],
+     "1FBA": [
+      58
+     ],
+     "295E": [
+      59
+     ],
+     "2CF5": [
+      60
+     ],
+     "2E93": [
+      61
+     ],
+     "33C7": [
+      62
+     ],
+     "3532": [
+      63
+     ]
+    }
+   },
+   "evidence": "Sequence bytecode interpreted by sound_tick (4000:DE8D, fetch loop DF4A, dispatch tbl_DF5F / tbl_DF8A) and the snd_cmd_* handlers (4000:DFAA-E2CC). Entry points = the 64 sound-table pointers (snd_table); recursive descent from them over jump/call/loop targets reaches every byte except 5 unreferenced pieces (0AAD-0AB0, 0D89-0D92, 1072-1281, 14C7-1596, 3735-3757; see docs/formats/sound.md), which still decode as well-formed command streams; the linear decode is aligned with every reached instruction and ends exactly at the first PCM sample (53770). Runtime: 9038 of 12608 bytes read.",
+   "confidence": "high"
+  },
+  {
+   "offset": "F0000",
+   "size": 56,
+   "type": "snd_ptr_table",
+   "family": "misc_tables",
+   "name": "story_picture_ptrs",
+   "params": {
+    "names": [
+     "source_segment",
+     "story_picture_01",
+     "story_picture_02",
+     "story_picture_03",
+     "story_picture_04",
+     "story_picture_05",
+     "story_picture_06",
+     "story_picture_07",
+     "story_picture_08",
+     "story_picture_09",
+     "story_picture_10",
+     "story_picture_11",
+     "story_picture_12",
+     "story_picture_13",
+     "story_picture_14",
+     "story_picture_15",
+     "story_picture_16",
+     "story_picture_17",
+     "story_picture_18",
+     "story_picture_19",
+     "story_picture_20",
+     "story_picture_21",
+     "story_picture_22",
+     "story_picture_23",
+     "story_picture_24",
+     "story_picture_25",
+     "story_picture_26",
+     "story_picture_27"
+    ]
+   },
+   "evidence": "load_story_picture (4000:F159 mov ax,[es:bx] with ES=F000h = BPE source segment; F160 mov bp,[es:bx+DL*2] for DL = 1-1Bh) -> bpe_expand. Word 0 = segment F000h, words 1-27 = story_picture BPE streams; ends at the first stream (F0038). Runtime: 36 of 56 bytes read.",
+   "confidence": "high"
+  }
+ ]
+}

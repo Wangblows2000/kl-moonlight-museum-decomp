@@ -7,7 +7,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, '..'))
 sys.path.insert(0, HERE)
 import run as R
-rom = os.path.join(ROOT, 'build', 'klonoa_en.ws')
+# Japanese ROM: data-read evidence must reflect the original layout (the English patch moves
+# text/graphics in banks 1, 2, 3 and F).  Set KT_ROM to override.
+rom = os.environ.get('KT_ROM') or os.path.join(ROOT, 'baserom', 'baserom.ws')
 if not os.path.exists(rom):
     rom = os.path.join(ROOT, 'build', 'klonoa.ws')
 res = {}

@@ -1,0 +1,542 @@
+{
+ "note": "Bank 2 and bank 7 uncompressed graphics, dialogue text and tables (domain gfx). Formats: docs/formats/gfx.md. Committed metadata only - no game data.",
+ "structures": [
+  {
+   "offset": "20000",
+   "size": 1864,
+   "type": "gfx_screen",
+   "family": "screen_layout",
+   "name": "title_7106",
+   "evidence": "screen layout 7106h: far pointer 2000:0000 at 9000:01C8 (level_lookup_bg_data, ids >= 7100h index 9000:01B4 + (id-7101h)*4); loaded by title_screen_load_gfx (4000:F28E) -> load_screen_layout(DX=7106h, AL=0 tile slot, AH=0 no palette) -> level_draw_scr1_full; header parsed by bg_set_ptrs_raw (4000:4793): 3Dh tiles at +8 (copied by level_draw_scr1_full rep movsw [bx]*8 words), 19h metatiles, 1 block, palettes at [12FEh]=+738h (structurally present; not loaded for 7106h since AH=0). Runtime: bg_set_ptrs_raw, level_draw_scr1_full, bg_fetch_tile_row (title_idle run)",
+   "confidence": "high"
+  },
+  {
+   "offset": "20748",
+   "size": 4344,
+   "type": "gfx_screen",
+   "family": "screen_layout",
+   "name": "title_7107",
+   "evidence": "screen layout 7107h: far pointer 2000:0748 at 9000:01CC; title_screen_load_gfx -> load_screen_layout(DX=7107h, AL=3Dh tile slot = right after 7106h's 3Dh tiles, AH=1) -> bg_set_ptrs_raw / level_draw_scr1_full: E0h tiles, 15h metatiles, 1 block, then 8 palette words loaded by load_bg_palettes from [12FEh] (2:1830). Runtime: bg_set_ptrs_raw, level_draw_scr1_full, bg_fetch_tile_row, load_bg_palettes",
+   "confidence": "high"
+  },
+  {
+   "offset": "21840",
+   "size": 21760,
+   "type": "gfx_tiles",
+   "family": "player_frames",
+   "name": "horizontal",
+   "params": {
+    "frame": [
+     4,
+     4
+    ],
+    "frames_per_row": 8,
+    "order": "rows"
+   },
+   "evidence": "player animation frames, horizontal orientation: player_upload_anim_frame (4000:5DA6) copies 80h words from 2000:[8000:[139Ah]*2]+[139Ch] to tile RAM 3F00h; animation ids 00h-17h (obj01_player_anim_select_normal/_carrying, frame = n*100h) have bases 1840h-6940h in the word table at 8000:0000, highest frame used ends at 6D40h; 2:1840 is also copied by load_player_base_tiles (4000:4EB4) and 2:2440 by load_player_alt_frame (4000:4EE6). 85 frames x 16 tiles drawn 4x4 row-major by obj01_player_draw_sprites_horiz (tiles 1F0h-1FFh). Runtime: player_upload_anim_frame, load_player_base_tiles. Some frames of the range are never selected by the anim code (see docs)",
+   "confidence": "high"
+  },
+  {
+   "offset": "26D40",
+   "size": 21760,
+   "type": "gfx_tiles",
+   "family": "player_frames",
+   "name": "vertical",
+   "params": {
+    "frame": [
+     4,
+     4
+    ],
+    "frames_per_row": 8,
+    "order": "rows"
+   },
+   "evidence": "player animation frames, vertical orientation (ids 20h-37h = normal ids + 20h when play_flags bit0): bases 6D40h-BE40h in the table at 8000:0040, highest used frame ends at C240h where the dialogue scripts begin (4000:BB84 entry C240h); copied by player_upload_anim_frame (4000:5DA6); drawn 4x4 row-major by obj01_player_draw_sprites_vert. Runtime: player_upload_anim_frame",
+   "confidence": "high"
+  },
+  {
+   "offset": "2C240",
+   "size": 5919,
+   "type": "gfx_dialogue",
+   "family": "dialogue",
+   "name": "scripts",
+   "params": {
+    "base": "C240",
+    "table": [
+     "C240",
+     "C762",
+     "CB24",
+     "CBEA",
+     "CDBB",
+     "CEC3",
+     "D09F",
+     "D0FD",
+     "D26A",
+     "D36B",
+     "D566",
+     "C6AA",
+     "D84D",
+     "D8B2"
+    ]
+   },
+   "evidence": "15 dialogue scripts at 2000:C240-D95E: 14 from the word table 4000:BB84 (spawn_dialogue_box 4000:BBD4: [obj+18h] = cs:[BB84h+AX*2]); read by obj3d_update_text_window (4000:BD8C, ES=2000h); codes F0h-FFh dispatched through tbl_BD6C; every script ends with FFh (obj3d_text_end) and the next one starts right after it (one unreferenced script at C508h-C6A9h, between table entries 0 and 11); the last ends at D95Eh, followed by the prompt tiles at D95Fh. Runtime: obj3d_update_text_window",
+   "confidence": "high"
+  },
+  {
+   "offset": "2D95F",
+   "size": 128,
+   "type": "gfx_tiles",
+   "family": "text_tiles",
+   "name": "prompt_cursor",
+   "params": {
+    "width": 8
+   },
+   "evidence": "spawn_dialogue_box (4000:BC1A) copies 8 tiles from 2000:D95F to tile RAM 3980h (tiles 198h-19Fh) via copy_tiles_to_ram; obj3d_draw_text_window shows tile 198h + ((frame>>3)&7) while waiting on code F2h (8-step blinking prompt). Runtime: copy_tiles_to_ram",
+   "confidence": "high"
+  },
+  {
+   "offset": "2D9DF",
+   "size": 4096,
+   "type": "gfx_tiles",
+   "family": "text_tiles",
+   "name": "dialogue_glyphs",
+   "params": {
+    "width": 16
+   },
+   "evidence": "dialogue glyphs: text_put_glyph (4000:BEEE) copies 16 bytes from 2000:D9DF + AX*16, AX = script byte (< F0h) or code F3h label glyphs (table 4000:BBA0: B0h..D4h, +0..3); the 8-bit glyph index addresses exactly D9DFh-E9DEh, ending where the font starts. Glyphs 00h-D7h are used (scripts use 00h-AFh, labels B0h-D7h); D8h-FFh are blank (zero). Runtime: text_put_glyph (Japanese-ROM runs)",
+   "confidence": "high"
+  },
+  {
+   "offset": "2E9DF",
+   "size": 1024,
+   "type": "gfx_tiles",
+   "family": "text_tiles",
+   "name": "font_ascii",
+   "params": {
+    "width": 16
+   },
+   "evidence": "font: load_font_tiles (4000:B720) copies 400h words from 2000:E9DF to tile RAM 34B0h (ASCII 20h -> tile 14Bh); only the first 64 tiles (ASCII 20h-5Fh) are font data: the copy continues over the story sequencer table (2:EDDF) and FFh padding. End bound = start of the story table",
+   "confidence": "high"
+  },
+  {
+   "offset": "2EDDF",
+   "size": 90,
+   "type": "gfx_story_table",
+   "family": "story",
+   "name": "sequencer_table",
+   "evidence": "state09_story_sequencer (4000:1AE4): ES=2000h, loop CX=0Fh over records of 6 bytes at [es:bx-1221h] = 2000:EDDF: key compared with progress_code, +2 -> [13C0h] (script number passed to spawn_dialogue_box), +4 -> game_state (docs/game-states.md). Followed by FFh padding at 2:EE39",
+   "confidence": "high"
+  },
+  {
+   "offset": "70000",
+   "size": 128,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "anim_tile_28e0",
+   "params": {
+    "width": 4
+   },
+   "evidence": "anim_tile_28e0_w3v6 (4000:6338): 16 bytes from 7000:(frame&30h) + orientation*40h -> tile RAM 28E0h; 4 frames x 2 orientations = 7000:0000-007F (first 6 bytes were classed as FFh padding; they are tile rows of frame 0). Runtime: anim_tile_28e0_w3v6",
+   "confidence": "high"
+  },
+  {
+   "offset": "70080",
+   "size": 144,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "burst",
+   "params": {
+    "width": 3
+   },
+   "evidence": "load_burst_tiles (4000:7966): 48h words from 7000:0080 -> tile RAM 3E30h (tile 1E3h, obj16_draw). Runtime: load_burst_tiles",
+   "confidence": "high"
+  },
+  {
+   "offset": "70110",
+   "size": 144,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "held_enemy_default",
+   "params": {
+    "width": 3
+   },
+   "evidence": "load_held_enemy_tiles (4000:7646): 48h words from 7000:0110 -> 3AA0h (tile 1AAh), drawn 3x3 by draw_sprites_3x3 from obj09_draw_captured_enemy (4000:7926). Runtime: load_held_enemy_tiles",
+   "confidence": "high"
+  },
+  {
+   "offset": "701A0",
+   "size": 12288,
+   "type": "gfx_tiles",
+   "family": "held_enemy_frames",
+   "name": "horizontal",
+   "params": {
+    "frame": [
+     4,
+     4
+    ],
+    "frames_per_row": 8,
+    "order": "rows"
+   },
+   "evidence": "held_enemy_anim_update (4000:62E1): table 4000:62B1 (type, src horizontal, src vertical) for enemy types 03h,04h,07h,17h,2Dh,2Eh -> 7000:01A0/09A0/11A0/19A0/21A0/29A0 + ((frame>>3)&7)*100h, 80h words to 3C30h (tile 1C3h), drawn 4x4 row-major by loc_D118 (obj09_draw); 6 types x 8 frames. 7000:11A0 (type 07h frame 0) is also copied by load_obj0d_tiles (4000:7A98). Runtime: held_enemy_anim_update, load_obj0d_tiles",
+   "confidence": "high"
+  },
+  {
+   "offset": "731A0",
+   "size": 12288,
+   "type": "gfx_tiles",
+   "family": "held_enemy_frames",
+   "name": "vertical",
+   "params": {
+    "frame": [
+     4,
+     4
+    ],
+    "frames_per_row": 8,
+    "order": "cols_rtl"
+   },
+   "evidence": "held_enemy_anim_update vertical sources 7000:31A0/39A0/41A0/49A0/51A0/59A0 (table 4000:62B1 +4) + frame*100h; loc_D118 vertical branch places the 16 tiles in columns top-down, right to left. Runtime: held_enemy_anim_update",
+   "confidence": "high"
+  },
+  {
+   "offset": "761A0",
+   "size": 64,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "player_extra",
+   "params": {
+    "width": 4
+   },
+   "evidence": "load_player_base_tiles (4000:4EB4): 20h words from 7000:61A0 -> tile RAM 3EC0h (tiles 1ECh-1EFh). Runtime: load_player_base_tiles",
+   "confidence": "high"
+  },
+  {
+   "offset": "761E0",
+   "size": 576,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "obj03",
+   "params": {
+    "width": 9
+   },
+   "evidence": "load_obj03_tiles (4000:674E): 120h words from 7000:61E0 -> 3860h (tile 186h, obj03_draw); runtime reader confirmed (vision runs)",
+   "confidence": "high"
+  },
+  {
+   "offset": "76420",
+   "size": 576,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "obj04",
+   "params": {
+    "width": 9
+   },
+   "evidence": "load_obj04_tiles (4000:67E8): 120h words from 7000:6420 -> tile slot [1410h]; runtime reader confirmed (vision runs)",
+   "confidence": "high"
+  },
+  {
+   "offset": "76660",
+   "size": 576,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "obj05",
+   "params": {
+    "width": 9
+   },
+   "evidence": "load_obj05_tiles (4000:68BE): 120h words from 7000:6660 -> slot [1416h] (types 05h/06h); runtime reader confirmed (vision runs)",
+   "confidence": "high"
+  },
+  {
+   "offset": "76AE0",
+   "size": 576,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "lvl1e",
+   "params": {
+    "width": 9
+   },
+   "evidence": "lvl1e_tiles_copy (4000:A714): 120h words from 7000:6AE0 -> AX; runtime reader confirmed (vision runs)",
+   "confidence": "high"
+  },
+  {
+   "offset": "76D20",
+   "size": 576,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "obj17",
+   "params": {
+    "width": 9
+   },
+   "evidence": "load_obj17_tiles (4000:7A84): 120h words from 7000:6D20 -> slot [1414h]; runtime reader confirmed (vision runs)",
+   "confidence": "high"
+  },
+  {
+   "offset": "76F60",
+   "size": 144,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "obj12",
+   "params": {
+    "width": 9
+   },
+   "evidence": "load_obj12_tiles (4000:6C72): 48h words from 7000:6F60 -> slot [1400h] (blocks); runtime reader confirmed (vision runs)",
+   "confidence": "high"
+  },
+  {
+   "offset": "76FF0",
+   "size": 432,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "obj12_variants",
+   "params": {
+    "width": 9
+   },
+   "evidence": "load_obj12_variant_tiles (4000:6CE2): D8h words from 7000:6FF0 -> slot [1408h]; runtime reader confirmed (vision runs)",
+   "confidence": "high"
+  },
+  {
+   "offset": "771A0",
+   "size": 288,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "obj08",
+   "params": {
+    "width": 9
+   },
+   "evidence": "load_obj08_tiles (4000:7478): 90h words from 7000:71A0 -> slot [1404h]; runtime reader confirmed (vision runs)",
+   "confidence": "high"
+  },
+  {
+   "offset": "772C0",
+   "size": 128,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "lvl17",
+   "params": {
+    "width": 8
+   },
+   "evidence": "lvl17_tiles_copy (4000:82D4): 40h words from 7000:72C0 -> AX; runtime reader confirmed (vision runs)",
+   "confidence": "high"
+  },
+  {
+   "offset": "77340",
+   "size": 576,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "obj07",
+   "params": {
+    "width": 9
+   },
+   "evidence": "load_obj07_tiles (4000:7A70): 120h words from 7000:7340 -> slot [1412h]; runtime reader confirmed (vision runs)",
+   "confidence": "high"
+  },
+  {
+   "offset": "77580",
+   "size": 576,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "obj2e",
+   "params": {
+    "width": 9
+   },
+   "evidence": "copy_tiles_7580_for_obj2e (4000:A9E6): 120h words from 7000:7580 -> AX; runtime reader confirmed (vision runs)",
+   "confidence": "high"
+  },
+  {
+   "offset": "77A00",
+   "size": 256,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "obj2f",
+   "params": {
+    "width": 8
+   },
+   "evidence": "copy_tiles_7a00_for_obj2f (4000:AB6E): 80h words from 7000:7A00 -> AX; runtime reader confirmed (vision runs)",
+   "confidence": "high"
+  },
+  {
+   "offset": "77B00",
+   "size": 4096,
+   "type": "gfx_tiles",
+   "family": "anim_tiles",
+   "name": "bg_anim",
+   "params": {
+    "width": 16
+   },
+   "evidence": "anim_tiles_update (4000:6274): 80h words from 7000:[cs:626Fh + orientation*2] (7B00h horizontal, 8300h vertical) + ((frame>>4)&7)*100h -> tile RAM 3B30h; 2 orientations x 8 frames x 16 tiles (one PNG row per frame). Runtime: anim_tiles_update",
+   "confidence": "high"
+  },
+  {
+   "offset": "78B00",
+   "size": 32,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "tiles_1d4",
+   "params": {
+    "width": 2
+   },
+   "evidence": "load_tiles_1d4 (4000:895A): 10h words from 7000:8B00 -> 3D40h (tiles 1D4h-1D5h); runtime reader confirmed",
+   "confidence": "high"
+  },
+  {
+   "offset": "78B20",
+   "size": 256,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "key_a",
+   "params": {
+    "width": 8
+   },
+   "evidence": "load_key_tiles (4000:8C42): 80h words from 7000:8B20 -> 3720h (tiles 172h-181h); runtime reader confirmed",
+   "confidence": "high"
+  },
+  {
+   "offset": "78C20",
+   "size": 64,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "key_b",
+   "params": {
+    "width": 4
+   },
+   "evidence": "load_key_tiles (4000:8C42): 20h words from 7000:8C20 -> 3820h (tiles 182h-185h); runtime reader confirmed",
+   "confidence": "high"
+  },
+  {
+   "offset": "78C60",
+   "size": 512,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "lvl0a",
+   "params": {
+    "width": 8
+   },
+   "evidence": "lvl0a_tiles_copy (4000:8D12): 100h words from 7000:8C60 -> AX; runtime reader confirmed",
+   "confidence": "high"
+  },
+  {
+   "offset": "78E60",
+   "size": 144,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "switch",
+   "params": {
+    "width": 9
+   },
+   "evidence": "load_switch_tiles (4000:903A): 48h words from 7000:8E60 -> 3DA0h (tiles 1DAh-1E2h); runtime reader confirmed",
+   "confidence": "high"
+  },
+  {
+   "offset": "78EF0",
+   "size": 64,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "gate",
+   "params": {
+    "width": 4
+   },
+   "evidence": "load_gate_tiles (4000:9882): 20h words from 7000:8EF0 -> 3D60h (tiles 1D6h-1D9h); runtime reader confirmed",
+   "confidence": "high"
+  },
+  {
+   "offset": "78F30",
+   "size": 144,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "lvl18",
+   "params": {
+    "width": 9
+   },
+   "evidence": "lvl18_tiles_copy (4000:9D1A): 48h words from 7000:8F30 -> AX; runtime reader confirmed",
+   "confidence": "high"
+  },
+  {
+   "offset": "78FC0",
+   "size": 128,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "lvl07",
+   "params": {
+    "width": 8
+   },
+   "evidence": "lvl07_tiles_copy (4000:82C0): 40h words from 7000:8FC0 -> AX; runtime reader confirmed",
+   "confidence": "high"
+  },
+  {
+   "offset": "79040",
+   "size": 384,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "lvl16",
+   "params": {
+    "width": 8
+   },
+   "evidence": "lvl16_tiles_copy (4000:9B10): C0h words from 7000:9040 -> AX; runtime reader confirmed",
+   "confidence": "high"
+  },
+  {
+   "offset": "791C0",
+   "size": 192,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "lvl19",
+   "params": {
+    "width": 8
+   },
+   "evidence": "lvl19_tiles_copy (4000:9EDC): 60h words from 7000:91C0 -> AX; runtime reader confirmed",
+   "confidence": "high"
+  },
+  {
+   "offset": "79280",
+   "size": 256,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "lvl1b",
+   "params": {
+    "width": 8
+   },
+   "evidence": "lvl1b_tiles_copy (4000:A3B0): 80h words from 7000:9280 -> AX; runtime reader confirmed",
+   "confidence": "high"
+  },
+  {
+   "offset": "79382",
+   "size": 256,
+   "type": "gfx_tiles",
+   "family": "obj_tiles",
+   "name": "lvl1d",
+   "params": {
+    "width": 8
+   },
+   "evidence": "lvl1d_tiles_copy (4000:A5EC): 80h words from 7000:9382 (not 16-byte aligned) -> AX; runtime reader confirmed",
+   "confidence": "high"
+  },
+  {
+   "offset": "79492",
+   "size": 976,
+   "type": "gfx_tiles",
+   "family": "logo",
+   "name": "namco_logo",
+   "params": {
+    "width": 16
+   },
+   "evidence": "logo_load_tiles (4000:C046): 1E8h words (61 tiles) from 7000:9492 -> tile RAM 2640h (tiles 64h-), Namco-logo state; absorbs the FFh runs inside it (classed as padding: they are solid tile rows). Runtime: logo_load_tiles",
+   "confidence": "high"
+  },
+  {
+   "offset": "79870",
+   "size": 8192,
+   "type": "gfx_coll_radius",
+   "family": "collision",
+   "name": "radius_matrix",
+   "evidence": "objects_collide (4000:06D6): ES=7000h, bp = typeA*80h, bx = typeB*2+bp, cmp ax,[es:bx-6790h] (= 7000:9870+bx) with ax = |dx|+|dy|; 64x64 words. Runtime: objects_collide",
+   "confidence": "high"
+  },
+  {
+   "offset": "7B870",
+   "size": 8192,
+   "type": "gfx_coll_callback",
+   "family": "collision",
+   "name": "callback_matrix",
+   "evidence": "objects_collide (4000:06D6): mov cx,[es:bx-4790h] (= 7000:B870+bx), call cx when non-zero and within the radius; also coll_02_1B_coll_shot_vs_spawner (4000:6742). 64x64 near pointers into 4000h, every non-zero value is the entry of a coll_* routine. Runtime: objects_collide",
+   "confidence": "high"
+  }
+ ]
+}
