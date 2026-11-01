@@ -104,7 +104,7 @@ def route(prog, targets):
 
 class Explorer:
     def __init__(self, rom, seed=1, log=print):
-        self.e = Emu(rom)
+        self.e = Emu(rom, lib=os.path.join(HERE, 'libkt_fast.so') if os.path.exists(os.path.join(HERE, 'libkt_fast.so')) else os.path.join(HERE, 'libkt.so'))
         self.rng = random.Random(seed)
         self.say = log
         self.cells = {}

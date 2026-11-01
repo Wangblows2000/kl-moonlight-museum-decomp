@@ -12,3 +12,4 @@ __pycache__/
 emu/ktrun
 gamedata/
 emu/libkt.so
+emu/libkt_fast.so

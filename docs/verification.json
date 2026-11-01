@@ -3,14 +3,14 @@
  "summary": {
   "routines": 773,
   "verification": {
-   "runtime-confirmed": 285,
+   "runtime-confirmed": 297,
    "static-consistent": 212,
-   "runtime-partial": 276
+   "runtime-partial": 264
   },
   "executed": {
-   "natural": 307,
+   "natural": 320,
    "no": 187,
-   "forced_only": 254,
+   "forced_only": 241,
    "dead": 25
   },
   "runtime_data": "build/ramaccess_all.txt present"
@@ -1405,7 +1405,7 @@
    "name": "draw_two_digit_number",
    "basis": "reviewed",
    "confidence": "medium",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "The 13E1h (lives) flag is caller context and is correct: the only caller loads AL=[lives] at 428D1 (+1 while [138Eh] < 96h, 428D4-428DA) before call at 428DC. But the summary swaps the digit tables: after div cl (41D9F) AL=quotient (tens) and AH=remainder (ones). Tens: 41DA2-41DBC index table 3000:8877 and copy 3 tiles to 3EA0h; ones: 41DC0-41DDC index 3000:884F and copy to 3F00h. Placement: BP=0 (play_flags bit0 clear, 41D8F-41D97): map_fill_tile_rect CX=103h (1 wide x 3 high) tile 1EAh (=3EA0h) at DH,DL, then DH+1 tile 1F0h (=3F00h) (41DE3-41E01); bit0 set: CX=301h (3 wide x 1 high), second digit at DL+1 (41E06-41E1E). Map base AX=800h.",
    "claims": {
     "ram": [
@@ -1698,7 +1698,7 @@
    "name": "continue_quit_load_buttons",
    "basis": "reviewed",
    "confidence": "medium",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -1712,14 +1712,14 @@
     "1384"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:270A",
    "name": "continue_quit_update",
    "basis": "reviewed",
    "confidence": "medium",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -1737,14 +1737,14 @@
     "138C"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:2762",
    "name": "lose_life_and_save",
    "basis": "reviewed",
    "confidence": "medium",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -1766,14 +1766,14 @@
     "13FE"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:27A4",
    "name": "state13_lives_vision_over",
    "basis": "hand",
    "confidence": "medium",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [],
@@ -1783,14 +1783,14 @@
    "static_issues": [],
    "runtime_confirmed": [],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:2960",
    "name": "state17_good_night_quit",
    "basis": "hand",
    "confidence": "medium",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [],
@@ -1800,7 +1800,7 @@
    "static_issues": [],
    "runtime_confirmed": [],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:2A4B",
@@ -1824,7 +1824,7 @@
    "name": "random_next",
    "basis": "reviewed",
    "confidence": "medium",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -1838,7 +1838,7 @@
     "1394"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:2BC3",
@@ -2184,7 +2184,7 @@
    "name": "irq_vblank_sound_only_b",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -2200,14 +2200,14 @@
     "1386"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:3EE5",
    "name": "random_dissolve_wipe",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -2226,7 +2226,7 @@
     "1394"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:4230",
@@ -3217,7 +3217,7 @@
    "name": "load_player_alt_frame",
    "basis": "reviewed",
    "confidence": "medium",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [],
@@ -3227,7 +3227,7 @@
    "static_issues": [],
    "runtime_confirmed": [],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:4F02",
@@ -11994,7 +11994,7 @@
    "name": "obj3d_text_end",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [
@@ -12008,7 +12008,7 @@
     "1399"
    ],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:BC38",
@@ -14116,7 +14116,7 @@
    "name": "snd_cmd_jump",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [],
@@ -14126,7 +14126,7 @@
    "static_issues": [],
    "runtime_confirmed": [],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:DFC8",
@@ -15448,7 +15448,7 @@
    "name": "sram_suspend_clear",
    "basis": "reviewed",
    "confidence": "high",
-   "executed": "forced_only",
+   "executed": "natural",
    "manual_review": "",
    "claims": {
     "ram": [],
@@ -15460,7 +15460,7 @@
    "static_issues": [],
    "runtime_confirmed": [],
    "runtime_unobserved": [],
-   "verification": "runtime-partial"
+   "verification": "runtime-confirmed"
   },
   {
    "addr": "4000:F410",

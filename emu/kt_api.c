@@ -14,8 +14,13 @@
 #include <stdarg.h>
 #include "libretro.h"
 
+#ifdef KT_FAST
+uint8_t kt_exec[1];
+uint32_t kt_frame;
+#else
 extern uint8_t kt_exec[0x100000];
 extern uint32_t kt_frame;
+#endif
 
 static uint16_t held;
 static uint16_t fb[256 * 256];

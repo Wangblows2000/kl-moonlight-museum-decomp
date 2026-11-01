@@ -28,3 +28,10 @@ gcc -O2 -w -fPIC -shared -DWANT_16BPP -DWANT_STEREO_SOUND -DFRONTEND_SUPPORTS_RG
     $SRC "$OUT/kt_trace.c" "$OUT/kt_api.c" -lm -o "$OUT/libkt.so.new"
 mv -f "$OUT/libkt.so.new" "$OUT/libkt.so"
 echo "built $OUT/libkt.so"
+# Untraced library for the explorer's search (no hooks cost); coverage comes from the replay.
+gcc -O2 -w -fPIC -shared -DWANT_16BPP -DWANT_STEREO_SOUND -DFRONTEND_SUPPORTS_RGB565 -DLSB_FIRST -D__LIBRETRO__ -DSIZEOF_DOUBLE=8 -DMEDNAFEN_VERSION_NUMERIC=931 -DMPC_FIXED_POINT -DSTDC_HEADERS -D__STDC_LIMIT_MACROS -D_LOW_ACCURACY_ \
+    -I"$CORE" -I"$M" -I"$M/include" -I"$M/hw_sound" -I"$M/hw_cpu" -I"$M/hw_misc" \
+    -I"$CORE/libretro-common/include" \
+    $SRC "$OUT/player/stubs.c" "$OUT/kt_api_fast.c" -lm -o "$OUT/libkt_fast.so.new"
+mv -f "$OUT/libkt_fast.so.new" "$OUT/libkt_fast.so"
+echo "built $OUT/libkt_fast.so"

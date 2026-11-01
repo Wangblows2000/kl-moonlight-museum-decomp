@@ -22,8 +22,8 @@ python build.py build --allow-modified                  # after editing assets (
 python build.py test                                    # test suite
 ```
 
-`gamedata/` holds the game's data in editable form (PNG tile sheets, and raw `.bin` files for
-regions not decoded yet).  It is copyrighted, ROM-derived material: it is git-ignored and must
+`gamedata/` holds the game's data in editable form (PNG graphics, WAV voices, JSON/CSV level,
+object and sound tables, text sound scripts; only the documented exceptions stay raw).  It is copyrighted, ROM-derived material: it is git-ignored and must
 never be committed.  On Linux/macOS `make` wraps the same steps (`make check`, `make english`,
 `make test`, `make regen`).
 
@@ -31,6 +31,53 @@ Licence: GPL-3.0-or-later for this project's own work - see `LICENSE`, `LICENSIN
 `THIRD_PARTY_NOTICES.md`.  The game itself is (c) Namco / Bandai and is not relicensed.
 
 Status, metrics and plans: `docs/STATUS.md`, `docs/completion.json`, `docs/ROADMAP.md`.
+
+## Status
+
+These four measures are reported separately and are never combined (live values in
+`docs/completion.json`):
+
+<!-- STATUS-TABLE -->
+
+**Not claimed: "100 % decompiled".**  What remains is listed in `docs/ROADMAP.md`.
+
+## Play it on Windows
+
+`emu/player/` contains a small GPL player (Win32 window, sound, keyboard, battery saves)
+built around the same Mednafen WonderSwan core the test harness uses.  CI builds
+`klonoa-player.exe` from source and smoke-tests it on Windows with a homebrew test ROM (the
+artifact `klonoa-player-windows` of each CI run).  It contains no game data.
+
+```
+python build.py extract --rom your_dump.ws      # once
+python build.py                                  # build\klonoa.ws from source
+klonoa-player.exe build\klonoa.ws                # or put klonoa.ws next to the exe
+```
+
+Keys: arrows = X pad, X = A, Z = B, Enter = Start, W/A/S/D = Y pad, R = rotate the picture
+(for the game's vertical mode), F1 = window size, Esc = quit.  Saves go to `ROM.sav`.
+Building the player yourself: `sh emu/player/build.sh CORE_DIR windows` (needs
+`pip install ziglang` or MinGW, and a checkout of
+[beetle-wswan-libretro](https://github.com/libretro/beetle-wswan-libretro) at commit `4b01295`).
+
+## Runtime evidence: natural vs forced
+
+`emu/` holds a traced build of the emulator core.  Every run records executed addresses, ROM
+data reads, port writes and which instruction read or wrote which RAM address.  A run is
+**natural** only if it feeds controller input alone (no RAM pokes or forced states) and loads
+SRAM only from natural runs; everything else is **forced** and reported separately.
+`emu/explore.py` searches emulator save states for input sequences that progress through
+the game; its results are saved as plain input scripts in `emu/scripts/natural/` and only
+the replay of those scripts from power-on counts as natural coverage.
+
+## Documentation verification
+
+`tools/verify_docs.py` checks every routine description against the code: each RAM address,
+I/O port and routine it names must occur in the routine or its callees, and the RAM addresses
+are compared with what the routine actually accessed at runtime.  Claims it flagged were
+reviewed by hand (`tools/verification_overrides.json`) and wrong descriptions were rewritten.
+Results: `docs/verification.md`.  Bytes whose meaning could not be established are listed
+with evidence in `assets/exceptions.json`.
 
 ## Layout
 
@@ -56,7 +103,13 @@ Status, metrics and plans: `docs/STATUS.md`, `docs/completion.json`, `docs/ROADM
 | `docs/assets.md` | all 129 compressed assets: family, sizes, decoded hashes |
 | `assets/` | layout.json (every data byte), catalog.json, bpe_manifest.json - metadata only |
 | `emu/` | traced emulator harness, runtime test scripts |
-| `tests/` | pytest suite (source, macros, BPE, ROM rebuild, runtime) |
+| `tests/` | pytest suite (source, macros, BPE, ROM rebuild, codecs, address map, runtime) |
+| `emu/explore.py`, `emu/ktlib.py`, `emu/kt_api.c` | natural-play explorer over emulator save states |
+| `emu/scripts/natural/` | natural input scripts (from power-on, controller input only) |
+| `emu/player/` | Windows player (Win32) + homebrew CI test ROM |
+| `tools/verify_docs.py` | routine-description verification -> `docs/verification.md` |
+| `assets/exceptions.json` | bytes with no established meaning: bounds, contents, evidence |
+| `docs/formats/` | every decoded data format (BPE, PCM, level, sound, graphics, objects) |
 | `docs/tools-triage.md` | which external tools/test ROMs were used or deferred, and why |
 
 ## Methodology (short)

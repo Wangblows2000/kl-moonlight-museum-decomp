@@ -97,19 +97,19 @@
    "remaining": "78 opaque bytes (gamedata/raw; all listed in assets/exceptions.json) + 0 generated zero-run bytes not yet explained"
   },
   "runtime_coverage": {
-   "percent": 41.97,
-   "numerator": 9831,
+   "percent": 45.4,
+   "numerator": 10635,
    "denominator": 23425,
    "definition": "NATURAL runtime coverage: live instructions executed in at least one run driven only by controller input (no poke/orpoke/forcestate; SRAM only from natural runs), replayed from power-on with emu/ktrun",
-   "entry_points_executed_natural": "307 / 748 live entry points",
-   "all_runs_including_forced": "18674 / 23425 instructions (79.72 %), 561 live entry points",
+   "entry_points_executed_natural": "320 / 748 live entry points",
+   "all_runs_including_forced": "18682 / 23425 instructions (79.75 %), 561 live entry points",
    "dead_instructions": "1357 unreferenced instructions excluded from the denominator; executed in any run: 0",
-   "runs": "64 runs, 10 natural",
+   "runs": "66 runs, 12 natural",
    "executed_outside_static_trace": 0
   },
   "natural_state_coverage": {
-   "percent": 66.67,
-   "numerator": 12,
+   "percent": 77.78,
+   "numerator": 14,
    "denominator": 18,
    "definition": "game states 0-19 dispatched in natural runs, out of the 18 states the code can enter (14 and 15 are never written by any instruction: statically unreachable)",
    "natural": [
@@ -123,23 +123,21 @@
     9,
     10,
     12,
+    13,
     16,
+    17,
     19
    ],
    "forced_only": [
     5,
     7,
     11,
-    13,
-    17,
     18
    ],
    "missing": [
     5,
     7,
     11,
-    13,
-    17,
     18
    ],
    "statically_unreachable": [
@@ -148,19 +146,19 @@
    ]
   },
   "documentation_verification": {
-   "percent": 36.87,
-   "numerator": 285,
+   "percent": 38.42,
+   "numerator": 297,
    "denominator": 773,
    "definition": "routines whose description passes the static cross-check AND every RAM address it names was accessed by the routine (or its callees) in a natural run (docs/verification.md); other levels listed in breakdown",
    "breakdown": {
-    "runtime-confirmed": 285,
+    "runtime-confirmed": 297,
     "static-consistent": 212,
-    "runtime-partial": 276
+    "runtime-partial": 264
    },
    "executed": {
-    "natural": 307,
+    "natural": 320,
     "no": 187,
-    "forced_only": 254,
+    "forced_only": 241,
     "dead": 25
    }
   },

@@ -1,0 +1,3638 @@
+{
+ "note": "Account for every code entry point that no NATURAL run has executed -> docs/unexecuted.md.\n\nEach one gets a category, decided from evidence (in this order):\n  unreferenced        dead code: no caller, jump, table entry or vector install (hints/notes)\n  dead-caller-only    every caller is unreferenced code\n  data-unreachable    reachable by code, but the shipped data never selects it (e.g. a sound\n                      command byte that occurs in no sequence; checked against gamedata/)\n  state-unreachable   belongs to game states 14/15, which no instruction ever enters\n  forced-only         executed, but only in forced (fault-injection / fixture) runs\n  object-not-seen     object type never present in any natural run (objtypes.txt)\n  pair-not-seen       collision callback whose two object types never met in a natural run\n  coverage            reachable with shipped data; not yet exercised by natural play\nInputs: build/functions.json, build/trace.json, build/runtime_coverage.json, build/runtime/*,\ngamedata/sound/seq (for sequence command usage).",
+ "counts": {
+  "coverage": 37,
+  "forced-only": 240,
+  "unreferenced": 32,
+  "state-unreachable": 1,
+  "pair-not-seen": 91,
+  "object-not-seen": 47,
+  "data-unreachable": 5
+ },
+ "routines": [
+  {
+   "addr": "4000:00E2",
+   "name": "irq_vblank_boot",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 26,
+   "summary": ""
+  },
+  {
+   "addr": "4000:00FC",
+   "name": "irq_hblank_timer_ack",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 7,
+   "summary": ""
+  },
+  {
+   "addr": "4000:0266",
+   "name": "isqrt16",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 61,
+   "summary": "Integer square root of DX by the bit-pair method; result returned in DX."
+  },
+  {
+   "addr": "4000:03D0",
+   "name": "dead_03D0",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 24,
+   "summary": "Unreferenced (range 403D0-403E8): complete routine: ports 12h/13h = -([13A0h]>>4), [13A2h]>>4 (SCR scroll from camera), ret + alignment NOP"
+  },
+  {
+   "addr": "4000:050D",
+   "name": "irq_parallax2_band0",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 43,
+   "summary": "First band of the 2-band SCR1 parallax chain (worlds other than 1/4): SCR1 X = camX>>6; next band at line 87h."
+  },
+  {
+   "addr": "4000:0538",
+   "name": "irq_parallax2_band1",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 39,
+   "summary": "Second band of the 2-band chain: SCR1 X/Y = 0, line compare 0, re-arms irq_parallax2_band0."
+  },
+  {
+   "addr": "4000:055F",
+   "name": "dead_055F",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 11,
+   "summary": "Unreferenced (range 4055F-4056A): empty interrupt handler: pusha/push ds/push es/ds=0/pop/pop/popa/iret"
+  },
+  {
+   "addr": "4000:063B",
+   "name": "objects_draw_vert",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 151,
+   "summary": "Vertical-orientation variant of objects_draw: same slot walk and draw-table call, but culls and converts with axes swapped (screen x from [13B2h]*256 - y, screen y from x)."
+  },
+  {
+   "addr": "4000:091C",
+   "name": "dead_091C",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 1196,
+   "summary": "Unreferenced (range 4091C-40DC8): complete routine (1196 bytes): saves palette ports 20h-2Eh, zeroes them, then over 60 frames (hlt on [1386h]) steps every nibble toward the saved value (fade in), restores ports, ret + NOP"
+  },
+  {
+   "addr": "4000:0FAF",
+   "name": "pause_opt_rotate_screen",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 86,
+   "summary": "Pause-menu option 4 ('???'): toggles screen orientation. Sets/clears play_flags bit0, switches the LCD orientation icon (port 15h = 2 vertical / 4 horizontal), rebuilds the level view (1C68), rotates tiles 0-1C8h clockwise (to vertical) or counter-clockwise (back), and re-installs gameplay interrupts."
+  },
+  {
+   "addr": "4000:1138",
+   "name": "hint_sign_draw",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 126,
+   "summary": "Emits a 14x9 grid of sprites (126 entries) for the hint-sign picture: tile numbers from the map at RAM 3CA0h, tile base 14Ch, at (38h,24h) in horizontal mode or rotated (columns from x=8Ch downward) in vertical mode."
+  },
+  {
+   "addr": "4000:187D",
+   "name": "state11_scene_save_prompt",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 113,
+   "summary": ""
+  },
+  {
+   "addr": "4000:1995",
+   "name": "state18_ending",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 297,
+   "summary": ""
+  },
+  {
+   "addr": "4000:1ABE",
+   "name": "state14_unused_to_save",
+   "category": "state-unreachable",
+   "evidence": "game states 14/15 are never written by any instruction (docs/game-states.md)",
+   "size": 38,
+   "summary": ""
+  },
+  {
+   "addr": "4000:208E",
+   "name": "state07_vision_clear",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 320,
+   "summary": ""
+  },
+  {
+   "addr": "4000:25A6",
+   "name": "state05_room_transition",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 124,
+   "summary": ""
+  },
+  {
+   "addr": "4000:2BC3",
+   "name": "unused_rng9_step",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 33,
+   "summary": "UNREFERENCED (no caller; never executed). Steps the 9-bit pseudo-random value at [1394h]: rotates bit 8 into the low bits, folds shifted bits back in with XOR and masks to 1FFh (an LFSR-style step)."
+  },
+  {
+   "addr": "4000:2BE4",
+   "name": "irq_wipe3_cross",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 83,
+   "summary": "VBlank handler for wipe pattern 3: records the scanline in vblank_line and writes tile entry 11D3h along two diagonals (x = start +/- BP) for 32 rows of the SCR2 map, growing an X shape as the interrupted loop increments BP; runs sound_tick and acks VBlank."
+  },
+  {
+   "addr": "4000:2C37",
+   "name": "wipe_pattern3_cross",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 816,
+   "summary": "State-5 restart wipe, pattern 3: installs irq_wipe3_cross, derives the start map cell from the camera, and for 41 frames lets the IRQ draw the X pattern while every 4th frame each 4-bit entry of sprite palettes 8-15 is decremented (saturating at 0)."
+  },
+  {
+   "addr": "4000:2F67",
+   "name": "irq_wipe2_columns",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 170,
+   "summary": "VBlank handler for wipe pattern 2: fills SCR2 map columns with tile entry 11D3h: for BP <= 20h every other row of column start+BP (12 cells), afterwards full columns to the left of the start (start-BP, 24 cells)."
+  },
+  {
+   "addr": "4000:3011",
+   "name": "wipe_pattern2_columns",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 816,
+   "summary": "State-5 restart wipe, pattern 2: installs irq_wipe2_columns and for 71 frames (BP up to 46h) decrements sprite palettes 8-15 one shade step every 8th frame."
+  },
+  {
+   "addr": "4000:3341",
+   "name": "irq_wipe1_rows",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 104,
+   "summary": "VBlank handler for wipe pattern 1: each frame fills one SCR2 map row with tile entry 11D3h, every second cell while BP <= 15h and every cell afterwards, then advances to the next row."
+  },
+  {
+   "addr": "4000:33A9",
+   "name": "wipe_pattern1_rows",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 818,
+   "summary": "State-5 restart wipe, pattern 1: installs irq_wipe1_rows (starting at the camera's row, column 0) and for 51 frames decrements sprite palettes 8-15 one shade step every 8th frame."
+  },
+  {
+   "addr": "4000:36DB",
+   "name": "irq_wipe0_diagonal",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 75,
+   "summary": "VBlank handler for wipe pattern 0: draws a diagonal line of BP+1 tile entries 11D3h from column start+BP going down-left (row+1, column-1 per cell) in the SCR2 map, so the filled triangle grows each frame."
+  },
+  {
+   "addr": "4000:3726",
+   "name": "wipe_pattern0_diagonal",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 814,
+   "summary": "State-5 restart wipe, pattern 0: installs irq_wipe0_diagonal and for 49 frames decrements sprite palettes 8-15 one shade step every 4th frame."
+  },
+  {
+   "addr": "4000:3A54",
+   "name": "irq_vblank_sound_only",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 25,
+   "summary": "Minimal VBlank handler: runs sound_tick, stores the scanline in vblank_line, acks VBlank."
+  },
+  {
+   "addr": "4000:3A6D",
+   "name": "irq_hblank_iris_window",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 115,
+   "summary": "Per-scanline HBlank-timer handler for the circular 'iris' effect: for the current line computes the half-width sqrt(r^2 - dy^2) of a circle of radius [1394h] centred on the player (slot 03C0h, relative to the camera) and sets the SCR2 window and sprite window X limits to that span."
+  },
+  {
+   "addr": "4000:3AE0",
+   "name": "irq_hblank_iris_window_vert",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 126,
+   "summary": "Vertical-orientation variant of irq_hblank_iris_window: same circle computation with the player axes swapped (screen line vs player x, span from [13B2h]*256 - player y), clamping the left edge to at least 10h."
+  },
+  {
+   "addr": "4000:3B5E",
+   "name": "vision_clear_iris_out",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 878,
+   "summary": "Vision-clear transition: installs irq_vblank_sound_only and the iris HBlank handler (horizontal or vertical variant), then for 200 frames shrinks the iris radius [1394h] from 8Ch by 1 per frame (to 0) while decrementing sprite palettes 8-15 every 16th frame; finally re-enables plain VBlank interrupts. Called when play_flags bit5 is set, before game_state = 7."
+  },
+  {
+   "addr": "4000:4230",
+   "name": "tiles_rotate_cw",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 58,
+   "summary": "Rotates BP consecutive 8x8 2bpp tiles, starting at tile index BX (RAM 2000h + BX*16), 90 degrees clockwise in place using a 16-byte buffer at 1280h. Used when switching to vertical orientation."
+  },
+  {
+   "addr": "4000:426A",
+   "name": "tiles_rotate_ccw",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 58,
+   "summary": "Rotates BP tiles starting at tile index BX 90 degrees counter-clockwise in place (inverse of tiles_rotate_cw). Used when switching back to horizontal orientation."
+  },
+  {
+   "addr": "4000:4436",
+   "name": "terrain_rect_set",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 37,
+   "summary": "Sets terrain attribute 1 for a rectangle of 8x8 cells: BL cells along x by BH cells along y starting at (AX=y, DX=x)."
+  },
+  {
+   "addr": "4000:445B",
+   "name": "terrain_rect_clear",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 37,
+   "summary": "Clears the terrain attribute (0) for a rectangle of BL x BH 8x8 cells starting at (AX=y, DX=x)."
+  },
+  {
+   "addr": "4000:4480",
+   "name": "terrain_attr_set",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 79,
+   "summary": "Writes the 2-bit terrain attribute CH for the 8x8 cell at (AX=y, DX=x) in the map at 0C80h (inverse of terrain_attr_at)."
+  },
+  {
+   "addr": "4000:4A28",
+   "name": "map_entry_swap_flips",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 17,
+   "summary": "Swaps bits 15 and 14 (vertical/horizontal flip) of the map entry in AX, as needed when tiles are rotated for vertical orientation."
+  },
+  {
+   "addr": "4000:4B9C",
+   "name": "camera_follow_vert",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 228,
+   "summary": "Vertical-orientation camera step: as camera_follow_horiz but with axes swapped (camera x follows the object's y mirrored by the level height [13B2h], camera y follows its x), then calls the selected edge-fetch routine."
+  },
+  {
+   "addr": "4000:4E60",
+   "name": "player_take_damage",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 84,
+   "summary": "Damages the player from terrain: unless already invulnerable (flags bit 12), sets invulnerability with timer [3D9h]=100, decrements lives_reserve (health) or sets it to 0 when CL >= 3, redraws the health HUD (C55E) and, unless flags bit 14, applies a knock-back (vx 18h away from facing, vy -17h) and SFX 1."
+  },
+  {
+   "addr": "4000:509B",
+   "name": "player_flagged_move_input",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 95,
+   "summary": "Player helper called from the player update (4000:51D9) while player +12h bits 1-2 ([3D2h] AND 6) are set: zeroes the player velocity words +0Eh/+8/+9, decrements +14h, and re-adjusts it from the key words BX/DX (keys 50h); key 10h (unless +10h bit 7) subtracts 10h from the y-velocity byte +8 and key 40h adds 10h, setting +12h bits 4/5; finally clears BP bit 4.  Never executed in our runs; the gameplay situation that sets those bits is not identified."
+  },
+  {
+   "addr": "4000:5652",
+   "name": "coll_03_01_coll_enemy_hurts_player",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 8,
+   "summary": "Swapped-argument wrapper: exchanges DI/SI and calls coll_player_hurt_by_enemy (enemy is the first object)."
+  },
+  {
+   "addr": "4000:565A",
+   "name": "coll_01_12_coll_player_vs_block",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 368,
+   "summary": "Player (DI) vs solid object type 12h/30h (SI): resolves overlap within 180h: side contact pushes one of them out and stops the player horizontally; landing on top snaps the player onto it, sets the landing state/SFX 5 and records SI as the ridden object ([DI+0Eh]); hitting it from below stops both vertically. A bit in [SI+1Eh] toggles [3D2h] bit8."
+  },
+  {
+   "addr": "4000:57CA",
+   "name": "obj_turn_away_x",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 62,
+   "summary": "Makes the object at SI face and move horizontally away from the object at DI: sets SI's facing bit (2 right / 1 left) and flips the sign of its speed byte [SI+12h] when needed (only if SI is moving horizontally)."
+  },
+  {
+   "addr": "4000:5808",
+   "name": "obj_turn_away_y",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 42,
+   "summary": "Vertical counterpart of obj_turn_away_x: if SI is moving vertically, makes the sign of its speed byte [SI+12h] point away from DI."
+  },
+  {
+   "addr": "4000:5832",
+   "name": "coll_01_18_coll_player_vs_platform",
+   "category": "pair-not-seen",
+   "evidence": "object types 01h and 18h never on screen together in a natural run (seen alone: 01h)",
+   "size": 340,
+   "summary": "Player (DI) vs platform types 18h/26h (SI): for type 18h, when the player's held object is type 14h or the player is within 280h below it, sets player state bits (+12h |= C0h); then resolves overlap like a solid block (side push with obj_turn_away_x, landing records SI as ridden object with SFX 5, bump from below with obj_turn_away_y)."
+  },
+  {
+   "addr": "4000:5986",
+   "name": "coll_01_19_coll_player_in_updraft",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 222,
+   "summary": "Player (DI) inside the vertical column of object type 19h (SI, top [SI+18h], bottom [SI+1Ah], >= 280h tall, |dx| < 140h): sets player flag 8000h, limits upward speed to -1Ch and gives upward acceleration (-1), pulls the player toward the column centre near the top, plays SFX 8 every 32 frames; when the player holds a type-14h object it instead caps vy at 8 and moves the column top."
+  },
+  {
+   "addr": "4000:5A64",
+   "name": "coll_01_27_coll_player_vs_pushable",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 398,
+   "summary": "Player (DI) vs pushable object type 27h (SI): when pressing against its side, gives it the player's horizontal speed (flag 1000h), moves both together if it is on the ground, else pushes the player out; landing on top records it as ridden object (SFX 5); from below both stop vertically."
+  },
+  {
+   "addr": "4000:5BF2",
+   "name": "dead_5BF2",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 4,
+   "summary": "Unreferenced (range 45BF2-45BF6): stub routine pusha/popa/ret + NOP"
+  },
+  {
+   "addr": "4000:5E71",
+   "name": "obj01_player_draw_sprites_vert",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 151,
+   "summary": "Vertical-orientation player sprite block: 4x4 sprites at DH-0Dh, DL-10h, using V-flip (AFF0h) instead of H-flip when facing left."
+  },
+  {
+   "addr": "4000:5FB2",
+   "name": "player_clear_held",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 21,
+   "summary": "Clears the player's holding state: [3D5h]=0, held-object pointer [3D6h]=0, player flag bits 9, 10 and 14 cleared, [3D2h] bit0 cleared."
+  },
+  {
+   "addr": "4000:5FC7",
+   "name": "obj_convert_to_type0d",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 20,
+   "summary": "Turns the object at DI into type 0Dh with cleared flags, vx 0, vy 0 with gravity 1 and timer 0."
+  },
+  {
+   "addr": "4000:5FDB",
+   "name": "sub_5FDB",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 37,
+   "summary": "Object SI state helper: if [SI+14h] = 2 resets its timer [SI+1Ch]; if [SI+14h] = 0 and (SI is type 21h or its timer >= 100) sets [SI+14h] = 1 and resets the timer. Meaning of the states not established."
+  },
+  {
+   "addr": "4000:6000",
+   "name": "sub_6000",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 38,
+   "summary": "Object SI state helper: if [SI+14h] = 0, sets it to 1 and ORs bit [SI+1Eh] into the word flag set [13D4h]; if 0 or 2, resets the timer [SI+1Ch]. Meaning of [13D4h] not established."
+  },
+  {
+   "addr": "4000:6026",
+   "name": "obj_change_type_reset",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 78,
+   "summary": "Changes the object at DI to type AL and resets its state (flags, vx, timer; vy 0 with gravity 1). If it had flag 20h, or it is within 170h of the player on both axes, sets [DI+1Eh]=3 and [3D2h] bit8."
+  },
+  {
+   "addr": "4000:6074",
+   "name": "shot_grab_object",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 96,
+   "summary": "Shot (DI) captures object SI (used for blocks, DL = 13h): unless SI is supported from above (contact 80h) or flagged 20h, records its type in [3DEh] (except types 12h/0Dh), changes it to type DL, marks it grabbed (flag 400h), sets the player's holding state ([3CCh] bits, [3D6h]=SI, [3D5h]=1), plays SFX 0Ah, spawns an effect at the shot via D4A0 and deletes the shot."
+  },
+  {
+   "addr": "4000:6124",
+   "name": "obj_within_box",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 34,
+   "summary": "Proximity test between objects DI and SI: returns CF=1 if |dy| <= CX and |dx| < BX, else CF=0."
+  },
+  {
+   "addr": "4000:6254",
+   "name": "dead_6254",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 28,
+   "summary": "Unreferenced (range 46254-4626F): complete routine: copies 60h words from 7000:7B00 to tile RAM 3B30h (static version of anim_tiles_update), ret"
+  },
+  {
+   "addr": "4000:6338",
+   "name": "anim_tile_28e0_w3v6",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 52,
+   "summary": "Animates one tile (16 bytes) at tile RAM 28E0h from bank 7 offset ((frame&30h) + orientation*40h); called by the gameplay VBlank only when progress_code&FF00h = 3600h."
+  },
+  {
+   "addr": "4000:6380",
+   "name": "mscript_op3_init",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 44,
+   "summary": "Script opcode 3 init: stores the trigger range arg (+4)<<4 in [DI+18h], remembers this command in [DI+1Ah], and immediately advances to and initialises the following command (which then runs until the player comes within range)."
+  },
+  {
+   "addr": "4000:63AC",
+   "name": "mscript_op3_shoot",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 156,
+   "summary": "Script opcode 3 per frame: fires up to arg +3 projectiles, one every arg +2 frames, by calling AB82 (spawns a type-2Fh projectile at the object's position in its facing direction, SFX 16h); then while the player is within [DI+18h] waits arg +6 frames, turns toward the player and starts a new burst; when the player leaves the range it swaps back to the command saved in [DI+1Ah]."
+  },
+  {
+   "addr": "4000:6448",
+   "name": "mscript_op2_init",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 26,
+   "summary": "Script opcode 2 init: vy and speed byte [DI+12h] = arg byte +0, vx 0, sets flag 10h, timer 0."
+  },
+  {
+   "addr": "4000:6462",
+   "name": "mscript_op2_patrol_y",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 186,
+   "summary": "Script opcode 2 per frame: patrols vertically between y bounds (bytes +2/+4) at speed [DI+12h] with a pause of byte +0Bh frames at each turn; same far-from-player removal (arg +6) and command duration (arg +8) as the horizontal patrol."
+  },
+  {
+   "addr": "4000:666E",
+   "name": "mscript_nop",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 2,
+   "summary": "Single RET used as the no-op entry (opcodes 4+) of both movement-script tables."
+  },
+  {
+   "addr": "4000:6746",
+   "name": "coll_1B_02_coll_spawner_vs_shot",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 8,
+   "summary": "Swapped-argument wrapper of coll_shot_vs_spawner."
+  },
+  {
+   "addr": "4000:67DA",
+   "name": "coll_03_02_coll_enemy_grabbed_by_shot",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 8,
+   "summary": "Swapped-argument wrapper of coll_shot_grabs_enemy (enemy first)."
+  },
+  {
+   "addr": "4000:67E8",
+   "name": "load_obj04_tiles",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 20,
+   "summary": "Copies 36 tiles (240h bytes) from 7000:6420 to the tile RAM address in AX (allocated by lvl01_tick for type 04 graphics)."
+  },
+  {
+   "addr": "4000:67FC",
+   "name": "lvl01_tick_alloc_obj04_gfx",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 44,
+   "summary": "Level tick: if the type-04 tile slot [1410h] is still empty and 36 tiles can be allocated above tile 96h, takes them from the allocator ([1396h] -= 24h), stores the base in [1410h] and loads the graphics (load_obj04_tiles)."
+  },
+  {
+   "addr": "4000:6828",
+   "name": "lvl01_spawn_obj04_delayed",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 40,
+   "summary": "Level spawn routine: delayed spawner at tile AX,DX that becomes type 04 after CH*4 frames (size 80h, flags 12h)."
+  },
+  {
+   "addr": "4000:6850",
+   "name": "obj04_update_script_flyer",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 78,
+   "summary": "Type 04 (also type 17h) enemy: always faces the player, plays SFX 0Ch every 64 frames while on screen (byte+1 bit0), runs its movement script and applies velocity unless pausing; no terrain or gravity handling."
+  },
+  {
+   "addr": "4000:689E",
+   "name": "obj04_draw",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 32,
+   "summary": "Draw handler for type 04: tile base from the allocated slot [1410h] with attributes 2800h, via the orientation-specific drawer table tbl_D31E."
+  },
+  {
+   "addr": "4000:68BE",
+   "name": "load_obj05_tiles",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 20,
+   "summary": "Copies 36 tiles from 7000:6660 to the tile RAM address in AX (type 05/06 graphics, slot [1416h])."
+  },
+  {
+   "addr": "4000:68D2",
+   "name": "lvl04_tick_alloc_obj05_gfx",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 44,
+   "summary": "Level tick (lvl04/lvl24): allocates 36 tiles for the type 05/06 graphics into slot [1416h] if empty and loads them (load_obj05_tiles)."
+  },
+  {
+   "addr": "4000:68FE",
+   "name": "lvl24_spawn_obj05_bouncing",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 8,
+   "summary": "Level spawn routine: like lvl04_spawn_obj05_delayed but sets [DI+1Fh]=1, which enables the terrain-bounce code in obj05_update_script_mover."
+  },
+  {
+   "addr": "4000:6906",
+   "name": "lvl04_spawn_obj05_delayed",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 44,
+   "summary": "Level spawn routine: delayed spawner at tile AX,DX that becomes type 05 after CH*4 frames (size C0h, flags 12h)."
+  },
+  {
+   "addr": "4000:6932",
+   "name": "obj05_update_script_mover",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 160,
+   "summary": "Type 05 object: runs its movement script and applies velocity; when [DI+1Fh] != 0 it also probes terrain ahead horizontally and vertically and reverses direction (facing and speed byte) on new wall or floor/ceiling contact."
+  },
+  {
+   "addr": "4000:69D2",
+   "name": "obj06_update_weighted",
+   "category": "object-not-seen",
+   "evidence": "object type 06h never present in a natural run",
+   "size": 100,
+   "summary": "Type 06 = a type-05 object weighed down by a block (set by coll_block_vs_obj05): falls with gravity and terrain handling while something rests on it; once nothing is on top (no 80h contact) it flies back to its home y [DI+1Ah] at 8 units/frame and then reverts to type 05 with its saved velocities ([1Eh]/[1Fh])."
+  },
+  {
+   "addr": "4000:6A36",
+   "name": "coll_12_06_coll_block_vs_obj06",
+   "category": "pair-not-seen",
+   "evidence": "object types 12h and 06h never on screen together in a natural run (seen alone: neither)",
+   "size": 194,
+   "summary": "Block-type object (DI: types 12h,13h,15h,27h) vs weighted mover type 06 (SI): if SI is above, it is set on top of the block; if SI is below, the block is placed on it (block rides SI, SI clears its return flag and gets vy 0/accel 2); on side contact the block stops and is pushed out."
+  },
+  {
+   "addr": "4000:6AF8",
+   "name": "coll_06_12_coll_obj06_vs_block",
+   "category": "pair-not-seen",
+   "evidence": "object types 06h and 12h never on screen together in a natural run (seen alone: neither)",
+   "size": 8,
+   "summary": "Swapped-argument wrapper of coll_block_vs_obj06."
+  },
+  {
+   "addr": "4000:6B00",
+   "name": "obj05_draw",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 32,
+   "summary": "Draw handler for types 05/06: tile base from slot [1416h] with attributes 2800h via tbl_D31E."
+  },
+  {
+   "addr": "4000:6B20",
+   "name": "obj_ride_or_fall",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 338,
+   "summary": "Physics for stackable objects (used by blocks): if resting on another object ([DI+0Eh]) it first runs that object's update handler, then follows its vertical motion and (unless flag 1000h) its horizontal motion, dropping off when contact is lost; otherwise falls with gravity (terminal vy 18h). Then checks walls and floor with terrain_attr_at, snapping to the grid and landing."
+  },
+  {
+   "addr": "4000:6C72",
+   "name": "load_obj12_tiles",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 20,
+   "summary": "Copies 9 tiles (90h bytes) from 7000:6F60 to the tile RAM address in AX (block graphics, slot [1400h])."
+  },
+  {
+   "addr": "4000:6C86",
+   "name": "lvl02_tick_alloc_obj12_gfx",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 44,
+   "summary": "Level tick: allocates 9 tiles for the plain block graphics into slot [1400h] if empty and loads them (load_obj12_tiles)."
+  },
+  {
+   "addr": "4000:6CB2",
+   "name": "lvl02_spawn_obj12_block",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 48,
+   "summary": "Level spawn routine: places a type-12h block directly (no spawner) at tile AX,DX with size C0h, gravity 1, flag 10h, ground-contact bits 44h and variant [1Fh]=0."
+  },
+  {
+   "addr": "4000:6CE2",
+   "name": "load_obj12_variant_tiles",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 20,
+   "summary": "Copies 27 tiles (1B0h bytes) from 7000:6FF0 to the tile RAM address in AX (three 9-tile block variants, slot [1408h])."
+  },
+  {
+   "addr": "4000:6CF6",
+   "name": "lvl1a_tick_alloc_obj12v_gfx",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 44,
+   "summary": "Level tick: allocates 27 tiles for the block variants into slot [1408h] if empty and loads them (load_obj12_variant_tiles)."
+  },
+  {
+   "addr": "4000:6D22",
+   "name": "lvl1a_spawn_obj12_delayed",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 66,
+   "summary": "Level spawn routine: places a delayed spawner (type 1Bh, byte +1 = 1) at AX<<4, DX<<4 that becomes type 12h (block, +1Eh) after the delay in +14h (BP low byte; obj1b_update_delayed_spawn converts after timer > [DI+14h]*4). Block variant +1Fh = (CH&3)+1 for CH&3 = 0..2, and 3 for CH&3 = 3; obj12_draw_block uses the [1408h] graphics for a non-zero variant (46FDB)."
+  },
+  {
+   "addr": "4000:6D64",
+   "name": "obj12_update_block",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 54,
+   "summary": "Type 12h block: falls/rides via obj_ride_or_fall; on newly gaining floor contact (bits 44h) it is re-initialised as a resting block (obj_change_type_reset with 12h) and plays SFX 29h (landing)."
+  },
+  {
+   "addr": "4000:6D9A",
+   "name": "obj13_update_block_grabbed",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 400,
+   "summary": "Type 13h = block just grabbed by the player's shot: for 12 frames homes toward a point 170h above the player, then snaps there; checks the terrain above; on contact (BH & B8h) a type-13h block returns to its original position as a type-12h block and the player's hold is cleared, otherwise (or when flagged 800h, or after frame 12) it becomes type 14h (carried)."
+  },
+  {
+   "addr": "4000:6F2A",
+   "name": "obj14_update_block_carried",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 92,
+   "summary": "Type 14h = block carried above the player: follows the player (x, y-178h) and checks terrain above/ahead, pushing both out of walls (shared code at 6E84); flag 20h turns it back into a resting block (type 12h), flag 800h turns it into a thrown block (type 15h) with vx +/-20h by facing."
+  },
+  {
+   "addr": "4000:6F86",
+   "name": "obj15_update_block_thrown",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 58,
+   "summary": "Type 15h = thrown block: moves (obj_apply_velocity) with wall checks (obj_check_wall_terrain); on hitting a wall, or 4 frames after its counter [13h] has started, it becomes a resting block (type 12h) with vy 0/gravity 2 and plays SFX 29h."
+  },
+  {
+   "addr": "4000:6FC0",
+   "name": "obj12_draw_block",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 46,
+   "summary": "Draw handler for block types 12h-15h: variant 0 uses tile slot [1400h] with attributes 2800h, variants 1-3 use [1408h] + (variant-1)*9 with attributes 2400h; drawn by D1A1."
+  },
+  {
+   "addr": "4000:6FEE",
+   "name": "coll_12_02_coll_block_grabbed_by_shot",
+   "category": "pair-not-seen",
+   "evidence": "object types 12h and 02h never on screen together in a natural run (seen alone: 02h)",
+   "size": 8,
+   "summary": "Swapped-argument wrapper of coll_shot_grabs_block."
+  },
+  {
+   "addr": "4000:6FF6",
+   "name": "coll_02_12_coll_shot_grabs_block",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 30,
+   "summary": "Shot (DI) hits a resting block (SI, only when [SI+1Eh]=0): grabs it as type 13h (shot_grab_object), remembers its original position in [SI+18h]/[SI+1Ah] and continues at AC04 with CL=[SI+1Eh]."
+  },
+  {
+   "addr": "4000:7014",
+   "name": "coll_12_12_coll_block_stack",
+   "category": "pair-not-seen",
+   "evidence": "object types 12h and 12h never on screen together in a natural run (seen alone: neither)",
+   "size": 192,
+   "summary": "Block vs block (types 12h/13h): when overlapping vertically within 180h, the upper one is placed exactly on top of the lower one (same type: snapped and records its support in +0Eh), gets contact bits (40h below, 80h above), loses flag 20h and gets vy 0/gravity 1."
+  },
+  {
+   "addr": "4000:70D4",
+   "name": "coll_15_12_coll_thrown_block_vs_block",
+   "category": "pair-not-seen",
+   "evidence": "object types 15h and 12h never on screen together in a natural run (seen alone: neither)",
+   "size": 120,
+   "summary": "Thrown block (type 15h, DI) vs block/pushable (12h/27h, SI): stops the thrown block horizontally, starts its settle counter [13h] and pushes it out 180h to the side away from SI, setting side-contact bits on both."
+  },
+  {
+   "addr": "4000:714C",
+   "name": "unused_coll_land_variant",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 50,
+   "summary": "UNREFERENCED (no caller; never executed). Older collision-landing variant: if [SI+0Eh]=0 and AX>=BX, either just sets SI+11h bit 6 (BP<=0) or snaps SI on top of DI (SI.y = (DI.y AND FFF0h)-180h), sets SI+11h bit 6, clears SI+0Ch bit 5 and sets SI+8 = 0100h."
+  },
+  {
+   "addr": "4000:717E",
+   "name": "coll_12_15_coll_block_vs_thrown_block",
+   "category": "pair-not-seen",
+   "evidence": "object types 12h and 15h never on screen together in a natural run (seen alone: neither)",
+   "size": 8,
+   "summary": "Swapped-argument wrapper of coll_thrown_block_vs_block."
+  },
+  {
+   "addr": "4000:7186",
+   "name": "coll_13_03_coll_block_kills_second",
+   "category": "pair-not-seen",
+   "evidence": "object types 13h and 03h never on screen together in a natural run (seen alone: 03h)",
+   "size": 4,
+   "summary": "Held/thrown block (types 13h-15h, DI) vs enemy types 03/04/2Dh-2Fh (SI): destroys the enemy with a defeat burst (tail-jump to obj_kill_with_burst_si)."
+  },
+  {
+   "addr": "4000:718A",
+   "name": "coll_03_13_coll_block_kills_first",
+   "category": "pair-not-seen",
+   "evidence": "object types 03h and 13h never on screen together in a natural run (seen alone: 03h)",
+   "size": 4,
+   "summary": "Enemy (DI) vs held/thrown block (13h-15h): destroys the enemy (tail-jump to obj_kill_with_burst)."
+  },
+  {
+   "addr": "4000:718E",
+   "name": "coll_03_12_coll_enemy_vs_block",
+   "category": "pair-not-seen",
+   "evidence": "object types 03h and 12h never on screen together in a natural run (seen alone: 03h)",
+   "size": 156,
+   "summary": "Enemy (DI: types 03,04,2Dh,2Eh) vs block/pushable (SI: 12h/27h): if the block is falling (flag 10h) or a type-27h block is moving, the enemy is destroyed; otherwise the enemy turns around (facing and speed byte); for enemy types 03/07, when the block lies lower than the enemy, the enemy instead gets vy -20h (hops onto it)."
+  },
+  {
+   "addr": "4000:722A",
+   "name": "coll_12_03_coll_block_vs_enemy",
+   "category": "pair-not-seen",
+   "evidence": "object types 12h and 03h never on screen together in a natural run (seen alone: 03h)",
+   "size": 8,
+   "summary": "Swapped-argument wrapper of coll_enemy_vs_block."
+  },
+  {
+   "addr": "4000:7232",
+   "name": "coll_12_05_coll_block_vs_obj05",
+   "category": "pair-not-seen",
+   "evidence": "object types 12h and 05h never on screen together in a natural run (seen alone: neither)",
+   "size": 310,
+   "summary": "Block (DI: 12h,13h,27h) vs mover type 05 (SI): vertical-dominant overlap reverses SI's vertical speed away from the block; if the block comes to rest on top of SI (new 80h contact), SI saves its home y and velocities and becomes type 06 (weighted), and the block rides it; side overlap turns SI around and sets side-contact bits."
+  },
+  {
+   "addr": "4000:7368",
+   "name": "coll_05_12_coll_obj05_vs_block",
+   "category": "pair-not-seen",
+   "evidence": "object types 05h and 12h never on screen together in a natural run (seen alone: neither)",
+   "size": 8,
+   "summary": "Swapped-argument wrapper of coll_block_vs_obj05."
+  },
+  {
+   "addr": "4000:7370",
+   "name": "coll_15_05_coll_thrown_block_vs_obj05",
+   "category": "pair-not-seen",
+   "evidence": "object types 15h and 05h never on screen together in a natural run (seen alone: neither)",
+   "size": 256,
+   "summary": "Thrown block (type 15h, DI) vs mover type 05 (SI): vertical overlap reverses SI's vertical speed and sets stacking contact bits (block placed on top when above); side overlap turns SI around, stops the thrown block (starting its settle counter) and pushes it out to the side."
+  },
+  {
+   "addr": "4000:7470",
+   "name": "coll_05_15_coll_obj05_vs_thrown_block",
+   "category": "pair-not-seen",
+   "evidence": "object types 05h and 15h never on screen together in a natural run (seen alone: neither)",
+   "size": 8,
+   "summary": "Swapped-argument wrapper of coll_thrown_block_vs_obj05."
+  },
+  {
+   "addr": "4000:7478",
+   "name": "load_obj08_tiles",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 20,
+   "summary": "Copies 18 tiles (120h bytes) from 7000:71A0 to the tile RAM address in AX (type-08 graphics, slot [1404h])."
+  },
+  {
+   "addr": "4000:748C",
+   "name": "lvl03_tick_alloc_obj08_gfx",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 44,
+   "summary": "Level tick: allocates 18 tiles for the type-08 graphics into slot [1404h] if empty and loads them (load_obj08_tiles)."
+  },
+  {
+   "addr": "4000:74B8",
+   "name": "lvl03_spawn_obj08",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 42,
+   "summary": "Level spawn routine: places a type-08 object directly at tile AX,DX (size A0h, flag 10h) with its hang point [18h]/[1Ah] = (x, y+180h)."
+  },
+  {
+   "addr": "4000:74E2",
+   "name": "obj08_update_carrier",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 168,
+   "summary": "Type 08 scripted mover that the player can hang from: runs its movement script and velocity, keeps its hang point [18h]/[1Ah] at (x, y+180h) (obj01_update moves a hanging player toward this point), and times out its 'touched' flags 1000h/2000h (set by coll_carrier_vs_player) after 10h/40h frames."
+  },
+  {
+   "addr": "4000:758A",
+   "name": "obj08_draw",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 82,
+   "summary": "Draw handler for type 08: while flagged 1000h (and the player is not hanging, [3CCh] bit14) it bobs using the sine table at B5CA; normally draws with tile slot [1404h] via D29B; when flagged 400h (grabbed) it draws sprite def 29AAh via D1A1 plus a 3-sprite strip from [1404h] (+9 on alternate 16-frame phases), horizontal or vertical layout."
+  },
+  {
+   "addr": "4000:75DC",
+   "name": "coll_08_01_coll_carrier_vs_player",
+   "category": "pair-not-seen",
+   "evidence": "object types 08h and 01h never on screen together in a natural run (seen alone: 01h)",
+   "size": 24,
+   "summary": "Type 08 (DI) touched by the player: if not already flagged, sets flags 3000h, resets its timer and plays SFX 9."
+  },
+  {
+   "addr": "4000:75F4",
+   "name": "coll_01_08_coll_player_vs_carrier",
+   "category": "pair-not-seen",
+   "evidence": "object types 01h and 08h never on screen together in a natural run (seen alone: 01h)",
+   "size": 24,
+   "summary": "Player (DI) touches type 08 (SI): same as coll_carrier_vs_player applied to SI."
+  },
+  {
+   "addr": "4000:760C",
+   "name": "coll_08_02_coll_carrier_vs_shot",
+   "category": "pair-not-seen",
+   "evidence": "object types 08h and 02h never on screen together in a natural run (seen alone: 02h)",
+   "size": 8,
+   "summary": "Swapped-argument wrapper of coll_shot_latches_carrier."
+  },
+  {
+   "addr": "4000:7614",
+   "name": "coll_02_08_coll_shot_latches_carrier",
+   "category": "pair-not-seen",
+   "evidence": "object types 02h and 08h never on screen together in a natural run (seen alone: 02h)",
+   "size": 50,
+   "summary": "Player shot (DI) hits a type-08 object (SI): the player latches onto it: player flags updated (|= 4680h, &= DEBFh), player velocity zeroed, [3D6h] = SI and [3D5h] = 1 (holding), SI flagged 1400h with timer reset, the shot is deleted, SFX 0Ah."
+  },
+  {
+   "addr": "4000:7930",
+   "name": "coll_03_0A_coll_enemy_vs_held_enemy",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 10,
+   "summary": "Enemy (03,04,2Dh,2Eh) vs carried captured enemy (0Ah), either order: both objects are destroyed with defeat bursts and the player's hold is cleared."
+  },
+  {
+   "addr": "4000:7950",
+   "name": "coll_0A_05_coll_held_enemy_destroyed",
+   "category": "pair-not-seen",
+   "evidence": "object types 0Ah and 05h never on screen together in a natural run (seen alone: 0Ah)",
+   "size": 6,
+   "summary": "Carried captured enemy (0Ah, DI) touches an object of type 05, 06, 29h or 2Fh: the carried enemy is destroyed with a burst and the player's hold is cleared."
+  },
+  {
+   "addr": "4000:7956",
+   "name": "coll_05_0A_coll_held_enemy_destroyed_b",
+   "category": "pair-not-seen",
+   "evidence": "object types 05h and 0Ah never on screen together in a natural run (seen alone: 0Ah)",
+   "size": 6,
+   "summary": "Swapped counterpart of coll_held_enemy_destroyed: the second object (SI, the carried/grabbed enemy) is destroyed and the player's hold is cleared."
+  },
+  {
+   "addr": "4000:795C",
+   "name": "coll_0B_05_coll_destroy_first",
+   "category": "pair-not-seen",
+   "evidence": "object types 0Bh and 05h never on screen together in a natural run (seen alone: 0Bh)",
+   "size": 4,
+   "summary": "Generic callback: destroys the first object (DI) with a defeat burst (e.g. a thrown enemy hitting types 05, 06, 12h, 18h, 26h, 27h, 29h, 2Fh)."
+  },
+  {
+   "addr": "4000:7960",
+   "name": "coll_05_0B_coll_destroy_second",
+   "category": "pair-not-seen",
+   "evidence": "object types 05h and 0Bh never on screen together in a natural run (seen alone: 0Bh)",
+   "size": 6,
+   "summary": "Generic callback: destroys the second object (SI) with a defeat burst."
+  },
+  {
+   "addr": "4000:7A70",
+   "name": "load_obj07_tiles",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 20,
+   "summary": "Copies 36 tiles from 7000:7340 to the tile RAM address in AX (type-07 graphics, slot [1412h])."
+  },
+  {
+   "addr": "4000:7A84",
+   "name": "load_obj17_tiles",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 20,
+   "summary": "Copies 36 tiles from 7000:6D20 to the tile RAM address in AX (type-17h graphics, slot [1414h])."
+  },
+  {
+   "addr": "4000:7A98",
+   "name": "load_obj0d_tiles",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 20,
+   "summary": "Copies 16 tiles (100h bytes) from 7000:11A0 to the tile RAM address in AX (slot [140Ah], used by the type 0Dh-0Fh draw handler at 809E)."
+  },
+  {
+   "addr": "4000:7AAC",
+   "name": "lvl05_tick_alloc_obj07_gfx",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 88,
+   "summary": "Level tick (lvl05/lvl1F): allocates and loads the type-07 graphics (36 tiles, slot [1412h]) and the type 0Dh-0Fh graphics (16 tiles, slot [140Ah]) if not yet loaded."
+  },
+  {
+   "addr": "4000:7B04",
+   "name": "lvl06_tick_alloc_obj17_gfx",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 88,
+   "summary": "Level tick (lvl06/lvl20): allocates and loads the type-17h graphics (36 tiles, slot [1414h]) and the type 0Dh-0Fh graphics (slot [140Ah]) if not yet loaded."
+  },
+  {
+   "addr": "4000:7B5C",
+   "name": "lvl1f_spawn_obj07_alt",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 8,
+   "summary": "Level spawn routine: lvl05_spawn_obj07_delayed with [DI+1Fh] = 0Dh instead of 07h."
+  },
+  {
+   "addr": "4000:7B64",
+   "name": "lvl05_spawn_obj07_delayed",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 48,
+   "summary": "Level spawn routine: delayed spawner at tile AX,DX that becomes type 07 after CH*4 frames ([1Fh] = 07h, size 80h, gravity 1, facing right)."
+  },
+  {
+   "addr": "4000:7B94",
+   "name": "lvl20_spawn_obj17_alt",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 8,
+   "summary": "Level spawn routine: calls lvl06_spawn (7B9C: delayed spawner that becomes type 17h) and then sets [DI+1Fh] = 0Dh."
+  },
+  {
+   "addr": "4000:7B9C",
+   "name": "lvl06_spawn_delayed_obj17",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 44,
+   "summary": "Places a type-1Bh delayed spawner at (AX*16, DX*16) whose +1Eh = 17h: obj1B_update turns it into object type 17h after CH*4 frames. Also sets +1Fh = 7, +0Ah = +0Bh = 80h, +0Ch |= 12h."
+  },
+  {
+   "addr": "4000:7BC8",
+   "name": "obj07_update_walker",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 42,
+   "summary": "Per-frame update for type 07h: marks the slot updated, counts timers +1Ch/+14h, sets +0Ch bit 4, runs the level-record movement handler (sub_6670), applies velocity (sub_622B) unless +13h is set, then (if still type 07h) tail-jumps to sub_6146 (wall check that reverses facing/speed and floor landing)."
+  },
+  {
+   "addr": "4000:7BF2",
+   "name": "obj07_draw_dyn_tiles",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 42,
+   "summary": "Draw handler shared by types 07h and 17h: if the sprite list has room (< 17D4h), uses the VRAM tile base [1412h] (type 07h) or [1414h] (otherwise) OR 2800h as BP and jumps to the orientation-specific block emitter tbl_D31E[play_flags & 1] (obj2E_draw_case0/1)."
+  },
+  {
+   "addr": "4000:7C1C",
+   "name": "coll_07_02_capture_rev",
+   "category": "pair-not-seen",
+   "evidence": "object types 07h and 02h never on screen together in a natural run (seen alone: 02h)",
+   "size": 8,
+   "summary": "Swaps DI and SI, calls coll_02_07 (type-02 object captures the 07h/17h object) with the roles reversed, swaps back."
+  },
+  {
+   "addr": "4000:7C24",
+   "name": "coll_02_07_capture",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 12,
+   "summary": "Type 02h object (DI) touching a 07h/17h enemy (SI): sub_60D4 with DL = 0Fh turns SI into type 0Fh (old type saved in SI+1Eh), records it as the player's held object ([3D6h] = SI, [3D5h] = 1), plays sound 0Ah, spawns effect type 3Fh at DI, deletes DI and increments [13C0h] (capped at 99); then clears SI+1Ch."
+  },
+  {
+   "addr": "4000:7C30",
+   "name": "coll_07_12_block_contact",
+   "category": "pair-not-seen",
+   "evidence": "object types 07h and 12h never on screen together in a natural run (seen alone: neither)",
+   "size": 102,
+   "summary": "07h/17h enemy (DI) vs type 12h/27h object (SI): if SI+0Ch bit 4 is set, or SI is type 27h with non-zero x velocity, DI is deleted and an explosion burst spawned (sub_812F). Otherwise, if SI is below DI the enemy gets vy = E0h (bounce up); else, if DI is moving horizontally, it is turned to face away from SI (facing bits in +0Ch and sign of +12h)."
+  },
+  {
+   "addr": "4000:7C96",
+   "name": "coll_12_07_block_contact_rev",
+   "category": "pair-not-seen",
+   "evidence": "object types 12h and 07h never on screen together in a natural run (seen alone: neither)",
+   "size": 8,
+   "summary": "Swaps DI and SI, calls coll_07_12 (enemy vs block contact) with the roles reversed, swaps back."
+  },
+  {
+   "addr": "4000:7C9E",
+   "name": "coll_07_13_coll_explode_di",
+   "category": "pair-not-seen",
+   "evidence": "object types 07h and 13h never on screen together in a natural run (seen alone: neither)",
+   "size": 16,
+   "summary": "Generic callback (13 type pairs): deletes the DI object and spawns an explosion burst (type 11h) at its position with its level-record id (DI+15h)."
+  },
+  {
+   "addr": "4000:7CAE",
+   "name": "coll_05_0D_coll_explode_si",
+   "category": "pair-not-seen",
+   "evidence": "object types 05h and 0Dh never on screen together in a natural run (seen alone: neither)",
+   "size": 16,
+   "summary": "Generic callback (12 type pairs): deletes the SI object and spawns an explosion burst (type 11h) at its position with its record id."
+  },
+  {
+   "addr": "4000:7CBE",
+   "name": "coll_07_0A_coll_explode_di_poof_si",
+   "category": "pair-not-seen",
+   "evidence": "object types 07h and 0Ah never on screen together in a natural run (seen alone: 0Ah)",
+   "size": 18,
+   "summary": "Generic callback (16 pairs): deletes DI with an explosion burst (sub_812F) and defeats SI via sub_79D0 (SI becomes type 3Eh, a type-16h puff is spawned)."
+  },
+  {
+   "addr": "4000:7CD0",
+   "name": "coll_03_0D_coll_poof_di_explode_si",
+   "category": "pair-not-seen",
+   "evidence": "object types 03h and 0Dh never on screen together in a natural run (seen alone: 03h)",
+   "size": 18,
+   "summary": "Mirror of coll_explode_di_poof_si: defeats DI via sub_79A6 (type 3Eh + puff 16h), deletes SI with an explosion burst."
+  },
+  {
+   "addr": "4000:7CE2",
+   "name": "capture_timer_tick",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 28,
+   "summary": "Countdown for captured enemies: every 64 frames (when (+1Ch & 3Fh) == 0) decrements +1Fh; while +1Fh is below 5 plays sound 38h on each decrement."
+  },
+  {
+   "addr": "4000:7CFE",
+   "name": "obj0d_update_dropped",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 56,
+   "summary": "Type 0Dh (captured enemy released downward / falling): marks updated, ticks +1Ch and the capture timer, applies velocity and terrain collision (sub_6146). When the terrain check sets +0Ch bit 12 (tile attribute >= 2) or the timer +1Fh reaches 0, deletes itself and spawns an explosion burst."
+  },
+  {
+   "addr": "4000:7D36",
+   "name": "obj0f_update_pull_to_player",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 185,
+   "summary": "Type 0Fh (just-captured enemy): for 12 frames sets its velocity to (player - self) * n / 16 (n = frame count) so it flies to the player (slot 03C0h); frames 13-32 it snaps to the player's x and tracks the player's y (+vy, -10h) with a ceiling check. Becomes type 0Eh (held) after 32 frames, on a ceiling hit, or when [3CCh] bit 5 or its own +0Ch bit 11 is set; clears player +0Ch bit 9 when it does."
+  },
+  {
+   "addr": "4000:7DEF",
+   "name": "dead_7DEF",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 25,
+   "summary": "Unreferenced (range 47DEF-47E08): routine tail: cmp [di+1Fh] / call 5FB2 / x,y,ch from slot / delete / jmp 812F (spawn_explosion_burst) + NOP"
+  },
+  {
+   "addr": "4000:7E08",
+   "name": "obj0e_update_held",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 116,
+   "summary": "Type 0Eh (enemy held by the player): zero velocity; if +0Ch bit 5 is set becomes type 0Dh falling (vy 8, accel 1); if +0Ch bit 11 is set becomes type 10h moving horizontally at +/-20h by facing bit 0. Otherwise ticks the capture timer, runs sub_7712 against the player, and when the timer expires or +0Ch bit 12 is set releases the player's hold (sub_5FB2) and explodes."
+  },
+  {
+   "addr": "4000:7E7C",
+   "name": "obj10_update_thrown",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 55,
+   "summary": "Type 10h (enemy thrown horizontally): ticks capture timer, applies velocity, horizontal wall check (sub_5F50). Hitting a wall (+11h bits 0-1) converts it to a falling type 0Dh (sub_5FC7); tile attribute >= 2 (+0Ch bit 12) or timer 0 deletes it with an explosion burst."
+  },
+  {
+   "addr": "4000:7EB3",
+   "name": "dead_7EB3",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 55,
+   "summary": "Unreferenced (range 47EB3-47EEA): NOP + complete routine: an unused captured-enemy update variant (mark updated, timers, 7CE2/622B/6146, delete with burst)"
+  },
+  {
+   "addr": "4000:7EEA",
+   "name": "coll_0d_02_recapture_rev",
+   "category": "pair-not-seen",
+   "evidence": "object types 0Dh and 02h never on screen together in a natural run (seen alone: 02h)",
+   "size": 8,
+   "summary": "Swaps DI and SI, calls coll_02_0D (type-02 object re-captures a released enemy) with the roles reversed, swaps back."
+  },
+  {
+   "addr": "4000:7EF2",
+   "name": "coll_02_0d_recapture",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 6,
+   "summary": "Type 02h object (DI) touching a released captured enemy (SI, type 0Dh): sub_6074 with DL = 0Fh re-captures it (unless SI has +10h/+11h bit 7 or +0Ch bit 5), making it type 0Fh again, held by the player, sound 0Ah, effect 3Fh, DI deleted."
+  },
+  {
+   "addr": "4000:7EF8",
+   "name": "coll_10_12_stop_at_block",
+   "category": "pair-not-seen",
+   "evidence": "object types 10h and 12h never on screen together in a natural run (seen alone: neither)",
+   "size": 104,
+   "summary": "Thrown enemy (type 10h, DI) vs block (12h/27h, SI): if within 17Ch vertically and 180h horizontally (coordinates masked to whole pixels), converts DI to a falling 0Dh (sub_5FC7), places it 180h beside SI on the side it came from and sets the contact bits (+11h bits 4/5) on both."
+  },
+  {
+   "addr": "4000:7F60",
+   "name": "coll_12_10_stop_at_block_rev",
+   "category": "pair-not-seen",
+   "evidence": "object types 12h and 10h never on screen together in a natural run (seen alone: neither)",
+   "size": 8,
+   "summary": "Swaps DI and SI, calls coll_10_12 (thrown enemy stops at block) with the roles reversed, swaps back."
+  },
+  {
+   "addr": "4000:7F68",
+   "name": "coll_0d_12_land_on_block",
+   "category": "pair-not-seen",
+   "evidence": "object types 0Dh and 12h never on screen together in a natural run (seen alone: neither)",
+   "size": 122,
+   "summary": "Falling enemy (0Dh, DI) vs block (12h/27h, SI): within 160h vertically and 180h horizontally, if SI is not moving horizontally and DI is above it, DI lands on SI (y = SI.y - 160h, x low nibble from SI, +0Eh = SI as the supporting object, contact bits +11h 40h/80h, +0Ch bit 5 cleared, vy reset to 0100h); otherwise DI is deleted with an explosion burst."
+  },
+  {
+   "addr": "4000:7FE2",
+   "name": "coll_12_0d_land_on_block_rev",
+   "category": "pair-not-seen",
+   "evidence": "object types 12h and 0Dh never on screen together in a natural run (seen alone: neither)",
+   "size": 8,
+   "summary": "Swaps DI and SI, calls coll_0D_12 (falling enemy lands on block) with the roles reversed, swaps back."
+  },
+  {
+   "addr": "4000:7FEA",
+   "name": "coll_0E_05_coll_explode_di_release",
+   "category": "pair-not-seen",
+   "evidence": "object types 0Eh and 05h never on screen together in a natural run (seen alone: neither)",
+   "size": 18,
+   "summary": "Deletes DI (held enemy 0Eh) with an explosion burst and releases the player's hold (sub_5FB2 clears [3D5h], [3D6h], [3CCh] bits 9/10/14, [3D2h] bit 0)."
+  },
+  {
+   "addr": "4000:7FFC",
+   "name": "coll_05_0E_coll_explode_si_release_rev",
+   "category": "pair-not-seen",
+   "evidence": "object types 05h and 0Eh never on screen together in a natural run (seen alone: neither)",
+   "size": 8,
+   "summary": "Swaps DI and SI, calls coll_0E_05 (held enemy explodes and hold released) with the roles reversed, swaps back."
+  },
+  {
+   "addr": "4000:8004",
+   "name": "coll_0D_0A_coll_explode_di_poof_si_rel",
+   "category": "pair-not-seen",
+   "evidence": "object types 0Dh and 0Ah never on screen together in a natural run (seen alone: 0Ah)",
+   "size": 22,
+   "summary": "Deletes DI with an explosion burst, defeats SI via sub_79D0 (type 3Eh + puff 16h) and releases the player's hold (sub_5FB2)."
+  },
+  {
+   "addr": "4000:801A",
+   "name": "coll_03_0E_coll_poof_di_explode_si_rel_rev",
+   "category": "pair-not-seen",
+   "evidence": "object types 03h and 0Eh never on screen together in a natural run (seen alone: 03h)",
+   "size": 8,
+   "summary": "Swaps DI and SI, calls coll_0D_0A (explode / defeat / release) with the roles reversed, swaps back."
+  },
+  {
+   "addr": "4000:8022",
+   "name": "coll_07_10_coll_explode_both",
+   "category": "pair-not-seen",
+   "evidence": "object types 07h and 10h never on screen together in a natural run (seen alone: neither)",
+   "size": 32,
+   "summary": "Deletes both objects, each with an explosion burst at its own position (sub_812F twice)."
+  },
+  {
+   "addr": "4000:8042",
+   "name": "coll_07_0E_coll_explode_both_release",
+   "category": "pair-not-seen",
+   "evidence": "object types 07h and 0Eh never on screen together in a natural run (seen alone: neither)",
+   "size": 34,
+   "summary": "Deletes both objects with explosion bursts and releases the player's hold (sub_5FB2); used for held enemy (0Eh) vs 07h/17h."
+  },
+  {
+   "addr": "4000:8064",
+   "name": "coll_07_0d_explode_if_flag20",
+   "category": "pair-not-seen",
+   "evidence": "object types 07h and 0Dh never on screen together in a natural run (seen alone: neither)",
+   "size": 46,
+   "summary": "If either object has +0Ch bit 5 set, deletes both with explosion bursts; otherwise does nothing."
+  },
+  {
+   "addr": "4000:809E",
+   "name": "obj0d_draw_with_timer",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 145,
+   "summary": "Draw handler shared by 0Dh/0Eh/0Fh/10h (captured enemies): if room (< 17B0h) and the capture timer +1Fh is non-zero, draws the timer as one or two digit sprites (tiles 2D4Dh + digit, '1' = 2D4Eh for 10+) at an orientation-dependent offset (table 4:8092), flashing palette (2C00h) when below 4; then draws the 32x32 body via loc_D118 using tile base 1C3h if the original type (+1Eh) equals [3DEh], else [140Ah]."
+  },
+  {
+   "addr": "4000:812F",
+   "name": "spawn_explosion_burst",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 34,
+   "summary": "Allocates a slot in the effect area 0300h-03BFh (sub_B585) and creates a type-11h object (flags 09h) at AX,DX with origin copy +18h/+1Ah and level-record id +15h = CH. obj11_update turns it into a sequence of type-29h fragments."
+  },
+  {
+   "addr": "4000:8175",
+   "name": "obj11_update_burst",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 95,
+   "summary": "Type 11h explosion burst: every 4th frame spawns a type-29h fragment (sub_A326) at origin + (dx,dy)*16 taken from the 18-entry offset table at 4:8151 (+/-16 px pattern), playing sound 14h on every 4th fragment; after 18 fragments (+14h = 12h) clears the level record's 'spawned' bit (sub_61F8) and deletes itself, allowing the enemy to respawn."
+  },
+  {
+   "addr": "4000:81D4",
+   "name": "coll_29_03_poof_si",
+   "category": "pair-not-seen",
+   "evidence": "object types 29h and 03h never on screen together in a natural run (seen alone: 03h)",
+   "size": 16,
+   "summary": "Explosion fragment (29h, DI) vs enemy (03h/04h/0Bh/0Ch/2Dh/2Eh, SI): if within 130h on both axes (sub_6124), defeats SI via sub_79D0 (type 3Eh + puff 16h)."
+  },
+  {
+   "addr": "4000:81E4",
+   "name": "coll_03_29_poof_rev",
+   "category": "pair-not-seen",
+   "evidence": "object types 03h and 29h never on screen together in a natural run (seen alone: 03h)",
+   "size": 8,
+   "summary": "Swaps DI and SI, calls coll_29_03 (fragment defeats enemy) with the roles reversed, swaps back."
+  },
+  {
+   "addr": "4000:81EC",
+   "name": "coll_29_12_detonate",
+   "category": "pair-not-seen",
+   "evidence": "object types 29h and 12h never on screen together in a natural run (seen alone: neither)",
+   "size": 36,
+   "summary": "Fragment (DI) vs type 12h/15h object (SI) whose +1Fh (direction) is non-zero: within 170h, deletes SI and starts an explosion chain (type 3Ch, sub_A296) at its position travelling in direction SI+1Fh with SI's record id."
+  },
+  {
+   "addr": "4000:8210",
+   "name": "coll_12_29_detonate",
+   "category": "pair-not-seen",
+   "evidence": "object types 12h and 29h never on screen together in a natural run (seen alone: neither)",
+   "size": 36,
+   "summary": "Mirror of coll_29_12_detonate with DI = the 12h/15h object: if DI+1Fh is non-zero and within 170h, starts an explosion chain at DI and deletes DI."
+  },
+  {
+   "addr": "4000:8234",
+   "name": "coll_29_14_detonate_held",
+   "category": "pair-not-seen",
+   "evidence": "object types 29h and 14h never on screen together in a natural run (seen alone: neither)",
+   "size": 39,
+   "summary": "As coll_29_12_detonate for a type-14h object (SI), and additionally releases the player's hold (sub_5FB2)."
+  },
+  {
+   "addr": "4000:825B",
+   "name": "coll_14_29_detonate_held_rev",
+   "category": "pair-not-seen",
+   "evidence": "object types 14h and 29h never on screen together in a natural run (seen alone: neither)",
+   "size": 9,
+   "summary": "Swaps DI and SI, calls coll_29_14 (fragment detonates held object) with the roles reversed, swaps back."
+  },
+  {
+   "addr": "4000:8264",
+   "name": "coll_29_07_explode_si",
+   "category": "pair-not-seen",
+   "evidence": "object types 29h and 07h never on screen together in a natural run (seen alone: neither)",
+   "size": 34,
+   "summary": "Fragment (DI) vs enemy 07h/0Dh/10h/17h (SI): if DI+1Ch is 0 (always for fragments created by sub_A326) and within 130h, SI explodes (sub_812F) and is deleted - chain reaction."
+  },
+  {
+   "addr": "4000:8286",
+   "name": "coll_07_29_explode_di",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 34,
+   "summary": "Mirror: enemy 07h/0Dh/10h/17h (DI) explodes when a fragment (SI, +1Ch = 0) is within 130h."
+  },
+  {
+   "addr": "4000:82A8",
+   "name": "coll_29_01_hurt_player_rev",
+   "category": "pair-not-seen",
+   "evidence": "object types 29h and 01h never on screen together in a natural run (seen alone: 01h)",
+   "size": 8,
+   "summary": "Swaps DI and SI, calls coll_01_29 (fragment hurts player) with the roles reversed, swaps back."
+  },
+  {
+   "addr": "4000:82B0",
+   "name": "coll_01_29_hurt_player",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 16,
+   "summary": "Player (01h, DI) vs explosion fragment (29h, SI): if within 170h on both axes, runs the player damage handler coll_01_03 (sets [3CCh] bit 12, [3D9h] = 100, decrements [13E0h], knock-back, sound 1)."
+  },
+  {
+   "addr": "4000:82C0",
+   "name": "lvl07_tiles_copy",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 20,
+   "summary": "Copies 128 bytes (8 16-byte 2bpp tiles) of sprite tile data from 7000:8FC0 to 0000:AX (tile RAM)."
+  },
+  {
+   "addr": "4000:82D4",
+   "name": "lvl17_tiles_copy",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 20,
+   "summary": "Copies 128 bytes (8 16-byte 2bpp tiles) of sprite tile data from 7000:72C0 to 0000:AX (tile RAM)."
+  },
+  {
+   "addr": "4000:82E8",
+   "name": "lvl07_load_tiles",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 44,
+   "summary": "Once per Vision: if the VRAM tile base [1422h] is still 0, allocates 8 tiles downward from the tile allocator [1396h] (gives up if the new value would fall below 96h), stores the base tile in [1422h] and copies the tiles via sub_82C0."
+  },
+  {
+   "addr": "4000:8314",
+   "name": "lvl17_load_tiles",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 44,
+   "summary": "Once per Vision: if the VRAM tile base [1424h] is still 0, allocates 8 tiles downward from the tile allocator [1396h] (gives up if the new value would fall below 96h), stores the base tile in [1424h] and copies the tiles via sub_82D4."
+  },
+  {
+   "addr": "4000:8340",
+   "name": "lvl07_spawn_delayed_obj18",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 40,
+   "summary": "Places a type-1Bh delayed spawner that becomes type 18h after CH*4 frames (+1Eh = 18h); +0Ah = 80h, +0Bh = FFh, +0Ch |= 12h."
+  },
+  {
+   "addr": "4000:8368",
+   "name": "lvl17_spawn_delayed_obj26",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 40,
+   "summary": "Places a type-1Bh delayed spawner that becomes type 26h after CH*4 frames (+1Eh = 26h); +0Ah = 80h, +0Bh = FFh, +0Ch |= 12h."
+  },
+  {
+   "addr": "4000:8390",
+   "name": "obj18_update_scripted_move",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 24,
+   "summary": "Update shared by types 18h and 26h: marks updated, counts +14h/+1Ch, runs the level-record movement handler (sub_6670) and applies velocity (sub_622B) unless +13h is non-zero. No terrain collision."
+  },
+  {
+   "addr": "4000:83A8",
+   "name": "obj18_draw_32x16",
+   "category": "object-not-seen",
+   "evidence": "object type 18h never present in a natural run",
+   "size": 24,
+   "summary": "Draws type 18h as 2 rows of 4 sprites (32x16) from tile base [1422h] with attribute 2C00h via loc_D44C."
+  },
+  {
+   "addr": "4000:83C0",
+   "name": "obj26_draw_32x16",
+   "category": "object-not-seen",
+   "evidence": "object type 26h never present in a natural run",
+   "size": 24,
+   "summary": "Draws type 26h as 2 rows of 4 sprites (32x16) from tile base [1424h] with attribute 2800h via loc_D44C."
+  },
+  {
+   "addr": "4000:83D8",
+   "name": "coll_18_12_platform_push",
+   "category": "pair-not-seen",
+   "evidence": "object types 18h and 12h never on screen together in a natural run (seen alone: neither)",
+   "size": 324,
+   "summary": "Moving platform (18h/26h, DI) vs object 12h/13h/27h (SI), extents 1C0h x 140h: on side contact sets contact bits and pushes SI to DI.x -/+ 1C0h (also moving the player x when SI is the object the player stands on, [3CEh]); if SI is already blocked on that side (SI+10h|+11h bits 22h/11h) the platform reverses instead. On vertical contact SI is placed on top of DI and linked (SI+0Eh = DI), or, with DI above, DI's vertical direction is reversed."
+  },
+  {
+   "addr": "4000:851C",
+   "name": "coll_12_18_platform_push_rev",
+   "category": "pair-not-seen",
+   "evidence": "object types 12h and 18h never on screen together in a natural run (seen alone: neither)",
+   "size": 8,
+   "summary": "Swaps DI and SI, calls coll_18_12 (platform pushes / carries object) with the roles reversed, swaps back."
+  },
+  {
+   "addr": "4000:8524",
+   "name": "coll_18_15",
+   "category": "pair-not-seen",
+   "evidence": "object types 18h and 15h never on screen together in a natural run (seen alone: neither)",
+   "size": 8,
+   "summary": "Collision callback (matrix convention coll_<type of DI>_<type of SI>). Swapped wrapper: exchanges SI and DI and calls coll_15_18."
+  },
+  {
+   "addr": "4000:852C",
+   "name": "coll_15_18",
+   "category": "pair-not-seen",
+   "evidence": "object types 15h and 18h never on screen together in a natural run (seen alone: neither)",
+   "size": 222,
+   "summary": "Collision callback (matrix convention coll_<type of DI>_<type of SI>). Thrown block DI (15h) vs scripted mover SI (18h/26h): within 1C0h horizontally and 140h vertically (1/16 px). Side contact: if DI moves toward SI, push DI to SI.x +/- 1C0h, set side-contact bits (+11h 10h/20h) on both, zero DI x velocity and set DI+13h to at least 1. Vertical: DI above SI -> DI rests on SI (DI.y = SI.y-140h, keeps its sub-cell x); DI below -> reverse SI direction (+12h) if heading the wrong way and clear DI +0Ch bit 5."
+  },
+  {
+   "addr": "4000:860A",
+   "name": "coll_18_0A",
+   "category": "pair-not-seen",
+   "evidence": "object types 18h and 0Ah never on screen together in a natural run (seen alone: 0Ah)",
+   "size": 212,
+   "summary": "Collision callback (matrix convention coll_<type of DI>_<type of SI>). Solid mover DI (18h/26h) vs carried/held object SI (0Ah carried enemy, 0Eh held enemy, 14h carried block): within 1C0h x / 140h y. Side contact pushes SI to DI.x +/- 1D0h and moves the player there too ([3C2h]), setting side-contact bits. Vertical: clears SI +0Ch bit 5; if SI is below DI: a type-0Ah object is pushed under DI (SI.y = DI.y+140h, bits 40h/80h), otherwise DI direction is reversed if needed and an upward player velocity ([3C8h] < 0) is cancelled by moving the player back ([3C4h])."
+  },
+  {
+   "addr": "4000:86DE",
+   "name": "coll_0A_18",
+   "category": "pair-not-seen",
+   "evidence": "object types 0Ah and 18h never on screen together in a natural run (seen alone: 0Ah)",
+   "size": 8,
+   "summary": "Collision callback (matrix convention coll_<type of DI>_<type of SI>). Swapped wrapper: exchanges SI and DI and calls coll_18_0A."
+  },
+  {
+   "addr": "4000:86E6",
+   "name": "coll_12_0A",
+   "category": "pair-not-seen",
+   "evidence": "object types 12h and 0Ah never on screen together in a natural run (seen alone: 0Ah)",
+   "size": 304,
+   "summary": "Collision callback (matrix convention coll_<type of DI>_<type of SI>). Block DI (12h) vs carried/held object SI (0Ah/0Eh/14h; also used for 12h vs 0Eh/14h/27h pairs): within 180h in both axes. Side contact: unless SI is 0Ah/0Eh or DI is stationary, reverse DI direction (+12h) and update its facing bits (+0Ch bits 0-1); push SI to DI.x +/- 180h and move the player x ([3C2h]) with it. Vertical: SI above DI -> SI+12h = 3 (standing on it). DI above SI: 0Ah/0Eh are pushed below (SI.y = DI.y+180h); a type-05h DI only reverses direction; otherwise DI rests on SI (DI.y = SI.y-180h) and an upward player velocity is cancelled."
+  },
+  {
+   "addr": "4000:8816",
+   "name": "dead_8816",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 22,
+   "summary": "Unreferenced (range 48816-4882C): routine fragment: positions slot SI 18h px above DI, sets contact bits, ret + NOP"
+  },
+  {
+   "addr": "4000:882C",
+   "name": "coll_0A_12",
+   "category": "pair-not-seen",
+   "evidence": "object types 0Ah and 12h never on screen together in a natural run (seen alone: 0Ah)",
+   "size": 8,
+   "summary": "Collision callback (matrix convention coll_<type of DI>_<type of SI>). Swapped wrapper: exchanges SI and DI and calls coll_12_0A."
+  },
+  {
+   "addr": "4000:8834",
+   "name": "coll_05_14",
+   "category": "pair-not-seen",
+   "evidence": "object types 05h and 14h never on screen together in a natural run (seen alone: neither)",
+   "size": 286,
+   "summary": "Collision callback (matrix convention coll_<type of DI>_<type of SI>). Script mover DI (05h/06h) vs carried block SI (14h): if player flags [3CCh] bit 12 is set, SI+12h = 3 and return. Otherwise halves SI+12h; within 190h x / 180h y: if the halved-out bit was set, SI+12h = 3; side contact reverses DI direction (and facing bits) and pushes SI and the player x to DI.x +/- 180h; vertical with SI above -> SI+12h = 3; SI below -> reverse DI direction if needed, DI rests on SI (DI.y = SI.y-180h) and an upward player velocity is cancelled."
+  },
+  {
+   "addr": "4000:8952",
+   "name": "coll_14_05",
+   "category": "pair-not-seen",
+   "evidence": "object types 14h and 05h never on screen together in a natural run (seen alone: neither)",
+   "size": 8,
+   "summary": "Collision callback (matrix convention coll_<type of DI>_<type of SI>). Swapped wrapper: exchanges SI and DI and calls coll_05_14."
+  },
+  {
+   "addr": "4000:8976",
+   "name": "lvl08_spawn_obj19",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 46,
+   "summary": "Creates object type 19h at x = AX*16 (8-px aligned), base y = DX*16 in +4 and +1Ah; +12h/+18h/+1Ch = base y - 180h; +8 = FF00h (vy 0, accel -1)."
+  },
+  {
+   "addr": "4000:89A4",
+   "name": "obj19_update",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 250,
+   "summary": "Type 19h update (rising surface that follows the player from below, drawn by obj19_draw_wobble_sprites): marks the slot updated, counts +14h, integrates a vertical velocity (+8, accel +9, clamped >= -40h) into the surface y +18h (limited to +1Ah-190h). While the player ([3C4h]) is more than 600h above, the surface rises toward (or snaps to) a band around the player y (600h, or C00h when play_flags bit 0 = rotated screen) with a 2-frame wobble; otherwise it stays at its base +1Ah. Terrain checks (terrain_attr_at, attr bit 0Bh) at +18h and +1Ch stop the rise and reset the second level +1Ch, which then climbs 20h per frame."
+  },
+  {
+   "addr": "4000:8A9E",
+   "name": "obj19_draw_wobble_sprites",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 224,
+   "summary": "Draws three 8x8 sprites (tile/attr 2BD4h) stacked 12 px apart, each displaced sideways by values from the sine/cosine tables at 4:B5CA/4:B60A indexed by the frame counter +14h (phase offsets 0, 30h, 60h); orientation-aware."
+  },
+  {
+   "addr": "4000:8B7E",
+   "name": "coll_19_12_cap_fall_speed",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 90,
+   "summary": "Type 19h column (DI) vs object 12h/27h (SI): if SI.y lies between DI+18h and DI+1Ah and |dx| < 140h, clears SI+0Ch bit 5, limits SI's downward speed to 8, lowers DI's top (+18h) to SI.y + D0h when that is lower, and resets DI's vy/accel to FF00h."
+  },
+  {
+   "addr": "4000:8BD8",
+   "name": "coll_12_19_cap_fall_speed_rev",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 8,
+   "summary": "Swaps DI and SI, calls coll_19_12 (column caps fall speed) with the roles reversed, swaps back."
+  },
+  {
+   "addr": "4000:8BE0",
+   "name": "coll_19_26_cap_fall_speed",
+   "category": "pair-not-seen",
+   "evidence": "object types 19h and 26h never on screen together in a natural run (seen alone: neither)",
+   "size": 90,
+   "summary": "As coll_19_12_cap_fall_speed for a type-26h object (SI), with |dx| < 180h and top set to SI.y + 90h."
+  },
+  {
+   "addr": "4000:8C3A",
+   "name": "coll_26_19_cap_fall_speed_rev",
+   "category": "pair-not-seen",
+   "evidence": "object types 26h and 19h never on screen together in a natural run (seen alone: neither)",
+   "size": 8,
+   "summary": "Swaps DI and SI, calls coll_19_26 (column caps fall speed) with the roles reversed, swaps back."
+  },
+  {
+   "addr": "4000:8C72",
+   "name": "lvl09_spawn_key",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 48,
+   "summary": "Creates a type-1Ah key at 8-unit-aligned (AX*16, DX*16) with colour +14h = CH & 3; deletes it again if that colour is already collected (bit in [13D1h])."
+  },
+  {
+   "addr": "4000:8CA2",
+   "name": "obj1a_update_anim_counter",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 8,
+   "summary": "Marks the slot updated (+1 bit 1) and increments the animation counter +1Ch."
+  },
+  {
+   "addr": "4000:8CB2",
+   "name": "obj1a_draw_key_bob",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 58,
+   "summary": "Draws the key as a 16x16 sprite (tiles 172h + 4*colour, attribute 2800h) bobbing by 0,+1,+2,+1,0,-1,-2,-1 px (table 4:8CAA indexed by +1Ch/8) along the screen-vertical axis."
+  },
+  {
+   "addr": "4000:8CEC",
+   "name": "coll_01_1a_collect_key",
+   "category": "pair-not-seen",
+   "evidence": "object types 01h and 1Ah never on screen together in a natural run (seen alone: 01h)",
+   "size": 38,
+   "summary": "Player touches a key: sets bit (+14h) in [13D1h], redraws the four key icons on the HUD (sub_C608, tile map at 0800h), deletes the key, spawns effect 3Fh (subtype 2) and plays sound 23h."
+  },
+  {
+   "addr": "4000:8D12",
+   "name": "lvl0a_tiles_copy",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 20,
+   "summary": "Copies 512 bytes (32 16-byte 2bpp tiles) of sprite tile data from 7000:8C60 to 0000:AX (tile RAM)."
+  },
+  {
+   "addr": "4000:8D26",
+   "name": "lvl0a_load_tiles",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 44,
+   "summary": "Once per Vision: if the VRAM tile base [1428h] is still 0, allocates 32 tiles downward from the tile allocator [1396h] (gives up if the new value would fall below 96h), stores the base tile in [1428h] and copies the tiles via sub_8D12. Shared by kinds 0Ah-0Dh and 0Fh (doors and the item gate use [1428h])."
+  },
+  {
+   "addr": "4000:8D52",
+   "name": "lvl0a_spawn_locked_door",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 80,
+   "summary": "Shared by kinds 0Ah-0Dh: creates a type-1Ch door at 8-px-aligned (AX*16, DX*16) with colour +1Eh = kind - 0Ah (from SI), door id +14h = CH & 0Fh and +1Fh = FFh if bit id of [13D2h] (already opened) is set; a closed door marks a 4x4-tile (32x32) solid block in the collision map (sub_4436)."
+  },
+  {
+   "addr": "4000:8DA2",
+   "name": "obj1c_update_idle",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 6,
+   "summary": "Only marks the slot as updated this frame (+1 bit 1)."
+  },
+  {
+   "addr": "4000:8DA8",
+   "name": "emit_sprite_frame_32",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 200,
+   "summary": "Emits 12 sprites forming the border of a 32x32 square (top row of 4, two 2-sprite side rows, bottom row of 4) with consecutive tiles starting at BP, into the buffer at BX; layout rotated when play_flags bit 0 is set."
+  },
+  {
+   "addr": "4000:8E70",
+   "name": "obj1c_draw_door",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 70,
+   "summary": "Door draw: while closed (+1Fh = 0) emits the 32x32 frame (emit_sprite_frame_32, tiles [1428h], attribute 2C00h) and then the 16x16 colour emblem (tile [1428h] + 0Ch + 4*colour, attribute 2600h via loc_D092); when open only the emblem."
+  },
+  {
+   "addr": "4000:8EB6",
+   "name": "coll_01_1c_unlock_door",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 76,
+   "summary": "Player touches a closed door whose key colour (+1Eh) is in [13D1h]: records it open in [13D2h] (bit +14h), clears the 32x32 solid block (sub_445B), plays sound 21h, sets +1Fh = FFh and spawns effect 3Fh (subtype 2)."
+  },
+  {
+   "addr": "4000:8F02",
+   "name": "lvl0e_spawn_set_item",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 48,
+   "summary": "Creates a type-1Dh item at 8-unit-aligned (AX*16, DX*16) with index +14h = CH & 3; deletes it if bit index of [13D0h] is already set."
+  },
+  {
+   "addr": "4000:8F32",
+   "name": "obj1d_update_anim_counter",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 8,
+   "summary": "Marks the slot updated and increments +1Ch."
+  },
+  {
+   "addr": "4000:8F3A",
+   "name": "obj1d_draw_16px",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 16,
+   "summary": "Draws the item as one 16x16 sprite group, tile 1B7h attribute 2C00h (loc_D092)."
+  },
+  {
+   "addr": "4000:8F4A",
+   "name": "coll_01_1d_collect_set_item",
+   "category": "pair-not-seen",
+   "evidence": "object types 01h and 1Dh never on screen together in a natural run (seen alone: 01h)",
+   "size": 74,
+   "summary": "Player touches item 1Dh: sets bit +14h in [13D0h], deletes it, spawns effect 3Fh (subtype 3), redraws the HUD count of bits 0-2 (sub_C678), plays sound 24h (25h when all three bits are set) and, when all three are collected, spawns a type-3Bh object via sub_D6AE (AX = 8, DX = 0)."
+  },
+  {
+   "addr": "4000:8F94",
+   "name": "lvl0f_spawn_item_gate",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 56,
+   "summary": "Creates a type-1Eh gate at 8-px-aligned (AX*16, DX*16) unless [13D0h] bit 7 (gate opened) is set; marks a 32x32 solid block in the collision map."
+  },
+  {
+   "addr": "4000:8FCC",
+   "name": "obj1e_update_anim_counter",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 8,
+   "summary": "Marks the slot updated and increments +1Ch."
+  },
+  {
+   "addr": "4000:8FD4",
+   "name": "obj1e_draw_gate",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 42,
+   "summary": "Draws the gate: 32x32 frame (emit_sprite_frame_32 with tiles [1428h], attribute 2C00h) plus a 16x16 emblem at tile [1428h] + 1Ch (attribute 2600h)."
+  },
+  {
+   "addr": "4000:8FFE",
+   "name": "coll_01_1e_open_item_gate",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 60,
+   "summary": "Player within 280h of the gate with all three items ([13D0h] bits 0-2): sets [13D0h] bit 7, clears the 32x32 solid block, plays sound 22h and deletes the gate."
+  },
+  {
+   "addr": "4000:9056",
+   "name": "lvl10_spawn_switch",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 42,
+   "summary": "Creates a type-1Fh switch with id +1Eh = CH & 0Fh; starts in state 2 (on) if bit id of [13D4h] is already set."
+  },
+  {
+   "addr": "4000:9080",
+   "name": "obj1f_update_switch",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 32,
+   "summary": "Switch state machine: in odd states (1 = activating, 3) counts +1Ch and after 16 frames advances +14h to the next state (mod 4); even states are static. State 1 is entered by sub_6000 when hit."
+  },
+  {
+   "addr": "4000:90A0",
+   "name": "obj20_draw_idle",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 75,
+   "summary": "State-0 draw for types 20h/22h: Emits small 8x8 particle sprites (tile 1DEh, attribute 2C00h) around the switch and then the 16x16 orb (tile 1DAh, attribute 2800h) via loc_D092; two particles at fixed offsets (16 px apart)."
+  },
+  {
+   "addr": "4000:90EB",
+   "name": "obj1f_draw_activating",
+   "category": "object-not-seen",
+   "evidence": "object type 1Fh never present in a natural run",
+   "size": 108,
+   "summary": "State-1 draw for type 1Fh: two particles that close in as +1Ch grows, orb bobbing via sine table 4:B5CA."
+  },
+  {
+   "addr": "4000:9157",
+   "name": "obj1f_draw_on",
+   "category": "object-not-seen",
+   "evidence": "object type 1Fh never present in a natural run",
+   "size": 35,
+   "summary": "State-2 (on) draw for type 1Fh, also used by obj21_draw when its group bit is set: one centred particle plus the orb."
+  },
+  {
+   "addr": "4000:917A",
+   "name": "obj1f_draw_none",
+   "category": "object-not-seen",
+   "evidence": "object type 1Fh never present in a natural run",
+   "size": 2,
+   "summary": "State-3 entry of the obj1F draw table: draws nothing."
+  },
+  {
+   "addr": "4000:9184",
+   "name": "obj1f_draw_switch",
+   "category": "object-not-seen",
+   "evidence": "object type 1Fh never present in a natural run",
+   "size": 22,
+   "summary": "Draw dispatcher for type 1Fh: if room (< 17E0h) jumps through tbl_917B by state +14h."
+  },
+  {
+   "addr": "4000:919A",
+   "name": "coll_02_1f_hit_switch",
+   "category": "pair-not-seen",
+   "evidence": "object types 02h and 1Fh never on screen together in a natural run (seen alone: 02h)",
+   "size": 4,
+   "summary": "Object 02h (DI) hits switch 1Fh/20h (SI): sub_6000 - if SI state is 0 sets state 1 and bit SI+1Eh in [13D4h]; if state 2 restarts its timer (+1Ch = 0)."
+  },
+  {
+   "addr": "4000:919E",
+   "name": "coll_1f_02_hit_switch_rev",
+   "category": "pair-not-seen",
+   "evidence": "object types 1Fh and 02h never on screen together in a natural run (seen alone: 02h)",
+   "size": 8,
+   "summary": "Swaps DI and SI, calls coll_02_1F (switch hit) with the roles reversed, swaps back."
+  },
+  {
+   "addr": "4000:91A6",
+   "name": "coll_0b_1f_hit_switch_poof",
+   "category": "pair-not-seen",
+   "evidence": "object types 0Bh and 1Fh never on screen together in a natural run (seen alone: 0Bh)",
+   "size": 6,
+   "summary": "Activates switch SI (sub_6000) and defeats DI (sub_79A6: type 3Eh + puff 16h)."
+  },
+  {
+   "addr": "4000:91AC",
+   "name": "coll_1f_0b_hit_switch_poof_rev",
+   "category": "pair-not-seen",
+   "evidence": "object types 1Fh and 0Bh never on screen together in a natural run (seen alone: 0Bh)",
+   "size": 8,
+   "summary": "Swaps DI and SI, calls coll_0B_1F (switch hit, hitter defeated) with the roles reversed, swaps back."
+  },
+  {
+   "addr": "4000:91B4",
+   "name": "coll_0d_20_hit_switch_explode",
+   "category": "pair-not-seen",
+   "evidence": "object types 0Dh and 20h never on screen together in a natural run (seen alone: neither)",
+   "size": 18,
+   "summary": "Activates switch SI (sub_6000) and deletes DI with an explosion burst (sub_812F)."
+  },
+  {
+   "addr": "4000:91C6",
+   "name": "coll_1F_0D_coll_20_0d_hit_switch_explode_rev",
+   "category": "pair-not-seen",
+   "evidence": "object types 1Fh and 0Dh never on screen together in a natural run (seen alone: neither)",
+   "size": 8,
+   "summary": "Swaps DI and SI, calls coll_0D_20 (switch hit, hitter explodes) with the roles reversed, swaps back."
+  },
+  {
+   "addr": "4000:91CE",
+   "name": "coll_12_1f_hit_switch",
+   "category": "pair-not-seen",
+   "evidence": "object types 12h and 1Fh never on screen together in a natural run (seen alone: neither)",
+   "size": 4,
+   "summary": "Activates switch SI (jmp sub_6000); used for blocks and other heavy objects (12h/15h/27h/29h) touching switches 1Fh/20h."
+  },
+  {
+   "addr": "4000:91D2",
+   "name": "coll_1f_12_hit_switch_rev",
+   "category": "pair-not-seen",
+   "evidence": "object types 1Fh and 12h never on screen together in a natural run (seen alone: neither)",
+   "size": 8,
+   "summary": "Swaps DI and SI, calls coll_12_1F (switch hit) with the roles reversed, swaps back."
+  },
+  {
+   "addr": "4000:91DA",
+   "name": "lvl11_spawn_timed_switch",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 41,
+   "summary": "Creates a type-20h timed switch: +18h = BP (on-duration in frames), id +1Eh = CH & 0Fh, and clears bit id of [13D4h]."
+  },
+  {
+   "addr": "4000:9203",
+   "name": "obj20_update_idle",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 8,
+   "summary": "State 0: just counts +1Ch."
+  },
+  {
+   "addr": "4000:920B",
+   "name": "obj20_update_activating",
+   "category": "object-not-seen",
+   "evidence": "object type 20h never present in a natural run",
+   "size": 22,
+   "summary": "State 1: after 32 frames switches to state 2 and resets +1Ch."
+  },
+  {
+   "addr": "4000:9221",
+   "name": "obj20_update_active",
+   "category": "object-not-seen",
+   "evidence": "object type 20h never present in a natural run",
+   "size": 22,
+   "summary": "State 2: after +18h frames (spawn parameter) switches to state 3."
+  },
+  {
+   "addr": "4000:9237",
+   "name": "obj20_update_deactivating",
+   "category": "object-not-seen",
+   "evidence": "object type 20h never present in a natural run",
+   "size": 37,
+   "summary": "State 3: after 32 frames returns to state 0 and clears bit +1Eh of [13D4h] (switch off)."
+  },
+  {
+   "addr": "4000:9264",
+   "name": "obj20_update_timed_switch",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 16,
+   "summary": "Type 20h update: marks updated and dispatches on state +14h through tbl_925B (idle / activating / active for +18h frames / deactivating)."
+  },
+  {
+   "addr": "4000:9274",
+   "name": "obj20_draw_activating",
+   "category": "object-not-seen",
+   "evidence": "object type 20h never present in a natural run",
+   "size": 129,
+   "summary": "State-1 draw for type 20h: two particles orbiting the orb (sine/cosine tables 4:B5CA/B60A indexed by +1Ch), orb bobbing."
+  },
+  {
+   "addr": "4000:92F5",
+   "name": "obj1f_draw_idle",
+   "category": "object-not-seen",
+   "evidence": "object type 1Fh never present in a natural run",
+   "size": 73,
+   "summary": "Shared draw (type 1Fh state 0, type 20h state 2): two particles at fixed offsets 16 px apart plus the orb."
+  },
+  {
+   "addr": "4000:933E",
+   "name": "obj20_draw_deactivating",
+   "category": "object-not-seen",
+   "evidence": "object type 20h never present in a natural run",
+   "size": 130,
+   "summary": "State-3 draw for type 20h: like obj20_draw_activating with the sine/cosine tables swapped."
+  },
+  {
+   "addr": "4000:93C8",
+   "name": "obj20_draw_timed_switch",
+   "category": "object-not-seen",
+   "evidence": "object type 20h never present in a natural run",
+   "size": 88,
+   "summary": "Draw dispatcher for type 20h: if room (< 17D8h) emits two fixed particles, then jumps through tbl_93BF by state."
+  },
+  {
+   "addr": "4000:9420",
+   "name": "lvl12_spawn_linked_switch",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 92,
+   "summary": "Creates a type-21h switch: +18h = BP (on-duration), id +1Eh = CH & 0Fh, state 2 if bit id of [13D4h] is set; then links it with the other type-21h objects having the same id through +1Ah (if another already has a link this one points to it, else that one points here), forming a group."
+  },
+  {
+   "addr": "4000:947C",
+   "name": "obj21_update_idle",
+   "category": "object-not-seen",
+   "evidence": "object type 21h never present in a natural run",
+   "size": 8,
+   "summary": "State 0: counts +1Ch."
+  },
+  {
+   "addr": "4000:9484",
+   "name": "obj21_update_activating",
+   "category": "object-not-seen",
+   "evidence": "object type 21h never present in a natural run",
+   "size": 22,
+   "summary": "State 1: after 32 frames enters state 2."
+  },
+  {
+   "addr": "4000:949A",
+   "name": "obj21_update_active_check_group",
+   "category": "object-not-seen",
+   "evidence": "object type 21h never present in a natural run",
+   "size": 74,
+   "summary": "State 2: if the group bit +1Eh of [13D4h] is not yet set and the linked switch (+1Ah) and its own link are both in state 2, sets the bit (group solved, permanent); otherwise counts +1Ch and after +18h frames enters state 3."
+  },
+  {
+   "addr": "4000:94E4",
+   "name": "obj21_update_deactivating",
+   "category": "object-not-seen",
+   "evidence": "object type 21h never present in a natural run",
+   "size": 36,
+   "summary": "State 3: after 32 frames returns to state 0 and clears bit +1Eh of [13D4h]."
+  },
+  {
+   "addr": "4000:9510",
+   "name": "obj21_update_linked_switch",
+   "category": "object-not-seen",
+   "evidence": "object type 21h never present in a natural run",
+   "size": 16,
+   "summary": "Type 21h update: marks updated and dispatches on state through tbl_9508."
+  },
+  {
+   "addr": "4000:9520",
+   "name": "obj21_draw_idle",
+   "category": "object-not-seen",
+   "evidence": "object type 21h never present in a natural run",
+   "size": 52,
+   "summary": "State-0 draw for type 21h: one particle at a fixed offset plus the orb."
+  },
+  {
+   "addr": "4000:9554",
+   "name": "obj21_draw_activating",
+   "category": "object-not-seen",
+   "evidence": "object type 21h never present in a natural run",
+   "size": 106,
+   "summary": "State-1 draw for type 21h: one particle moving on the sine/cosine tables (subtracting), orb bobbing."
+  },
+  {
+   "addr": "4000:95BE",
+   "name": "obj21_draw_active",
+   "category": "object-not-seen",
+   "evidence": "object type 21h never present in a natural run",
+   "size": 52,
+   "summary": "State-2 draw for type 21h: one particle at the opposite fixed offset plus the orb."
+  },
+  {
+   "addr": "4000:95F2",
+   "name": "obj21_draw_deactivating",
+   "category": "object-not-seen",
+   "evidence": "object type 21h never present in a natural run",
+   "size": 106,
+   "summary": "State-3 draw for type 21h: one particle moving on the sine/cosine tables (adding), orb bobbing."
+  },
+  {
+   "addr": "4000:9664",
+   "name": "obj21_draw_linked_switch",
+   "category": "object-not-seen",
+   "evidence": "object type 21h never present in a natural run",
+   "size": 38,
+   "summary": "Draw dispatcher for type 21h: when the group bit in [13D4h] is set draws the solved pose (obj1F_draw_on), else jumps through tbl_965C by state."
+  },
+  {
+   "addr": "4000:968A",
+   "name": "coll_02_21_hit_switch",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 4,
+   "summary": "Hit on switch 21h/22h (SI) via sub_5FDB: if its state is 0 and it is type 21h or its +1Ch >= 100, enters state 1; if state 2 (or just set to 1) clears +1Ch."
+  },
+  {
+   "addr": "4000:968E",
+   "name": "coll_21_02_hit_switch_rev",
+   "category": "pair-not-seen",
+   "evidence": "object types 21h and 02h never on screen together in a natural run (seen alone: 02h)",
+   "size": 8,
+   "summary": "Swaps DI and SI, calls coll_02_21 (switch hit) with the roles reversed, swaps back."
+  },
+  {
+   "addr": "4000:9696",
+   "name": "coll_0b_21_hit_switch_poof",
+   "category": "pair-not-seen",
+   "evidence": "object types 0Bh and 21h never on screen together in a natural run (seen alone: 0Bh)",
+   "size": 6,
+   "summary": "Hits switch SI (sub_5FDB) and defeats DI (sub_79A6)."
+  },
+  {
+   "addr": "4000:969C",
+   "name": "coll_21_0b_hit_switch_poof_rev",
+   "category": "pair-not-seen",
+   "evidence": "object types 21h and 0Bh never on screen together in a natural run (seen alone: 0Bh)",
+   "size": 8,
+   "summary": "Swaps DI and SI, calls coll_0B_21 (switch hit, hitter defeated) with the roles reversed, swaps back."
+  },
+  {
+   "addr": "4000:96A4",
+   "name": "coll_0d_21_hit_switch_explode",
+   "category": "pair-not-seen",
+   "evidence": "object types 0Dh and 21h never on screen together in a natural run (seen alone: neither)",
+   "size": 18,
+   "summary": "Hits switch SI (sub_5FDB) and deletes DI with an explosion burst."
+  },
+  {
+   "addr": "4000:96B6",
+   "name": "coll_21_0d_hit_switch_explode_rev",
+   "category": "pair-not-seen",
+   "evidence": "object types 21h and 0Dh never on screen together in a natural run (seen alone: neither)",
+   "size": 8,
+   "summary": "Swaps DI and SI, calls coll_0D_21 (switch hit, hitter explodes) with the roles reversed, swaps back."
+  },
+  {
+   "addr": "4000:96BE",
+   "name": "coll_12_21_hit_switch",
+   "category": "pair-not-seen",
+   "evidence": "object types 12h and 21h never on screen together in a natural run (seen alone: neither)",
+   "size": 4,
+   "summary": "Hits switch 21h/22h (SI) via sub_5FDB; used for 12h/15h/27h/29h."
+  },
+  {
+   "addr": "4000:96C2",
+   "name": "coll_21_12_hit_switch_rev",
+   "category": "pair-not-seen",
+   "evidence": "object types 21h and 12h never on screen together in a natural run (seen alone: neither)",
+   "size": 8,
+   "summary": "Swaps DI and SI, calls coll_12_21 (switch hit) with the roles reversed, swaps back."
+  },
+  {
+   "addr": "4000:96CA",
+   "name": "lvl13_spawn_toggle_switch",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 24,
+   "summary": "Creates a type-22h toggle switch with +1Ch = 100 so it can be triggered immediately (sub_5FDB requires +1Ch >= 100 for non-21h switches)."
+  },
+  {
+   "addr": "4000:96E2",
+   "name": "obj22_update_idle",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 4,
+   "summary": "State 0: counts +1Ch (re-arm cooldown)."
+  },
+  {
+   "addr": "4000:96E6",
+   "name": "obj22_update_toggle",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 38,
+   "summary": "State 1: on its 2nd frame inverts the whole word [13D6h] and plays sound 26h; after 32 frames returns to state 0 with +1Ch = 0 (100 more frames needed before it can be hit again)."
+  },
+  {
+   "addr": "4000:9710",
+   "name": "obj22_update_toggle_switch",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 20,
+   "summary": "Type 22h update: marks updated and dispatches on state bit 0 through tbl_970C."
+  },
+  {
+   "addr": "4000:9724",
+   "name": "obj22_draw_toggling",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 140,
+   "summary": "State-1 draw for type 22h: two particles placed symmetrically on the sine/cosine tables, orb bobbing."
+  },
+  {
+   "addr": "4000:97B4",
+   "name": "obj22_draw_toggle_switch",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 26,
+   "summary": "Draw dispatcher for type 22h: if room (< 17E0h) jumps through tbl_97B0 (obj20_draw_idle / obj22_draw_toggling) by state bit 0."
+  },
+  {
+   "addr": "4000:97CE",
+   "name": "lvl14_spawn_pressure_plate",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 48,
+   "summary": "Creates a type-23h plate at 8-px-aligned (AX*16, DX*16), rest y in +18h, id +1Eh = CH & 0Fh, and clears bit id of [13D4h]."
+  },
+  {
+   "addr": "4000:97FE",
+   "name": "obj23_update_pressure_plate",
+   "category": "object-not-seen",
+   "evidence": "object type 23h never present in a natural run",
+   "size": 68,
+   "summary": "While +1Fh (set to 8 by contact) is non-zero: state 2, decrements +1Fh, sets bit +1Eh in [13D4h] and lowers the plate 40h (4 px) below rest; when it reaches 0: state 0, clears the bit and restores the rest y."
+  },
+  {
+   "addr": "4000:9842",
+   "name": "obj23_draw_32x8",
+   "category": "object-not-seen",
+   "evidence": "object type 23h never present in a natural run",
+   "size": 18,
+   "summary": "Draws the plate as one row of 4 sprites (tiles 1DFh-1E2h, attribute 2800h) via loc_D44C."
+  },
+  {
+   "addr": "4000:9854",
+   "name": "coll_23_0d_press_plate",
+   "category": "pair-not-seen",
+   "evidence": "object types 23h and 0Dh never on screen together in a natural run (seen alone: neither)",
+   "size": 37,
+   "summary": "Plate (DI) vs 0Dh/12h/27h (SI): if |dx| <= 100h and |dy| <= 140h sets DI+1Fh = 8 (keep pressed for 8 more frames)."
+  },
+  {
+   "addr": "4000:9879",
+   "name": "coll_01_23_press_plate_rev",
+   "category": "pair-not-seen",
+   "evidence": "object types 01h and 23h never on screen together in a natural run (seen alone: 01h)",
+   "size": 9,
+   "summary": "Swaps DI and SI, calls coll_23_0D (player/0Dh/12h/27h presses the plate) with the roles reversed, swaps back."
+  },
+  {
+   "addr": "4000:989E",
+   "name": "lvl15_spawn_switch_gate",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 83,
+   "summary": "Creates a type-24h gate: +1Ah = top y (8-px aligned), y = top + 100h, id +1Eh = CH & 0Fh; if bit id of [13D4h] is set starts open (state 2, collision cleared), else closed (state 0) with a 16x32 solid area (BL = 2 columns, BH = 4 rows) in the collision map."
+  },
+  {
+   "addr": "4000:98F1",
+   "name": "obj24_update_closed",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 41,
+   "summary": "State 0: when bit +1Eh of [13D4h] becomes set, clears the solid area, plays sound 11h and enters state 1."
+  },
+  {
+   "addr": "4000:991A",
+   "name": "obj24_update_opening",
+   "category": "object-not-seen",
+   "evidence": "object type 24h never present in a natural run",
+   "size": 16,
+   "summary": "State 1: after 32 frames enters state 2 (open)."
+  },
+  {
+   "addr": "4000:992A",
+   "name": "obj24_update_open",
+   "category": "object-not-seen",
+   "evidence": "object type 24h never present in a natural run",
+   "size": 28,
+   "summary": "State 2: when the switch bit clears, enters state 3 and plays sound 12h."
+  },
+  {
+   "addr": "4000:9946",
+   "name": "obj24_update_closing",
+   "category": "object-not-seen",
+   "evidence": "object type 24h never present in a natural run",
+   "size": 28,
+   "summary": "State 3: after 32 frames re-marks the 16x32 solid area and returns to state 0."
+  },
+  {
+   "addr": "4000:996A",
+   "name": "obj24_update_switch_gate",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 19,
+   "summary": "Type 24h update: marks updated, counts +1Ch, dispatches through tbl_9962 (closed / opening / open / closing) following switch bit +1Eh of [13D4h]."
+  },
+  {
+   "addr": "4000:9981",
+   "name": "obj24_draw_closed",
+   "category": "object-not-seen",
+   "evidence": "object type 24h never present in a natural run",
+   "size": 90,
+   "summary": "Draws the closed gate: 4 rows of 2 sprites (16x32), all tile 1D6h attribute 2400h+palette (25D6h); orientation-aware."
+  },
+  {
+   "addr": "4000:99DB",
+   "name": "obj24_draw_opening",
+   "category": "object-not-seen",
+   "evidence": "object type 24h never present in a natural run",
+   "size": 113,
+   "summary": "Draws the gate rows sliding together as +1Ch grows (row offset +1Ch/4 accumulated per row)."
+  },
+  {
+   "addr": "4000:9A4C",
+   "name": "obj24_draw_open",
+   "category": "object-not-seen",
+   "evidence": "object type 24h never present in a natural run",
+   "size": 66,
+   "summary": "Draws only the top row (2 sprites) of the open gate."
+  },
+  {
+   "addr": "4000:9A8E",
+   "name": "obj24_draw_closing",
+   "category": "object-not-seen",
+   "evidence": "object type 24h never present in a natural run",
+   "size": 100,
+   "summary": "Draws the gate rows extending again as +1Ch grows."
+  },
+  {
+   "addr": "4000:9AFA",
+   "name": "obj24_draw_switch_gate",
+   "category": "object-not-seen",
+   "evidence": "object type 24h never present in a natural run",
+   "size": 22,
+   "summary": "Draw dispatcher for type 24h: if room (< 17E8h) jumps through tbl_9AF1 by state."
+  },
+  {
+   "addr": "4000:9B10",
+   "name": "lvl16_tiles_copy",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 20,
+   "summary": "Copies 384 bytes (24 16-byte 2bpp tiles) of sprite tile data from 7000:9040 to 0000:AX (tile RAM)."
+  },
+  {
+   "addr": "4000:9B24",
+   "name": "lvl16_load_tiles",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 44,
+   "summary": "Once per Vision: if the VRAM tile base [1420h] is still 0, allocates 24 tiles downward from the tile allocator [1396h] (gives up if the new value would fall below 96h), stores the base tile in [1420h] and copies the tiles via sub_9B10."
+  },
+  {
+   "addr": "4000:9B50",
+   "name": "lvl16_spawn_vanish_platform",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 61,
+   "summary": "Creates a type-25h platform at 8-px-aligned (AX*16, DX*16), +18h = BP (time spent gone), +0Ah = 80h, +0Bh = FFh, +0Ch |= 12h, and marks a 32x16 solid area (BL = 4 columns, BH = 2 rows) in the collision map."
+  },
+  {
+   "addr": "4000:9B8D",
+   "name": "obj25_update_wait_step",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 25,
+   "summary": "State 0: once triggered (+1Eh non-zero, set when the player lands on it) waits 15 frames, then enters state 1."
+  },
+  {
+   "addr": "4000:9BA6",
+   "name": "obj25_update_crumbling",
+   "category": "object-not-seen",
+   "evidence": "object type 25h never present in a natural run",
+   "size": 37,
+   "summary": "State 1: after 75 frames clears the 32x16 solid area and enters state 2."
+  },
+  {
+   "addr": "4000:9BCB",
+   "name": "obj25_update_gone",
+   "category": "object-not-seen",
+   "evidence": "object type 25h never present in a natural run",
+   "size": 18,
+   "summary": "State 2: after +18h frames (spawn parameter) enters state 3."
+  },
+  {
+   "addr": "4000:9BDD",
+   "name": "obj25_update_reforming",
+   "category": "object-not-seen",
+   "evidence": "object type 25h never present in a natural run",
+   "size": 41,
+   "summary": "State 3: after 75 frames returns to state 0, clears the trigger +1Eh and re-marks the solid area."
+  },
+  {
+   "addr": "4000:9C0E",
+   "name": "obj25_update_vanish_platform",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 19,
+   "summary": "Type 25h update: marks updated, counts +1Ch, dispatches through tbl_9C05 (wait / crumble / gone / reform)."
+  },
+  {
+   "addr": "4000:9C29",
+   "name": "obj25_draw_solid",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 42,
+   "summary": "State-0 draw: 24x16 frame (loc_CE33, one animation frame, tiles [1420h], attribute 2C00h) offset by 0 or -1 px from table 4:9C21 (+1Ch/8)."
+  },
+  {
+   "addr": "4000:9C53",
+   "name": "obj25_draw_crumbling",
+   "category": "object-not-seen",
+   "evidence": "object type 25h never present in a natural run",
+   "size": 13,
+   "summary": "State-1 draw: loc_CE33 with CH = 4 (cycles 4 animation frames of 6 tiles by +1Ch/8)."
+  },
+  {
+   "addr": "4000:9C60",
+   "name": "obj25_draw_gone",
+   "category": "object-not-seen",
+   "evidence": "object type 25h never present in a natural run",
+   "size": 1,
+   "summary": "State-2 draw: nothing (platform absent)."
+  },
+  {
+   "addr": "4000:9C61",
+   "name": "obj25_draw_reforming",
+   "category": "object-not-seen",
+   "evidence": "object type 25h never present in a natural run",
+   "size": 13,
+   "summary": "State-3 draw: same as crumbling (loc_CE33, CH = 4)."
+  },
+  {
+   "addr": "4000:9C76",
+   "name": "obj25_draw_vanish_platform",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 22,
+   "summary": "Draw dispatcher for type 25h: if room (< 17E0h) jumps through tbl_9C6E by state."
+  },
+  {
+   "addr": "4000:9C8C",
+   "name": "coll_01_25_land_trigger",
+   "category": "pair-not-seen",
+   "evidence": "object types 01h and 25h never on screen together in a natural run (seen alone: 01h)",
+   "size": 124,
+   "summary": "Player (DI) vs platform 25h (SI), extents 1C0h x 140h: if the player is above it and falling (vy >= 0) and the platform is untriggered, snaps the player onto it (y = SI.y - 140h), sets SI+1Eh = 1, SI+1Ch = 0 and spawns effect 3Fh (subtype 0)."
+  },
+  {
+   "addr": "4000:9D1A",
+   "name": "lvl18_tiles_copy",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 20,
+   "summary": "Copies 144 bytes (9 16-byte 2bpp tiles) of sprite tile data from 7000:8F30 to 0000:AX (tile RAM)."
+  },
+  {
+   "addr": "4000:9D2E",
+   "name": "lvl18_load_tiles",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 44,
+   "summary": "Once per Vision: if the VRAM tile base [1402h] is still 0, allocates 9 tiles downward from the tile allocator [1396h] (gives up if the new value would fall below 96h), stores the base tile in [1402h] and copies the tiles via sub_9D1A."
+  },
+  {
+   "addr": "4000:9D5A",
+   "name": "lvl18_spawn_block",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 50,
+   "summary": "Creates a type-27h object with +0Ah = +0Bh = C0h, +18h = 8, y-accel +9 = 1 (gravity), +0Ch |= 10h and contact flags +10h = +11h = 44h."
+  },
+  {
+   "addr": "4000:9D8C",
+   "name": "obj27_update_gravity_block",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 78,
+   "summary": "Type 27h update: counts +14h, sets +0Ch bit 4, decrements +1Eh towards 0, runs the physics routine sub_6B20 with DX = +0Eh (supporting object); zeroes vx when DX ends up 0 or contact bit 2 is set, clears +0Ch bit 12, and plays sound 28h when contact bits 44h become newly set (landing)."
+  },
+  {
+   "addr": "4000:9DDA",
+   "name": "obj27_draw_block",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 20,
+   "summary": "Draws type 27h through sub_D1A1 with tile base [1402h] and attribute 2400h."
+  },
+  {
+   "addr": "4000:9DEE",
+   "name": "coll_02_27_absorb_shot",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 10,
+   "summary": "Object 02h (DI) hitting a 27h block: clears [3CCh] bits 6, 8 and 13 (AND DEBFh) and deletes DI."
+  },
+  {
+   "addr": "4000:9DF8",
+   "name": "coll_27_02_absorb_shot",
+   "category": "pair-not-seen",
+   "evidence": "object types 27h and 02h never on screen together in a natural run (seen alone: 02h)",
+   "size": 10,
+   "summary": "Same as coll_02_27_absorb_shot with the roles reversed (deletes SI)."
+  },
+  {
+   "addr": "4000:9E02",
+   "name": "coll_27_12_block_push_stack",
+   "category": "pair-not-seen",
+   "evidence": "object types 27h and 12h never on screen together in a natural run (seen alone: neither)",
+   "size": 210,
+   "summary": "Block 27h (DI) vs 12h/13h/27h (SI), extents 180h x 190h: side contact (SI not moving down) sets contact bits and, if DI+1Eh is non-zero, moves DI beside SI, else pushes SI beside DI; vertical contact stacks the upper object on the lower one (y = lower.y - 180h, +0Eh link to the supporter, contact bits 40h/80h)."
+  },
+  {
+   "addr": "4000:9ED4",
+   "name": "coll_12_27_block_push_stack_rev",
+   "category": "pair-not-seen",
+   "evidence": "object types 12h and 27h never on screen together in a natural run (seen alone: neither)",
+   "size": 8,
+   "summary": "Swaps DI and SI, calls coll_27_12 (block push / stack) with the roles reversed, swaps back."
+  },
+  {
+   "addr": "4000:9EDC",
+   "name": "lvl19_tiles_copy",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 20,
+   "summary": "Copies 192 bytes (12 16-byte 2bpp tiles) of sprite tile data from 7000:91C0 to 0000:AX (tile RAM)."
+  },
+  {
+   "addr": "4000:9EF0",
+   "name": "lvl19_load_tiles",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 44,
+   "summary": "Once per Vision: if the VRAM tile base [142Ah] is still 0, allocates 12 tiles downward from the tile allocator [1396h] (gives up if the new value would fall below 96h), stores the base tile in [142Ah] and copies the tiles via sub_9EDC."
+  },
+  {
+   "addr": "4000:9F1C",
+   "name": "lvl19_spawn_toggle_block",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 93,
+   "summary": "Creates a type-28h block (32x32, 8-px aligned), +18h = BP, phase +1Eh = CH & 1; if bit phase of [13D6h] is set it starts solid (state 0, 4x4 tiles marked in the collision map), else absent (state 2, area cleared)."
+  },
+  {
+   "addr": "4000:9F79",
+   "name": "obj28_update_solid",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 41,
+   "summary": "State 0: when bit +1Eh of [13D6h] clears (toggle switch obj22 inverts the word), clears the 32x32 solid area and enters state 1."
+  },
+  {
+   "addr": "4000:9FA2",
+   "name": "obj28_update_vanishing",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 18,
+   "summary": "State 1: after 16 frames enters state 2."
+  },
+  {
+   "addr": "4000:9FB4",
+   "name": "obj28_update_absent",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 22,
+   "summary": "State 2: when the [13D6h] bit is set again enters state 3."
+  },
+  {
+   "addr": "4000:9FCA",
+   "name": "obj28_update_appearing",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 38,
+   "summary": "State 3: after 16 frames re-marks the 32x32 solid area and enters state 0."
+  },
+  {
+   "addr": "4000:9FF8",
+   "name": "obj28_update_toggle_block",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 19,
+   "summary": "Type 28h update: sets bit 1 of +01h, increments the frame counter +1Ch, and dispatches on the state byte +14h through tbl_9FEF. The state-0 and state-2 cases (obj28_update_solid / obj28_update_absent) test bit number [+1Eh] of [13D6h] to start vanishing or reappearing."
+  },
+  {
+   "addr": "4000:A00B",
+   "name": "obj28_draw_solid",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 126,
+   "summary": "Draws the solid block as the 12-sprite 32x32 frame from tile base [142Ah], attribute 2400h."
+  },
+  {
+   "addr": "4000:A089",
+   "name": "obj28_draw_vanishing",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 260,
+   "summary": "Draws the block breaking apart: corner and edge sprites displaced outward by +1Ch/2."
+  },
+  {
+   "addr": "4000:A18D",
+   "name": "obj28_draw_absent",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 1,
+   "summary": "State-2 draw: nothing."
+  },
+  {
+   "addr": "4000:A18E",
+   "name": "obj28_draw_appearing",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 244,
+   "summary": "Draws the block re-forming: sprites displaced by +1Ch/2 around a smaller centre (offsets inward)."
+  },
+  {
+   "addr": "4000:A28A",
+   "name": "obj28_draw_toggle_block",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 12,
+   "summary": "Draw dispatcher for type 28h through tbl_A282 by state (each case checks sprite-list room itself)."
+  },
+  {
+   "addr": "4000:A296",
+   "name": "spawn_explosion_chain",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 31,
+   "summary": "Allocates an effect slot (sub_B585) and creates a type-3Ch object (flags 09h) at AX,DX with direction +1Fh = CL and level-record id +15h = CH."
+  },
+  {
+   "addr": "4000:A2B5",
+   "name": "obj3c_update_explosion_chain",
+   "category": "object-not-seen",
+   "evidence": "object type 3Ch never present in a natural run",
+   "size": 113,
+   "summary": "Type 3Ch: every 7th frame steps 0C0h (12 px) in direction +1Fh (1 = up, 2 = right, else left) and drops a type-29h fragment there (sub_A326), playing sound 1Dh on even steps while visible (+1 bit 0); after 6 steps clears the record's spawned bit and deletes itself (sub_61F8)."
+  },
+  {
+   "addr": "4000:A326",
+   "name": "spawn_explosion_fragment",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 29,
+   "summary": "Takes the highest free slot in 0400h-07E0h (lvl03_check searches downward) and creates a type-29h fragment at AX,DX with size shift +1Eh = CL."
+  },
+  {
+   "addr": "4000:A343",
+   "name": "dead_A343",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 23,
+   "summary": "Unreferenced (range 4A343-4A372): two complete routines: turn slot SI / slot DI into a type-29h fragment (AL -> +1Eh, clear velocity/timers) + NOP"
+  },
+  {
+   "addr": "4000:A35A",
+   "name": "dead_A35A",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 24,
+   "summary": "Unreferenced (range 4A343-4A372): two complete routines: turn slot SI / slot DI into a type-29h fragment (AL -> +1Eh, clear velocity/timers) + NOP"
+  },
+  {
+   "addr": "4000:A372",
+   "name": "obj29_update_expire",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 22,
+   "summary": "Type 29h fragment: increments +14h each frame and deletes itself after 8 frames."
+  },
+  {
+   "addr": "4000:A388",
+   "name": "obj29_draw_grow",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 40,
+   "summary": "Draws the fragment with tile 1E3h (attribute 2800h) through loc_CDB6, with size parameters derived from (+14h >> +1Eh) & 7 (CH = n/2 + 4, CL = n + 4)."
+  },
+  {
+   "addr": "4000:A3B0",
+   "name": "lvl1b_tiles_copy",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 20,
+   "summary": "Copies 256 bytes (16 16-byte 2bpp tiles) of sprite tile data from 7000:9280 to 0000:AX (tile RAM)."
+  },
+  {
+   "addr": "4000:A3C4",
+   "name": "lvl1b_load_tiles",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 44,
+   "summary": "Once per Vision: if the VRAM tile base [142Ch] is still 0, allocates 16 tiles downward from the tile allocator [1396h] (gives up if the new value would fall below 96h), stores the base tile in [142Ch] and copies the tiles via sub_A3B0."
+  },
+  {
+   "addr": "4000:A3F0",
+   "name": "lvl1b_spawn_breakable_block",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 90,
+   "summary": "If bit (CH & 0Fh) of [13D8h] is set, creates a type-2Ah block (8-px aligned) in state 0 and marks a 32x32 solid area; otherwise leaves the slot empty (type not written) and only clears the area (block already destroyed)."
+  },
+  {
+   "addr": "4000:A44A",
+   "name": "obj2a_update_breakable_block",
+   "category": "object-not-seen",
+   "evidence": "object type 2Ah never present in a natural run",
+   "size": 61,
+   "summary": "When +0Ch bit 12 is set (hit by an explosion), counts +1Ch to 96 frames, then clears the 32x32 solid area, plays sound 13h, spawns effect 3Fh (subtype 3) and deletes itself."
+  },
+  {
+   "addr": "4000:A487",
+   "name": "obj2a_draw_blink",
+   "category": "object-not-seen",
+   "evidence": "object type 2Ah never present in a natural run",
+   "size": 27,
+   "summary": "Draws the block as a 32x32 sprite group (loc_D118, tiles [142Ch], attribute 2800h); while breaking it is hidden on alternate 8-frame periods."
+  },
+  {
+   "addr": "4000:A4A2",
+   "name": "coll_2a_29_crack_block",
+   "category": "pair-not-seen",
+   "evidence": "object types 2Ah and 29h never on screen together in a natural run (seen alone: neither)",
+   "size": 31,
+   "summary": "Breakable block (DI) vs explosion fragment (SI): within 1B0h, clears its bit in [13D8h] (stays destroyed) and sets +0Ch bit 12 to start the break timer."
+  },
+  {
+   "addr": "4000:A4C1",
+   "name": "coll_29_2a_crack_block_rev",
+   "category": "pair-not-seen",
+   "evidence": "object types 29h and 2Ah never on screen together in a natural run (seen alone: neither)",
+   "size": 9,
+   "summary": "Swaps DI and SI, calls coll_2A_29 (fragment cracks block) with the roles reversed, swaps back."
+  },
+  {
+   "addr": "4000:A4CA",
+   "name": "lvl1c_spawn_grab_column",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 33,
+   "summary": "Creates a type-2Bh object at (AX*16, DX*16): +18h = y - BP*16 (top of the zone), +1Ah = CH (mode 0/1)."
+  },
+  {
+   "addr": "4000:A4EB",
+   "name": "obj2b_update_grab_mode1",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 109,
+   "summary": "Mode 1: unless blocked by mapped-input bits ([1390h] 10h/40h/A0h) or player contact bits 44h ([3D0h]), If the player's x is within -4..+5 px of the object and its y lies between +18h and the object's y, clears player [3CCh] bits 6-7, snaps player x to the object x and zeroes player x-velocity [3C6h], setting [3D2h] bit 2."
+  },
+  {
+   "addr": "4000:A558",
+   "name": "obj2b_update_grab_mode0",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 109,
+   "summary": "Mode 0: If the player's x is within -4..+5 px of the object and its y lies between +18h and the object's y, clears player [3CCh] bits 6-7, snaps player x to the object x and zeroes player x-velocity [3C6h], setting [3D2h] bit 1; skipped near the top (within 140h) while mapped input A0h is held, or when A0h is held and [3D0h] bit 7 is set."
+  },
+  {
+   "addr": "4000:A5C9",
+   "name": "obj2b_update_grab_column",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 35,
+   "summary": "Type 2Bh update: does nothing while player [3CCh] bit 10 is set or (bit 4 set and player vy < -10h); otherwise dispatches on mode +1Ah through tbl_A5C5 to attach the player to the column."
+  },
+  {
+   "addr": "4000:A5EC",
+   "name": "lvl1d_tiles_copy",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 20,
+   "summary": "Copies 256 bytes (16 16-byte 2bpp tiles) of sprite tile data from 7000:9382 to 0000:AX (tile RAM)."
+  },
+  {
+   "addr": "4000:A600",
+   "name": "lvl1d_load_tiles",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 44,
+   "summary": "Once per Vision: if the VRAM tile base [142Eh] is still 0, allocates 16 tiles downward from the tile allocator [1396h] (gives up if the new value would fall below 96h), stores the base tile in [142Eh] and copies the tiles via sub_A5EC."
+  },
+  {
+   "addr": "4000:A62C",
+   "name": "lvl1d_spawn_one_way_gate",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 64,
+   "summary": "Creates a type-2Ch gate (8-px aligned) with side +1Eh = CH and marks an 8x32 solid column (BL = 1, BH = 4) offset to one side by +1Eh; the column origin is kept in +18h/+1Ah."
+  },
+  {
+   "addr": "4000:A66C",
+   "name": "obj2c_update_one_way_gate",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 66,
+   "summary": "Open timer +14h: when it equals 8 (just set by contact) clears the solid column and plays sound 27h once (+1Fh = 1); when it reaches 1 re-marks the column (+1Fh = 0); decrements +14h towards 0 every frame."
+  },
+  {
+   "addr": "4000:A6AE",
+   "name": "obj2c_draw_one_way_gate",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 41,
+   "summary": "Draws the gate from tiles [142Eh] (+8 while open), attribute 2800h, through loc_CEB8 or the mirrored loc_CF16 depending on side +1Eh."
+  },
+  {
+   "addr": "4000:A6D7",
+   "name": "coll_2c_01_open_from_side",
+   "category": "pair-not-seen",
+   "evidence": "object types 2Ch and 01h never on screen together in a natural run (seen alone: 01h)",
+   "size": 30,
+   "summary": "Gate (DI) vs player and movable objects (SI): if SI is on the allowed side (x <= gate x for side 0, >= for side 1), sets DI+14h = 8 (open)."
+  },
+  {
+   "addr": "4000:A6F5",
+   "name": "coll_01_2c_open_from_side",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 31,
+   "summary": "Mirror of coll_2C_01_open_from_side with the gate in SI."
+  },
+  {
+   "addr": "4000:A714",
+   "name": "lvl1e_tiles_copy",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 20,
+   "summary": "Copies 576 bytes (36 16-byte 2bpp tiles) of sprite tile data from 7000:6AE0 to 0000:AX (tile RAM)."
+  },
+  {
+   "addr": "4000:A728",
+   "name": "lvl1e_load_tiles",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 44,
+   "summary": "Once per Vision: if the VRAM tile base [1418h] is still 0, allocates 36 tiles downward from the tile allocator [1396h] (gives up if the new value would fall below 96h), stores the base tile in [1418h] and copies the tiles via sub_A714."
+  },
+  {
+   "addr": "4000:A754",
+   "name": "lvl1e_spawn_delayed_obj2d",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 40,
+   "summary": "Places a type-1Bh delayed spawner that becomes type 2Dh after CH*4 frames; +0Ah = +0Bh = 80h, +0Ch |= 2."
+  },
+  {
+   "addr": "4000:A77C",
+   "name": "obj2d_update_scripted_move",
+   "category": "object-not-seen",
+   "evidence": "object type 2Dh never present in a natural run",
+   "size": 34,
+   "summary": "Type 2Dh update: same body as obj18_update (timers, +0Ch bit 4, sub_6670 movement handler, sub_622B unless +13h) plus the dead 'cmp al,18h' clamp."
+  },
+  {
+   "addr": "4000:A79E",
+   "name": "obj2d_draw_dyn_tiles",
+   "category": "object-not-seen",
+   "evidence": "object type 2Dh never present in a natural run",
+   "size": 32,
+   "summary": "Draws type 2Dh like obj07_draw: tile base [1418h] | 2800h via tbl_D31E[play_flags & 1]."
+  },
+  {
+   "addr": "4000:A7BE",
+   "name": "coll_2d_02_capture_lift_rev",
+   "category": "pair-not-seen",
+   "evidence": "object types 2Dh and 02h never on screen together in a natural run (seen alone: 02h)",
+   "size": 8,
+   "summary": "Swaps DI and SI, calls coll_02_2D (capture of a 2Dh enemy) with the roles reversed, swaps back."
+  },
+  {
+   "addr": "4000:A7C6",
+   "name": "coll_02_2d_capture_lift",
+   "category": "pair-not-seen",
+   "evidence": "object types 02h and 2Dh never on screen together in a natural run (seen alone: 02h)",
+   "size": 23,
+   "summary": "Object 02h (DI) touching a 2Dh enemy (SI): sets [3D2h] bit 0, player y-acceleration [3C9h] = FFh (upward), captures SI as type 09h via sub_60D4 (held object, sound 0Ah, effect 3Fh, DI deleted, [13C0h]++) and stops sound 0Dh (sub_DDDD)."
+  },
+  {
+   "addr": "4000:A7DD",
+   "name": "lvl22_spawn_big_dream_stone",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 9,
+   "summary": "Runs lvl21_spawn and then sets +1Eh = 1 (large variant: worth 5, drawn as two sprites, sound 0Fh)."
+  },
+  {
+   "addr": "4000:A8F2",
+   "name": "lvl27_spawn_1up_if_lives_lt3",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 12,
+   "summary": "Runs lvl26_spawn only while lives ([13E1h]) is below 3."
+  },
+  {
+   "addr": "4000:A8FE",
+   "name": "lvl26_spawn_1up",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 46,
+   "summary": "Creates a type-33h item with id +14h = CH & 7 unless bit id of [13E9h] (already taken) is set; +0Ah = +0Bh = 4."
+  },
+  {
+   "addr": "4000:A92C",
+   "name": "obj33_update_idle",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 6,
+   "summary": "Only marks the slot updated."
+  },
+  {
+   "addr": "4000:A932",
+   "name": "obj33_draw_16px",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 16,
+   "summary": "Draws the item as a 16x16 group, tile 1BFh attribute 2800h (loc_D092)."
+  },
+  {
+   "addr": "4000:A942",
+   "name": "coll_01_33_collect_1up",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 50,
+   "summary": "Player touches a type-33h item: sets its bit in [13E9h], increments lives ([13E1h], capped at 99), plays sound 19h, deletes it, spawns effect 3Fh (subtype 2) and redraws the lives counter (sub_C718)."
+  },
+  {
+   "addr": "4000:A974",
+   "name": "lvl28_spawn_obj34_once",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 44,
+   "summary": "Creates a type-34h object with id +14h = CH & 7 unless bit id of [13E8h] is set; +0Ah = +0Bh = 4."
+  },
+  {
+   "addr": "4000:A9A0",
+   "name": "obj34_update_static",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 6,
+   "summary": "Update handler for object type 34h: only sets bit 1 of byte +1 (the per-frame 'updated' flag that the draw pass clears) and returns; the object has no motion."
+  },
+  {
+   "addr": "4000:A9A6",
+   "name": "obj34_draw_heart",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 16,
+   "summary": "Draw handler for type 34h: if the sprite-list pointer [1382h] is below 17E8h, draws a 2x2 sprite group with tiles 2DB3h-2DB6h via loc_D092 (layout rotated when play_flags bit 0 is set). Its first two tiles, 2DB3h/2DB4h, are the ones draw_hearts_sprites uses for the HUD hearts. It does not read [13E0h]."
+  },
+  {
+   "addr": "4000:A9B6",
+   "name": "coll_01_34_heart_pickup",
+   "category": "pair-not-seen",
+   "evidence": "object types 01h and 34h never on screen together in a natural run (seen alone: 01h)",
+   "size": 48,
+   "summary": "Collision callback type 01 (player) vs 34h: sets bit [SI+14h] in [13E8h] (collected mask), increments [13E0h] (lives_reserve, behaves as heart/health count) saturating at 3, plays sound 10h, deletes the pickup, spawns a sparkle effect (sub_D4A0 variant 2) at its position and redraws the heart HUD (sub_C55E)."
+  },
+  {
+   "addr": "4000:A9E6",
+   "name": "copy_tiles_7580_for_obj2e",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 20,
+   "summary": "Copies 120h words (24h tiles of 16 bytes) of graphics from ROM 7000:7580 to RAM address AX (tile RAM). Leaves DS = 7000h (caller restores)."
+  },
+  {
+   "addr": "4000:A9FA",
+   "name": "lvl25_tick_alloc_obj2e_tiles",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 88,
+   "summary": "Per-spawn-kind preload hook for kind 25h (run once at Vision load by sub_B4A2): if not yet done, allocates 24h tiles from the downward tile allocator [1396h] (floor 96h) into [141Ch] and copies obj2E graphics there; likewise 10h tiles into [141Eh] for obj2F graphics (sub_AB6E)."
+  },
+  {
+   "addr": "4000:AA52",
+   "name": "lvl25_spawn_obj1b",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 44,
+   "summary": "Spawn initialiser for spawn kind 25h: places object at (AX,DX) pixels (stored x16), type 1Bh with byte+1 = 1, [+1Eh] = 2Eh, [+14h] = CH, [+0Ah]/[+0Bh] = 80h, [+9] = 1, sets bit 1 of [+0Ch]."
+  },
+  {
+   "addr": "4000:AA7E",
+   "name": "obj2e_update_wait_player_near",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 70,
+   "summary": "obj2E state 0: increments timer [+1Ch]; if Manhattan distance to the player (03C2h/03C4h) is <= [+18h] and the map-contact byte ([+10h] lo|hi) has bit 2, advances to state 1 and clears [+1Fh]/[+14h]; then steps animation (sub_6670), moves by velocity (sub_622B) unless [+13h] set, and tail-calls sub_6146."
+  },
+  {
+   "addr": "4000:AAC4",
+   "name": "obj2e_update_pause_turn",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 80,
+   "summary": "obj2E states 1 and 3: holds horizontal velocity at 0 for 50 frames, then advances the state (mod 4); on entering state 2 sets facing bits of [+0Ch] toward the player (2 = player to the right, 1 = left) and swaps the animation pointers [+16h]/[+1Ah]."
+  },
+  {
+   "addr": "4000:AB14",
+   "name": "obj2e_update_animate_still",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 24,
+   "summary": "obj2E state 2: counts [+14h] up to 40h (saturating), steps animation (sub_6670), zeroes horizontal velocity, moves (sub_622B), tail-calls sub_6146."
+  },
+  {
+   "addr": "4000:AB34",
+   "name": "obj2e_update_dispatch",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 26,
+   "summary": "Update handler for type 2Eh: sets the updated flag, clamps AL to 18h (value then unused) and dispatches on [+1Eh] & 3 through tbl_AB2C (states 0,1,2,1)."
+  },
+  {
+   "addr": "4000:AB4E",
+   "name": "obj2e_draw_dispatch",
+   "category": "object-not-seen",
+   "evidence": "object type 2Eh never present in a natural run",
+   "size": 32,
+   "summary": "Draw handler for type 2Eh: if sprite room (< 17D4h), BP = [141Ch] | 2800h (tiles loaded by lvl25 preload) and dispatches on play_flags bit 0 (vertical orientation) to obj2E_draw_case0/1."
+  },
+  {
+   "addr": "4000:AB6E",
+   "name": "copy_tiles_7a00_for_obj2f",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 20,
+   "summary": "Copies 80h words (10h tiles) from ROM 7000:7A00 to RAM address AX (tile RAM). Leaves DS = 7000h."
+  },
+  {
+   "addr": "4000:AB82",
+   "name": "spawn_obj2f_projectile",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 52,
+   "summary": "Allocates a slot (lvl00_check), clears it and creates object type 2Fh at (AX, DX-20h) with [+15h] = FFh and x velocity [+6] = 10h if CX bit 1 set else F0h; plays sound 16h."
+  },
+  {
+   "addr": "4000:ABB6",
+   "name": "obj2f_update_projectile",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 46,
+   "summary": "Update for type 2Fh: animation counter [+14h]++, lifetime [+1Ch]++; moves by velocity and runs map collision (sub_43E5); destroys itself (jmp sub_79A6) after 200 frames or when collision result [+11h] bits 0-1 are set."
+  },
+  {
+   "addr": "4000:ABE4",
+   "name": "obj2f_draw_spin4",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 59,
+   "summary": "Draw for type 2Fh: base tile [141Eh] | 2800h plus a 4-frame animation offset (([+14h] >> 1) & 0Ch), drawn as a 2x2 sprite group via loc_D092."
+  },
+  {
+   "addr": "4000:AC1F",
+   "name": "obj30_update_expire_12f",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 17,
+   "summary": "Update for type 30h: increments [+14h] and deletes the object after 12 frames."
+  },
+  {
+   "addr": "4000:AC30",
+   "name": "spawn_obj36_pulse",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 23,
+   "summary": "Allocates a slot (lvl00_check) and creates object type 36h with byte+1 = 08h (bit 3 = processed regardless of screen position) and countdown [+1Ch] = 6."
+  },
+  {
+   "addr": "4000:AC47",
+   "name": "obj36_update_player_flag_6f",
+   "category": "object-not-seen",
+   "evidence": "object type 36h never present in a natural run",
+   "size": 24,
+   "summary": "Update for type 36h: ORs 4 into the player slot word [03D2h] every frame and counts [+1Ch] down; deletes itself when it reaches 0."
+  },
+  {
+   "addr": "4000:AD5F",
+   "name": "save_block_record_vision_clear",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 384,
+   "summary": "Updates the save block when a Vision is cleared: advances furthest progress [148Fh] (FFh after World 5 -> sets [1399h] bit5), or records EX Vision clears in [14A7h]; stores lives in [149Fh]; keeps the best dream-stone count ([13DEh]) per Vision at 1480h+(W-1)*8+(V-1) and the per-world total (max 180) at +6; sets perfect-world bits in [1497h] when a world total reaches B4h; keeps best EX times (61xx/62xx) from [1440h:1442h]; saves key-config bits to [14B8h] and the current WV to [14AFh]. Flag bits in [1399h] report what changed."
+  },
+  {
+   "addr": "4000:AEDF",
+   "name": "ex_vision_cleared_test",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 10,
+   "summary": "Returns AX = FFFFh if bit (AL-1) of the EX-Vision-cleared mask [14A7h] is set, else 0."
+  },
+  {
+   "addr": "4000:AF04",
+   "name": "frames_to_min_sec_bcd",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 66,
+   "summary": "Converts a frame count DX:AX (75 frames/s) to minutes (/4500) and seconds (/75), each returned as a two-digit BCD-style byte, plus hundredths looked up from the 75-entry table 8:0080 (BCD 00,01,03,04,...,99)."
+  },
+  {
+   "addr": "4000:AF46",
+   "name": "get_ex_time_record",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 33,
+   "summary": "Returns the best time of EX Vision 1 (AH = 61h) as DX:AX = [14B0h]:[14B2h] or EX Vision 2 (AH = 62h) as [14B4h]:[14B6h]; otherwise returns AX=BX=CX=0 (DX unchanged)."
+  },
+  {
+   "addr": "4000:B0BB",
+   "name": "checkpoint_save",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 95,
+   "summary": "Copies the live Vision state to the checkpoint copy: 13D0h-13DEh (items, positions, stones) -> 13EAh-13FCh, collected masks 13E8h/13E9h -> 13F4h/13F5h, hearts/lives -> 13F6h/13F7h, play_flags & 87h -> low bits of [13E3h]."
+  },
+  {
+   "addr": "4000:B16E",
+   "name": "vision_exit_press_up",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 18,
+   "summary": "Warp-point type 4 (via sub_B332): when the remapped newly-pressed key word [1392h] has bit 10h (up), sets play_flags bit5 (state 7, Vision clear) and returns AX = 20h (non-zero stops the scan)."
+  },
+  {
+   "addr": "4000:B180",
+   "name": "warp_point_hold_right",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 83,
+   "summary": "Warp-point type 3: requires remapped held key bit 20h (right) in [1390h]. If triggered: target record index = high byte of the record word; progress_code low byte = target+0, start position [13E4h] = (target+2)<<4 & FF80h, [13E6h] = (target+4)<<4; [13E3h] bit7 = player facing ([03CCh] bit1 clear); play_flags |= 10h (main loop goes to state 5 = room transition). Returns AX = 10h when taken, else 0."
+  },
+  {
+   "addr": "4000:B1D3",
+   "name": "warp_point_hold_left",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 82,
+   "summary": "Warp-point type 2: requires held key bit 80h (left) in [1390h]. If triggered: target record index = high byte of the record word; progress_code low byte = target+0, start position [13E4h] = (target+2)<<4 & FF80h, [13E6h] = (target+4)<<4; [13E3h] bit7 = player facing ([03CCh] bit1 clear); play_flags |= 10h (main loop goes to state 5 = room transition). Returns AX = 10h when taken, else 0."
+  },
+  {
+   "addr": "4000:B225",
+   "name": "warp_point_hold_down",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 87,
+   "summary": "Warp-point type 1: requires held key bit 40h (down) in [1390h]. If triggered: target record index = high byte of the record word; progress_code low byte = target+0, start position [13E4h] = (target+2)<<4 & FF80h, [13E6h] = (target+4)<<4; [13E3h] bit7 = player facing ([03CCh] bit1 clear); play_flags |= 10h (main loop goes to state 5 = room transition). Additionally sets [13E3h] bit6. Returns AX = 10h when taken, else 0."
+  },
+  {
+   "addr": "4000:B27C",
+   "name": "warp_point_hold_up",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 82,
+   "summary": "Warp-point type 0: requires held key bit 10h (up) in [1390h]. If triggered: target record index = high byte of the record word; progress_code low byte = target+0, start position [13E4h] = (target+2)<<4 & FF80h, [13E6h] = (target+4)<<4; [13E3h] bit7 = player facing ([03CCh] bit1 clear); play_flags |= 10h (main loop goes to state 5 = room transition). Returns AX = 10h when taken, else 0."
+  },
+  {
+   "addr": "4000:B2CE",
+   "name": "warp_point_press_up_sfx",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 88,
+   "summary": "Warp-point type 5: requires newly-pressed up (bit 10h of [1392h]); plays sound 20h, then performs the same warp as the other types. Returns AX = 10h when taken."
+  },
+  {
+   "addr": "4000:B73C",
+   "name": "unused_sprite_put_ascii",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 34,
+   "summary": "UNREFERENCED (no caller; never executed). Appends one character sprite to the sprite list at [1382h]: tile = AX-20h+14Bh (ASCII code into the font tiles), attribute 2000h, position word DX; advances [1382h] by 4."
+  },
+  {
+   "addr": "4000:B75E",
+   "name": "debug_sprite_hex_digit",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 44,
+   "summary": "Called only by the unreferenced debug hex printers (4000:B7F0-B8F3, used by the debug sound-test screen 4000:F01A). Appends one hex-digit sprite to the sprite list at [1382h]: tile = 15Bh+digit, +7 for A-F (skipping to the letter tiles), attribute 2C00h, position DX."
+  },
+  {
+   "addr": "4000:B7F0",
+   "name": "debug_sprite_hex_nibble",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 11,
+   "summary": "Part of the unreferenced debug hex printers: draws the low nibble of AX as one hex-digit sprite (debug_sprite_hex_digit). The following code (B7FB-B8F3) prints bytes/words as 2/4 digits, horizontally or vertically."
+  },
+  {
+   "addr": "4000:B7FB",
+   "name": "dead_B7FB",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 35,
+   "summary": "Unreferenced (range 4B7F0-4B8F4): complete routines: print a nibble / byte / word as hex sprites (horizontal and vertical variants) using 4B75E"
+  },
+  {
+   "addr": "4000:B81E",
+   "name": "dead_B81E",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 35,
+   "summary": "Unreferenced (range 4B7F0-4B8F4): complete routines: print a nibble / byte / word as hex sprites (horizontal and vertical variants) using 4B75E"
+  },
+  {
+   "addr": "4000:B841",
+   "name": "dead_B841",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 61,
+   "summary": "Unreferenced (range 4B7F0-4B8F4): complete routines: print a nibble / byte / word as hex sprites (horizontal and vertical variants) using 4B75E"
+  },
+  {
+   "addr": "4000:B87E",
+   "name": "dead_B87E",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 61,
+   "summary": "Unreferenced (range 4B7F0-4B8F4): complete routines: print a nibble / byte / word as hex sprites (horizontal and vertical variants) using 4B75E"
+  },
+  {
+   "addr": "4000:B8BB",
+   "name": "dead_B8BB",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 57,
+   "summary": "Unreferenced (range 4B7F0-4B8F4): complete routines: print a nibble / byte / word as hex sprites (horizontal and vertical variants) using 4B75E"
+  },
+  {
+   "addr": "4000:B9C2",
+   "name": "put_hex_byte_tiles_v",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 139,
+   "summary": "Vertical-orientation variant of put_hex_byte_tiles_h: high nibble at y = DL, low nibble at y = DL+8."
+  },
+  {
+   "addr": "4000:BA4D",
+   "name": "unused_bg_print_hex_word",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 273,
+   "summary": "UNREFERENCED (no caller; never executed). Writes AX as four hex digits into the screen-1 tile map at 0800h: tile 15Bh+digit (+7 for A-F), attribute 1C00h; the least significant digit goes at pixel x = DH+18h and each further digit 8 px to the left, row = DL/8."
+  },
+  {
+   "addr": "4000:BF31",
+   "name": "keymap_vertical",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 63,
+   "summary": "Key-remap for vertical orientation (play_flags & 7 = 1 or 3): Y pad becomes the d-pad (Y1->80h left, Y2->10h up, Y3->20h right, Y4->40h down), X1/X3 -> A (400h), X2/X4 -> B (800h), Start kept."
+  },
+  {
+   "addr": "4000:BF89",
+   "name": "keymap_vertical_swap_ab",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 61,
+   "summary": "Key-remap for vertical with A/B swapped (play_flags & 7 = 5 or 7): as keymap_vertical but X2/X4 -> A and X1/X3 -> B."
+  },
+  {
+   "addr": "4000:BFF0",
+   "name": "dead_BFF0",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 25,
+   "summary": "Unreferenced (range 4BFF0-4C009): complete routine: older variant of fade_sprite_spawn_record (cmp [di+1Ch],si / alloc B555 / clear B4F0 / init C062)"
+  },
+  {
+   "addr": "4000:C242",
+   "name": "obj39_spawn_credit_elements",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 14,
+   "summary": "Spawner script 1: checks spawner records 6-4Bh against the timer each frame."
+  },
+  {
+   "addr": "4000:CF7F",
+   "name": "dead_CF7F",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 62,
+   "summary": "Unreferenced (range 4CF7F-4D00A): two complete draw routines: 3x2 sprite block from BP, and an animated variant (frame = ([+1Ch]>>3)&3 * 6)"
+  },
+  {
+   "addr": "4000:CFBD",
+   "name": "dead_CFBD",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 77,
+   "summary": "Unreferenced (range 4CF7F-4D00A): two complete draw routines: 3x2 sprite block from BP, and an animated variant (frame = ([+1Ch]>>3)&3 * 6)"
+  },
+  {
+   "addr": "4000:D050",
+   "name": "emit_sprite_row_12",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 18,
+   "summary": "Helper: emits 12 sprites with consecutive tiles from BP at sprite pointer BX, 8 px apart horizontally starting at AH = x, AL = y."
+  },
+  {
+   "addr": "4000:D062",
+   "name": "b3disp_06_sprite_rows_12x2",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 27,
+   "summary": "Bank-3 draw routine for kinds 6-0Eh: two rows of 12 consecutive tiles (96x16 px) centred at (x-30h, y-8)."
+  },
+  {
+   "addr": "4000:D07D",
+   "name": "b3disp_0f_sprite_row_12",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 292,
+   "summary": "Bank-3 draw routine for kinds 0Fh-4Fh (credit lines): one row of 12 consecutive tiles centred at (x-30h, y-4)."
+  },
+  {
+   "addr": "4000:D1A1",
+   "name": "draw_sprites_3x3",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 381,
+   "summary": "Emits a 3x3 block of consecutive tiles from BP centred at (x-0Ch, y-0Ch); in vertical mode (play_flags bit0) the block is laid out rotated (columns run down, rows step left)."
+  },
+  {
+   "addr": "4000:D3B7",
+   "name": "obj2e_draw_3x3_vertical",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 233,
+   "summary": "obj2E draw (vertical mode): same frame selection as the horizontal variant but laid out rotated; facing uses the V-flip attribute (8000h)."
+  },
+  {
+   "addr": "4000:D4E4",
+   "name": "obj3f_update_count_up_60",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 16,
+   "summary": "obj3F variants 2 and 3: counts [+1Ch] up and deletes the object after 60 frames."
+  },
+  {
+   "addr": "4000:D556",
+   "name": "obj3f_draw_burst_and_orbit",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 6,
+   "summary": "obj3F draw (variant 3): draws the diagonal burst and then the orbiting ring."
+  },
+  {
+   "addr": "4000:D55C",
+   "name": "obj3f_draw_orbit",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 94,
+   "summary": "obj3F draw (variant 2): four sprites of tile 29E7h placed on a circle using the 16-step sine/cosine table at 4000:B5CA/B60A indexed by [+1Ch]*2."
+  },
+  {
+   "addr": "4000:D892",
+   "name": "spawn_raster_effect",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 39,
+   "summary": "Creates the raster-effect controller object (type 3Ah, byte+1 = 09h) in a low slot: [+18h] = AX*2 selects the HBlank handler, and when AX != 0 the duration [+1Ah] = DX frames."
+  },
+  {
+   "addr": "4000:D8B9",
+   "name": "irq_hblank_scr1_parallax_wave",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 108,
+   "summary": "HBlank-timer handler (raster effects 0 and 3, horizontal mode only): sets SCR1 X scroll (port 10h) per line to camera_x/4 ([13A0h]>>6); from line 46h to 86h adds a sine wobble (table B5CA, phase = line*8 + frame) whose amplitude grows with depth; lines >= 87h, or vertical mode, get scroll 0. Acknowledges B6h <- 80h."
+  },
+  {
+   "addr": "4000:D925",
+   "name": "irq_hblank_scr2_warp",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 171,
+   "summary": "HBlank-timer handler (raster effects 1 and 2): for lines < 90h sets SCR2 X scroll (port 12h) to a sine wobble whose phase and amplitude depend on the time since [1394h], and SCR2 Y scroll (port 13h) to a per-line offset that stretches the layer vertically; outside the active band both scrolls are 0."
+  },
+  {
+   "addr": "4000:D9D8",
+   "name": "obj3a_update_raster_effect",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 104,
+   "summary": "Update for the raster-effect controller (type 3Ah, horizontal mode): on first run enables the HBlank-timer interrupt (B2h |= 80h) and installs the selected handler (tbl_D9D0[[+18h]]) at vector 0:009Ch; counts the duration [+1Ah] down (0 = unlimited) and at 1 deletes itself and sets DISP_CTRL = 5. In vertical mode, or when deleted, disables the interrupt again (B2h &= 7Fh)."
+  },
+  {
+   "addr": "4000:DAE0",
+   "name": "lvl29_spawn_nop",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 2,
+   "summary": "Spawn initialiser for kinds 29h and 2Ah: does nothing (RET); these kinds only act through their preload hooks."
+  },
+  {
+   "addr": "4000:DAE2",
+   "name": "lvl2a_tick_create_timer_stopped",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 12,
+   "summary": "Preload hook for kind 2Ah: creates the EX timer object (lvl29_tick) and sets its [+1Eh] = 1, which stops it from counting."
+  },
+  {
+   "addr": "4000:DAEE",
+   "name": "lvl29_tick_create_timer",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 14,
+   "summary": "Preload hook for kind 29h: creates object type 35h (EX Vision timer, byte+1 = 09h) in a low slot. Returns DI = slot or 0."
+  },
+  {
+   "addr": "4000:DAFC",
+   "name": "obj35_update_ex_timer",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 72,
+   "summary": "Update for the EX timer (type 35h): sets the SCR2/sprite window top (ports 09h/0Dh = 8) or right edge in vertical mode (0Ah/0Eh = CFh) to keep the timer row clear, and unless [+1Eh] is set increments the 32-bit frame count [1440h]:[1442h], stopping at 4:1EB0h (270000 frames = 60:00.00)."
+  },
+  {
+   "addr": "4000:DB44",
+   "name": "draw_time_and_13c0",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 108,
+   "summary": "Converts DX:AX frames to min/sec/hundredths (sub_AF04) and writes them as BCD digit tiles at BP (spaced 18h px), then writes the decimal value of [13C0h] at a fixed position (x = 80h, y = 0; vertical x = D8h, y = 80h)."
+  },
+  {
+   "addr": "4000:DBB0",
+   "name": "obj35_draw_time_and_record",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 51,
+   "summary": "Draw for the EX timer: prints the running time [1440h]:[1442h] at x = 20h and the stored best time for the current EX Vision (sub_AF46) at x = A0h on the top row (vertical: column positions D820h/D050h)."
+  },
+  {
+   "addr": "4000:DBE3",
+   "name": "put_grid_cell_tile",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 46,
+   "summary": "Writes the tile for cell AX of a 20-column grid into the SCR1 map: map address 0800h + (AX/20)*64 + 2 + (AX%20)*2, tile = AX + 1Ch with the attribute high byte taken from the byte table at RAM 3840h + AX."
+  },
+  {
+   "addr": "4000:DC11",
+   "name": "unused_map_put_tile_rect",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 95,
+   "summary": "UNREFERENCED (no caller; never executed). Writes a CH x CL rectangle of consecutive tile numbers (starting at BP) into the tile map whose base is AX, at cell (DH, DL) with 32x32 wrap-around; each map word ORs in an attribute byte read from 2000h + BP*16 + CH*CL*16 onward (the attribute bytes stored after the tiles of a picture asset)."
+  },
+  {
+   "addr": "4000:DDDD",
+   "name": "sound_stop_id",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 75,
+   "summary": "Stops the track used by sound number AX: if the track is in voice (PCM) mode calls sub_DE28, clears the sequence pointer and flags, sets priority FFh and zeroes the volume port (88h-8Bh) and stored volume of every channel in the track's channel mask, then clears the mask."
+  },
+  {
+   "addr": "4000:DE28",
+   "name": "snd_voice_off_bx",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 15,
+   "summary": "Turns the voice (PCM) channel off: port 94h = AL (0 from the caller), [BX+4] = AL, clears bits 1 and 5 of sound control port 90h and ANDs [BX+11h] with the new port-90h value. Written for BX = 0260h (control block: +4 voice-active, +11h channel-enable shadow), but its only caller (sound_stop_id) passes a track work area, so it clears that track's [+4] and [+11h] instead - looks like a latent bug."
+  },
+  {
+   "addr": "4000:DEEF",
+   "name": "dead_DEEF",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 112,
+   "summary": "Unreferenced (range 4DEEF-4DF12): sound-driver fragment: key-off of the channels selected by [0263h] (out 88h+ch, clears [+10h])"
+  },
+  {
+   "addr": "4000:DFD8",
+   "name": "snd_cmd_loop_a",
+   "category": "data-unreachable",
+   "evidence": "sequence command `loop` occurs in none of the 106 shipped sound scripts",
+   "size": 29,
+   "summary": "Command 40h count addr16: increments loop counter A [+8]; while it differs from count jumps to addr, otherwise resets it to 0 and continues after the operands."
+  },
+  {
+   "addr": "4000:DFF5",
+   "name": "snd_cmd_loop_b",
+   "category": "data-unreachable",
+   "evidence": "sequence command `loopb` occurs in none of the 106 shipped sound scripts",
+   "size": 29,
+   "summary": "Command A0h count addr16: same as loop A but with the second counter [+9] (allows nested loops)."
+  },
+  {
+   "addr": "4000:E012",
+   "name": "snd_cmd_loop_a_alt",
+   "category": "data-unreachable",
+   "evidence": "sequence command `loop_alt` occurs in none of the 106 shipped sound scripts",
+   "size": 23,
+   "summary": "Command 50h count addr16: behaviour identical to command 40h (counter [+8]; jump while not equal, reset and skip when equal) - only the branch sense of the code differs."
+  },
+  {
+   "addr": "4000:E029",
+   "name": "snd_cmd_loop_b_alt",
+   "category": "data-unreachable",
+   "evidence": "sequence command `loopb_alt` occurs in none of the 106 shipped sound scripts",
+   "size": 23,
+   "summary": "Command B0h count addr16: identical in effect to command A0h (counter [+9])."
+  },
+  {
+   "addr": "4000:E0CB",
+   "name": "snd_cmd_play_sound",
+   "category": "data-unreachable",
+   "evidence": "sequence command `play` occurs in none of the 106 shipped sound scripts",
+   "size": 9,
+   "summary": "Command 60h nn: starts sound number nn (sound_play) from within a sequence."
+  },
+  {
+   "addr": "4000:E0D4",
+   "name": "dead_E0D4",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 7,
+   "summary": "Unreferenced (range 4E0D4-4E0F5): four sequence-command handlers (store AL to track +4 / +5 / +0, swap +0 with +0Ah) each ending jmp DF4A"
+  },
+  {
+   "addr": "4000:E0DB",
+   "name": "dead_E0DB",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 7,
+   "summary": "Unreferenced (range 4E0D4-4E0F5): four sequence-command handlers (store AL to track +4 / +5 / +0, swap +0 with +0Ah) each ending jmp DF4A"
+  },
+  {
+   "addr": "4000:E0E2",
+   "name": "dead_E0E2",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 6,
+   "summary": "Unreferenced (range 4E0D4-4E0F5): four sequence-command handlers (store AL to track +4 / +5 / +0, swap +0 with +0Ah) each ending jmp DF4A"
+  },
+  {
+   "addr": "4000:E0E8",
+   "name": "dead_E0E8",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 13,
+   "summary": "Unreferenced (range 4E0D4-4E0F5): four sequence-command handlers (store AL to track +4 / +5 / +0, swap +0 with +0Ah) each ending jmp DF4A"
+  },
+  {
+   "addr": "4000:E6D6",
+   "name": "snd_fade_out_mute_start",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 10,
+   "summary": "Global fade mode 2: resets the master attenuation [0276h] to 0, switches to mode 5 (fade out without stopping the tracks) and falls through into snd_fade_out_mute_step, which performs the first step ([0276h] = rate [0275h]) and continues track processing at loc_DF28."
+  },
+  {
+   "addr": "4000:E6E0",
+   "name": "snd_fade_out_mute_step",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 17,
+   "summary": "Global fade mode 5: adds the rate to the master attenuation; when it would overflow, stops the voice if the current track uses it and ends the fade (mode 0) leaving the attenuation at its last value, i.e. the music keeps running but stays (nearly) silent."
+  },
+  {
+   "addr": "4000:E6F1",
+   "name": "snd_stop_sfx_tracks_fade_in",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 74,
+   "summary": "Global fade mode 3: stops tracks 0-2 (clears pointers and tick counters of 0100h/0158h/01B0h; track 3 at 0208h, which the bank-5 sound table assigns to the music entries with priority byte 83h, keeps running), stops the voice if track 0 used it, switches to mode 6 and lowers the master attenuation by the rate, restarting sound_tick."
+  },
+  {
+   "addr": "4000:E73B",
+   "name": "snd_fade_in_step",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 30,
+   "summary": "Global fade mode 6: master attenuation [0276h] -= rate [0275h] until it reaches 0, then clears the mode; continues normal track processing."
+  },
+  {
+   "addr": "4000:E7AB",
+   "name": "snd_voice_stop_if_active",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 12,
+   "summary": "Stops the PCM voice (sound_voice_stop) if the voice-active flag [0264h] bit0 is set. Called at the start of state05."
+  },
+  {
+   "addr": "4000:E9B0",
+   "name": "dead_E9B0",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 32,
+   "summary": "Unreferenced (range 4E9B0-4E9D0): complete routine: fills 8 words at [DX] from far call 4000:EB82 for BX = 30h..37h, returns AX=0"
+  },
+  {
+   "addr": "4000:EB31",
+   "name": "ieep_read_slot_data",
+   "category": "coverage",
+   "evidence": "reachable with the shipped data; the condition that selects it was not met in natural play",
+   "size": 35,
+   "summary": "Reads the 5 data words of EEPROM slot CX (words CX*6+1 .. CX*6+5) into the buffer at DX."
+  },
+  {
+   "addr": "4000:EFAF",
+   "name": "menu_next_ex_vision",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 44,
+   "summary": "In the EX world, moves DL to the next EX Vision whose bit is set in [1497h]; when none remains sets DL = 5 and [1341h] = 31h (error sound) and falls back to searching downward."
+  },
+  {
+   "addr": "4000:F01A",
+   "name": "dead_F01A",
+   "category": "unreferenced",
+   "evidence": "no caller, jump, table entry or vector install; never executed in any run",
+   "size": 302,
+   "summary": "Unreferenced (range 4F01A-4F148): complete routine: debug sound test - cursor [1308h] moved by X keys, edits [1304h]/[1306h]/[130Ah-130Eh], prints them in hex (4B7F0), plays sound [1304h]+[1306h] (sound_play) or stops all (DE51)"
+  },
+  {
+   "addr": "4000:F434",
+   "name": "ticket_menu_init",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 83,
+   "summary": "Ticket screen setup: preselects the game's current ticket ([131Ch] = [1487h]), resets menu state 131Dh-131Fh, scroll [12DAh], [12DEh], [1340h], opens the SCR2 and sprite windows (08h/0Ch = 0, 0Ah/0Eh = F0h), loads screens 7105h/7104h with the SCR1 map copied to SCR2, BPE-expands A000:A6B0 to tile RAM 2460h and loads sprite palettes from 9000:FA40."
+  },
+  {
+   "addr": "4000:F4E9",
+   "name": "emit_sprite_plus_e6",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 20,
+   "summary": "Appends a sprite with tile word AX+E6h at position DX."
+  },
+  {
+   "addr": "4000:F4FD",
+   "name": "ticket_draw_lives",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 53,
+   "summary": "Draws a ticket's lives count AL (0-99) as one or two digit sprites (tile 28E6h+digit) at DX, then the layout 17h icon at [12DCh]+5C0Ch."
+  },
+  {
+   "addr": "4000:F545",
+   "name": "emit_big_digit_2x2",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 37,
+   "summary": "Draws a large digit BP (1-based) as a 2x2 sprite group with tiles 2846h + (BP-1)*4 at DI."
+  },
+  {
+   "addr": "4000:F86B",
+   "name": "ticket_save_menu_frame",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 35,
+   "summary": "One frame of the 'Save data?' ticket screen (state 11): runs the save-menu state machine (sub_F88E), draws the ticket list except in state 1, and returns AX = 2 when finished/cancelled (state 6), 1 in state 5, else 0."
+  },
+  {
+   "addr": "4000:F88E",
+   "name": "ticket_save_menu_dispatch",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 19,
+   "summary": "Dispatches the save-ticket menu state [131Eh] (0 scan, 1 'Save data?', 2 open animation, 3 choose/confirm, 4 'Game saved' wait, 5/6 done) through tbl_F8A1 with DI = new keys."
+  },
+  {
+   "addr": "4000:F8AF",
+   "name": "ticket_save_prompt",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 69,
+   "summary": "Save menu state 1: shows the 'Save data?' prompt (layout 13h) with a Yes/No selector; A on Yes advances (sound 2Eh), A on No ends with state 6 (sound 30h)."
+  },
+  {
+   "addr": "4000:F8F4",
+   "name": "ticket_save_confirm",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 142,
+   "summary": "Save menu state 3: shows the selected ticket (with an overwrite note if occupied) and Yes/No; A on Yes writes the save block to the ticket: [1487h] = ticket, sram_save_record(ticket+1), clears the suspend record (sram_suspend_clear), rescans, advances (sound 2Fh). B or No returns to state 1 and resets the scroll/choice (sound 30h)."
+  },
+  {
+   "addr": "4000:F982",
+   "name": "ticket_save_done_wait",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 31,
+   "summary": "Save menu state 4: shows the 'Game saved' message (layout 15h) and advances the state on A or B (each adds 1, so both together skip to state 6)."
+  },
+  {
+   "addr": "4000:F9A1",
+   "name": "ticket_save_menu_idle",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 1,
+   "summary": "States 5 and 6 of the save menu: single RET."
+  },
+  {
+   "addr": "4000:F9A2",
+   "name": "ticket_save_menu_scan",
+   "category": "forced-only",
+   "evidence": "executed only in forced runs (fault injection or unlock fixture)",
+   "size": 44,
+   "summary": "Save menu state 0: scans SRAM tickets and advances to state 1 (duplicate of ticket_load_menu_scan)."
+  }
+ ]
+}
