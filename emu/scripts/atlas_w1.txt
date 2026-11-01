@@ -1,0 +1,11 @@
+# Object atlas, World 1 Vision 1. FORCED entry for W>1: progress_code=W101h + clear flag (sequencer -> world card -> load)
+loadsram build/runtime/make_save/sram_end.bin
+reset
+wait 700
+tap start
+wait 30
+tap a
+wait 400
+autoshot
+atlas
+monkey 60000 1

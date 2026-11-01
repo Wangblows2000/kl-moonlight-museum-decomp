@@ -28,7 +28,7 @@ Status, metrics and plans: `docs/STATUS.md`, `docs/completion.json`, `docs/ROADM
 
 | path | contents |
 |---|---|
-| `klonoa.asm` | top-level: places bank 4 source + footer; other banks `incbin` from baserom |
+| `klonoa.asm` | top-level: bank 4 + footer from source; data banks from `build/data.bin` (rebuilt by `tools/build_data.py`) |
 | `asm/bank4.asm` | all executable code (segment 4000h = file 40000h-4FFFFh), generated |
 | `asm/header.asm` | cartridge footer with field documentation |
 | `include/macros.inc` | `rr` macro reproducing the original assembler's reg,reg encodings |

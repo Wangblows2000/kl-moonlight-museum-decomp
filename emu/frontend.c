@@ -106,6 +106,34 @@ static void dump(const char *name, unsigned type)
    fclose(f);
 }
 static int autoshot; static int last_state = -1; static unsigned rng = 1;
+static int atlas_on; static long atlas_seen[256];   /* frame each object type was first cropped */
+static long atlas_count[256];
+static void atlas_frame(void)
+{
+   const uint8_t *ram = retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
+   if ((ram[0x1380] | ram[0x1381] << 8) != 1) return;           /* gameplay only */
+   int camx = (ram[0x13A0] | ram[0x13A1] << 8) >> 4, camy = (ram[0x13A2] | ram[0x13A3] << 8) >> 4;
+   for (int sl = 0; sl < 40; sl++) {
+      const uint8_t *o = ram + 0x300 + sl * 0x20;
+      int t = o[0];
+      if (!t) continue;
+      atlas_count[t]++;
+      if (atlas_seen[t]) continue;
+      int sx = ((o[2] | o[3] << 8) >> 4) - camx, sy = ((o[4] | o[5] << 8) >> 4) - camy;
+      if (sx < 24 || sx > 200 || sy < 24 || sy > 120) continue;
+      atlas_seen[t] = frame_no;
+      char p[1024]; snprintf(p, sizeof p, "%s/obj_%02X_f%06ld_s%02d.ppm", outdir, t, frame_no, sl);
+      FILE *f = fopen(p, "wb");
+      fprintf(f, "P6\n48 48\n255\n");
+      for (int y = sy - 32; y < sy + 16; y++)
+         for (int x = sx - 24; x < sx + 24; x++) {
+            uint16_t c = (x >= 0 && y >= 0 && x < (int)fb_w && y < (int)fb_h) ? fbcopy[y * 256 + x] : 0xF800;
+            uint8_t rgb[3] = { (uint8_t)((c >> 11) << 3), (uint8_t)(((c >> 5) & 63) << 2), (uint8_t)((c & 31) << 3) };
+            fwrite(rgb, 1, 3, f);
+         }
+      fclose(f);
+   }
+}
 static void shot(const char *name);
 static void run_frame(void)
 {
@@ -125,6 +153,7 @@ static void run_frame(void)
    fprintf(flog, "%ld,%u,%u,%u,", frame_no, ram[0x1380] | ram[0x1381] << 8, ram[0x1386], held);
    for (int s = 0; s < 40; s++) fprintf(flog, "%s%u", s ? " " : "", ram[0x300 + s * 0x20]);
    fprintf(flog, ",%d\n", audio_peak);
+   if (atlas_on) atlas_frame();
 }
 static uint16_t parse_btns(const char *s)
 {
@@ -177,6 +206,7 @@ int main(int argc, char **argv)
       }
       else if (!strcmp(cmd, "reset")) retro_reset();
       else if (!strcmp(cmd, "autoshot")) autoshot = 1;
+      else if (!strcmp(cmd, "atlas")) atlas_on = 1;
       else if (!strcmp(cmd, "forcestate")) {   /* FORCED: next main_loop dispatch uses state N */
          kt_force_state = atoi(a1);
          fprintf(flog, "# %ld forcestate %d\n", frame_no, kt_force_state);
@@ -219,6 +249,9 @@ int main(int argc, char **argv)
    fclose(f);
    path(p, "dispatch", ".txt"); f = fopen(p, "w");
    for (uint32_t i = 0; i < kt_dispatch_n; i++) fprintf(f, "%u %u\n", kt_dispatch[i][0], kt_dispatch[i][1]);
+   fclose(f);
+   path(p, "objtypes", ".txt"); f = fopen(p, "w");
+   for (int t = 1; t < 256; t++) if (atlas_count[t]) fprintf(f, "%02X %ld %ld\n", t, atlas_count[t], atlas_seen[t]);
    fclose(f);
    path(p, "ports", ".txt"); f = fopen(p, "w");
    for (int pt = 0; pt < 256; pt++) for (int v = 0; v < 256; v++)
