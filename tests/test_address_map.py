@@ -27,7 +27,8 @@ def test_exceptions_registered_and_documented():
         a, b = int(x['start'], 16), int(x['end'], 16)
         assert b - a == x['size'] > 0 and x['reason']
         assert os.path.exists(os.path.join(ROOT, x['doc'])), x['doc']
-        assert x['start'] in open(os.path.join(ROOT, x['doc'])).read().upper() or x['start'][1:] in open(os.path.join(ROOT, x['doc'])).read().upper(), x
+        doc = open(os.path.join(ROOT, x['doc']), encoding='utf-8').read().upper()
+        assert x['start'] in doc or x['start'][1:] in doc, x
         assert not reg & set(range(a, b)), 'overlapping exceptions'
         reg |= set(range(a, b))
     in_map = set()
