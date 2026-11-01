@@ -1,5 +1,11 @@
 # Optional English build
 
+**Credits - "Kaze no Klonoa: Moonlight Museum" English translation v1.1:** Raccoon Sam
+([x.com/vervalkon](https://x.com/vervalkon), patch author); RayCarrot (hacking, compressor
+programming); PowerStone05, rcs709 and StarryScarab (translation / script revision).
+[romhack.ing entry](https://romhack.ing/database/content/entry/bdNv5JQBNs8FWu0CoXUr/kaze-no-klonoa-moonlight-museum-english-translation).
+This project only applies a copy you supply; it does not include or redistribute the patch.
+
 `make english` (or `make ENGLISH=1`) builds `build/klonoa_en.ws`:
 
 1. the Japanese ROM is assembled from source and must match the original (SHA-1 `207a3ceb...`);

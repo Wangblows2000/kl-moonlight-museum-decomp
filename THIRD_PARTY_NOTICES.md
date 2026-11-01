@@ -9,7 +9,7 @@ itself is not covered by the GPL at all.
 | item | rights holder | how it is used |
 |---|---|---|
 | *Kaze no Klonoa: Moonlight Museum* (WonderSwan, SWJ-BAN008, 1999) - program code, graphics, levels, music, text | (c) 1997 1998 NAMCO LTD.; published by Bandai | Users supply their own ROM.  The repository contains a reverse-engineered, annotated disassembly of the program (`asm/`) and metadata (offsets, sizes, hashes); it never contains the ROM, extracted assets or patched ROMs.  Copyright in the original program is not affected by this project's licence. |
-| English fan translation patch `Moonlight_Museum_1.1.ips` (SHA-1 ac4d72b7077edc96afd9e4e25e8b0f8affee9e47) | its authors (not yet identified in this repository - please open an issue with the credits) | Optional `make english` build applies a user-supplied copy.  The patch is never committed or redistributed. |
+| English fan translation patch `Moonlight_Museum_1.1.ips` v1.1 (SHA-1 ac4d72b7077edc96afd9e4e25e8b0f8affee9e47) | Raccoon Sam (https://x.com/vervalkon) - patch author; RayCarrot - hacking, compressor programming; PowerStone05, rcs709, StarryScarab - translation / script revision.  Database entry: https://romhack.ing/database/content/entry/bdNv5JQBNs8FWu0CoXUr/kaze-no-klonoa-moonlight-museum-english-translation (credits as supplied by the repository owner; redistribution terms not stated) | Optional `make english` / `python build.py english` applies a user-supplied copy.  The patch is never committed or redistributed. |
 
 ## Tools used to build, test or analyse (not redistributed here)
 
